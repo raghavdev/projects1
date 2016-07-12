@@ -1,0 +1,45 @@
+From ea587d00243c0801c4c6e073b0d9dacfa76685f0 Mon Sep 17 00:00:00 2001
+From: Jonathan Jordan <jojonaloha@1579186.no-reply.drupal.org>
+Date: Tue, 12 Aug 2014 13:15:44 -0700
+Subject: [PATCH] Issue #2026555 by jojonaloha | Aparato: Fixed scroll box
+ setting ignored.
+
+---
+ legal.module | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/legal.module b/legal.module
+index e569d1c..eec79ae 100644
+--- a/legal.module
++++ b/legal.module
+@@ -197,8 +197,7 @@ function theme_legal_display($variables) {
+   if (!empty($form['legal']['conditions']['#markup'])) {
+     // Scroll box (CSS).
+     if ($form['display']['#value'] == 1) {
+-      $path = base_path() . drupal_get_path('module', 'legal');
+-      drupal_add_css(drupal_get_path('module', 'legal') . '/legal.css');
++      $form['legal']['#attached']['css'][] = drupal_get_path('module', 'legal') . '/legal.css';
+       $form['legal']['conditions']['#prefix'] = '<div class="legal-terms">';
+       $form['legal']['conditions']['#suffix'] = '</div>';
+     }
+@@ -270,7 +269,7 @@ function legal_form_user_register_form_alter(&$form, &$form_state) {
+     }
+   }
+ 
+-  return theme('legal_display', array('form' => $form));
++  $form = theme('legal_display', array('form' => $form));
+ }
+ 
+ /**
+@@ -382,7 +381,7 @@ function legal_form_user_profile_form_alter(&$form, $form_state) {
+     }
+   }
+ 
+-  return theme('legal_display', array('form' => $form));
++  $form = theme('legal_display', array('form' => $form));
+ }
+ 
+ /**
+-- 
+1.8.5.2 (Apple Git-48)
+

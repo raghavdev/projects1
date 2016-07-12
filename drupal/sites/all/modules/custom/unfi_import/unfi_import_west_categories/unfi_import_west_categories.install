@@ -1,0 +1,120 @@
+<?php
+
+// Need this in order to ensure we can reference the some functions in the .module.
+include_once drupal_get_path('module', 'unfi_import') . '/unfi_import.module';
+
+/**
+ * Defines the staging table fields and mapping to drupal nodes for import.
+ *
+ * EDIT THIS ARRAY TO ALTER STRUCTURE
+ *
+ * Follows Drupal Schema API
+ *
+ * description : (part of schema api) will double as .csv file column headers
+ * Ex: 'description' => 'UBS_Brand',
+ *
+ * clean_func : will tell the export to process the values using a named function found in unfi_import.cleanse.inc
+ * Ex: 'clean_func' => 'unfi_import_csv_clean_upc_for_export',
+ *
+ * clean_func_args : will pass an array of arguments to the function defined in clean_func.
+ * EX: 'clean_func_args' => array(32, TRUE),
+ *
+ * REBUILD THE STAGING & LOG TABLES WITH DRUSH:
+ * drush srm_assignments --rebuild
+ *
+ * @return array
+ */
+function unfi_import_west_categories_fetch_tables() {
+  $tables = array();
+
+  // ########## West Category Fields ##########
+  $tables['west_categories'] = array(
+    'fields' => array(
+      'type' => array(
+        'description' => 'Type',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '0',
+        'clean_func' => 'unfi_import_clean_string',
+        'clean_func_args' => array(32, TRUE),
+      ),
+      'cat_num' => array(
+        'description' => 'Cat Num',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '1',
+        'clean_func' => 'unfi_import_numeric_left_pad',
+        'clean_func_args' => array(2),
+      ),
+      'category_name' => array(
+        'description' => 'Category Name',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '2',
+        'clean_func' => 'unfi_import_clean_string',
+        'clean_func_args' => array(255, TRUE),
+      ),
+      'sub_num' => array(
+        'description' => 'Sub Num',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '3',
+        'clean_func' => 'unfi_import_numeric_left_pad',
+        'clean_func_args' => array(2),
+      ),
+      'subgroup' => array(
+        'description' => 'Subgroup',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '4',
+        'clean_func' => 'unfi_import_clean_string',
+        'clean_func_args' => array(255, TRUE),
+      ),
+      'final_code' => array(
+        'description' => 'Final Code',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '5',
+        'clean_func' => 'unfi_import_clean_string',
+        'clean_func_args' => array(32, TRUE),
+      ),
+      'category_sid' => array(
+        'description' => 'Category SID',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'subgroup_sid' => array(
+        'description' => 'SubGroup SID',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    // todo: add indexes on sid columns.
+  );
+
+  return $tables;
+
+}
+
+/**
+ * Implements hook_install()
+ */
+function unfi_import_west_categories_install() {
+  // Initialize the staging tables used during export.
+  unfi_import_create_staging_tables(unfi_import_west_categories_fetch_tables());
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_import_west_categories_uninstall() {
+  $to_drop = array();
+  $tables = unfi_import_west_categories_fetch_tables();
+  foreach ($tables as $requested_name => $table_info) {
+    $table_names = unfi_import_table_names($requested_name);
+    foreach ($table_names as $table) {
+      $to_drop[] = $table;
+    }
+  }
+  unfi_import_drop_tables($to_drop);
+}

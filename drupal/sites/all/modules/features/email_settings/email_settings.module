@@ -1,0 +1,23 @@
+<?php
+/**
+ * @file
+ * Code for the Email Settings feature.
+ */
+
+include_once 'email_settings.features.inc';
+
+/**
+ * Implements hook_form_alter()
+ */
+function email_settings_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'user_profile_form') {
+    $form['#submit'][] = 'email_settings_profile_form_submit';
+  }
+}
+
+/**
+ * Implements hook_profile_form_submit()
+ */
+function email_settings_profile_form_submit($form, &$form_state) {
+  $form_state['redirect'] = '/welcome';
+}

@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function metrics_agg_install() {
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function metrics_agg_uninstall() {
+}
+
+/**
+ * Implements hook_schema().
+ */
+function metrics_agg_schema() {
+  $schema = array();
+
+  $schema['metrics_aggregation'] = array(
+    'fields' => array(
+      'id' => array(
+        'description' => 'Primary Key: Identifier',
+        'type'        => 'serial',
+        'unsigned'    => TRUE,
+      ),
+      'timestamp' => array(
+        'description' => 'Timestamp the aggregation started (microtime)',
+        'type'        => 'float',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'size'        => 'big',
+      ),
+      'finished' => array(
+        'description' => 'Timestamp the aggregation ended (microtime)',
+        'type'        => 'float',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'size'        => 'big',
+      ),
+      'module' => array(
+        'description' => 'The initiating module responsible for managing the aggregation.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => '',
+      ),
+      'type' => array(
+        'description' => 'The machine-name of the set of aggregation jobs.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => '',
+      ),
+      'title' => array(
+        'description' => 'The human-readable name of the aggregation. If left blank, timestamp will be used.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => '',
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['metrics_aggregation_data'] = array(
+    'fields' => array(
+      'id' => array(
+        'description' => 'Primary Key: Identifier',
+        'type'        => 'int',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+      ),
+      'job' => array(
+        'description' => 'Primary Key: The machine-name for the aggregation job',
+        'type'        => 'varchar',
+        'not null'    => TRUE,
+        'default'     => '',
+        'length'      => 255,
+      ),
+      'timestamp' => array(
+        'description' => 'Timestamp the aggregation job started (microtime)',
+        'type'        => 'float',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'size'        => 'big',
+      ),
+      'finished' => array(
+        'description' => 'Timestamp the aggregation job ended (microtime)',
+        'type'        => 'float',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'size'        => 'big',
+      ),
+      'results' => array(
+        'description' => 'Aggregation result storage',
+        'type'        => 'blob',
+        'serialize'   => TRUE,
+        'size'        => 'big',
+      ),
+      'data' => array(
+        'description' => 'An extra storage for additional data (sandbox)',
+        'type'        => 'blob',
+        'serialize'   => TRUE,
+        'size'        => 'big',
+      ),
+    ),
+    'primary key' => array('id', 'job'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Add new fields to metrics_aggregation.
+ */
+function metrics_agg_update_7001() {
+  if (!db_field_exists('metrics_aggregation', 'module')) {
+    db_add_field('metrics_aggregation', 'module', array(
+      'description' => 'The initiating module responsible for managing the aggregation.',
+      'type'        => 'varchar',
+      'length'      => 255,
+      'not null'    => TRUE,
+      'default'     => '',
+    ));
+  }
+  if (!db_field_exists('metrics_aggregation', 'type')) {
+    db_add_field('metrics_aggregation', 'type', array(
+      'description' => 'The machine-name of the set of aggregation jobs.',
+      'type'        => 'varchar',
+      'length'      => 255,
+      'not null'    => TRUE,
+      'default'     => '',
+    ));
+  }
+  if (!db_field_exists('metrics_aggregation', 'title')) {
+    db_add_field('metrics_aggregation', 'title', array(
+      'description' => 'The human-readable name of the aggregation. If left blank, timestamp will be used.',
+      'type'        => 'varchar',
+      'length'      => 255,
+      'not null'    => TRUE,
+      'default'     => '',
+    ));
+  }
+}

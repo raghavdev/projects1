@@ -1,0 +1,9 @@
+default:
+  extensions:
+    Behat\MinkExtension\Extension:
+      base_url: http://your_base_url
+      selenium2:
+        wd_host: http://10.0.2.2:4444/wd/hub
+    Drupal\DrupalExtension\Extension:
+      drush:
+        root: /var/www/sites/default/drupal

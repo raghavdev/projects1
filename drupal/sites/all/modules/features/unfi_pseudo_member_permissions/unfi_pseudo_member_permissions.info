@@ -1,0 +1,11 @@
+name = UNFI Pseudo-member permissions
+description = Config for module/custom/og_pseudomember
+core = 7.x
+package = UNFI
+dependencies[] = features
+dependencies[] = og_pseudomember
+features[features_api][] = api:2
+features[user_permission][] = manage all group content
+features[user_permission][] = view all group content
+mtime = 1465849588
+project path = sites/all/modules/features

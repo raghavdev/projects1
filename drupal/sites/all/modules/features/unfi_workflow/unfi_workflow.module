@@ -1,0 +1,55 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Workflow feature.
+ */
+
+include_once 'unfi_workflow.features.inc';
+
+/**
+ * Implements hook_node_access().
+ */
+function unfi_workflow_node_access($node, $op, $account) {
+  // Organic Groups will return a NODE_ACCESS_ALLOW at some point,
+  // short-circuiting node grant checking.
+  // So, specifically perform access checking on Workflow's behalf.
+  // Which is applied to 'view', 'update', and 'delete' operations,
+  // leaving 'create' the only operation to ignore.
+  if ($op == 'create') {
+    return NODE_ACCESS_IGNORE;
+  }
+  // When node type is product then delegate to the related request_form,
+  // because that is the node bundle that has the workflow.
+  if ($node->type == 'product') {
+    if (isset($node->field_request_form[LANGUAGE_NONE][0]['target_id'])) {
+      $nid = $node->field_request_form[LANGUAGE_NONE][0]['target_id'];
+      // Note: this line will load and overwrite the passed in node,
+      // so that checks may continue on with the workflow.
+      $node = node_load($nid);
+      // If there is no request_form, deny access to the product.
+      if (!$node) {
+        return NODE_ACCESS_DENY;
+      }
+    }
+  }
+  // If the content type does not have a workflow, return.
+  // (standard Drupal and OG permissions will still apply to the node)
+  if (!($workflow = workflow_get_workflow_type_map_by_type($node->type))) {
+    return NODE_ACCESS_IGNORE;
+  }
+  // Query the node_access table for any workflow grants given to this
+  // user's role for this particular operation and node.
+  $query = db_select('node_access');
+  $query->addExpression('1');
+  $query->condition('grant_' . $op, 1, '>=');
+  $query->condition('nid', $node->nid);
+  $query->condition('realm', 'workflow_access');
+  $query->condition('gid', array_keys($account->roles));
+  $query->range(0, 1);
+  // If at least one grant was given, then allow.
+  if ($query->execute()->fetchField()) {
+    return NODE_ACCESS_ALLOW;
+  }
+  // Deny otherwise.
+  return NODE_ACCESS_DENY;
+}

@@ -1,0 +1,354 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function nir_lock_menu() {
+  $items['admin/config/unfi_settings/nir_lock'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'New Item Request Lock',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nir_lock_settings'),
+    'access arguments' => array('admin nir lock settings'),
+    'weight'           => 10,
+  );
+  $items['admin/config/unfi_settings/nir_lock/settings'] = array(
+    'type'   => MENU_DEFAULT_LOCAL_TASK,
+    'title'  => 'Settings',
+    'weight' => 0,
+  );
+  $items['admin/config/unfi_settings/nir_lock/overview'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'Overview',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nir_lock_overview'),
+    'access arguments' => array('admin nir lock settings'),
+    'weight'           => 1,
+  );
+  return $items;
+ }
+
+/**
+ * Implements hook_permission().
+ */
+function nir_lock_permission() {
+  $items['admin nir lock settings'] = array(
+    'title' => 'Administer New Item Request Lock Settings',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function nir_lock_cron() {
+  // Calculate the latest point in time for an entry to be considered expired
+  $threshold = REQUEST_TIME - variable_get('nir_lock_timeout', 900);
+  // Delete all entries that were created (or last updated) before that time
+  $query = db_delete('nir_lock');
+  $query->condition('timestamp', $threshold, '<=');
+  $query->execute();
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function nir_lock_views_api() {
+  return array(
+   'api'  => 3.0,
+   'path' => drupal_get_path('module', 'nir_lock') . '/includes',
+  );
+}
+
+/**
+ * Implements hook_views_pre_execute().
+ */
+function nir_lock_views_pre_execute(&$view) {
+  // Target any view utilizing the lock field
+  if (!empty($view->query->fields['nir_lock_timestamp'])) {
+    // Add a group by to various query locations
+    $view->query->add_groupby('node.nid');
+    $view->build_info['query']->groupBy('node.nid');
+    $view->build_info['count_query']->groupBy('node.nid');
+  }
+}
+
+/**
+ * Settings form.
+ */
+function nir_lock_settings($form, &$form_state) {
+
+  $form['nir_lock_timeout'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Lock Timeout'),
+    '#required'      => TRUE,
+    '#default_value' => variable_get('nir_lock_timeout', 900),
+    '#description'   => t('The amount of time (in seconds) for a lock is considered active.'),
+  );
+
+  $form['nir_lock_ignore_roles'] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t('Roles to Ignore'),
+    '#options'       => user_roles(TRUE),
+    '#default_value' => variable_get('nir_lock_ignore_roles', array()),
+    '#description'   => t('These roles will not activate a lock when editing.'),
+  );
+  // Remove the authenticated user
+  unset($form['nir_lock_ignore_roles']['#options'][2]);
+
+  $form['nir_lock_pager_limit'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Overview Pager Limit'),
+    '#required'      => TRUE,
+    '#default_value' => variable_get('nir_lock_pager_limit', 10),
+    '#description'   => t('The number of locks to show per page in the overview tab.'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form API validation callback.
+ */
+function nir_lock_settings_validate($form, &$form_state) {
+  // Make sure the user input a valid integer greater than zero
+  if (
+    empty($form_state['values']['nir_lock_timeout'])
+    || !preg_match('/^\d+$/', $form_state['values']['nir_lock_timeout'])
+  ) {
+    form_set_error('nir_lock_timeout', t('Lock Timeout must be a positive whole number.'));
+  }
+  else {
+    $form_state['values']['nir_lock_timeout'] = (int)$form_state['values']['nir_lock_timeout'];
+  }
+  // Strip out any unselected options
+  foreach ($form_state['values']['nir_lock_ignore_roles'] as $rid => $selected) {
+    if (empty($selected)) {
+      unset($form_state['values']['nir_lock_ignore_roles'][$rid]);
+    }
+    else {
+      $form_state['values']['nir_lock_ignore_roles'][$rid] = (int)$rid;
+    }
+  }
+  // Make sure the user input a valid integer greater than zero
+  if (
+    empty($form_state['values']['nir_lock_pager_limit'])
+    || !preg_match('/^\d+$/', $form_state['values']['nir_lock_pager_limit'])
+  ) {
+    form_set_error('nir_lock_pager_limit', t('Overview Pager Limit must be a positive whole number.'));
+  }
+  else {
+    $form_state['values']['nir_lock_pager_limit'] = (int)$form_state['values']['nir_lock_pager_limit'];
+  }
+}
+
+/**
+ * Overview form of New Item Request locks.
+ */
+function nir_lock_overview($form, &$form_state) {
+  // Query for users that are editing the New Item Requests
+  $query = db_select('nir_lock', 'nl')->extend('PagerDefault');
+  // Join the users table for the user name
+  $query->innerJoin('users', 'u', 'nl.uid = u.uid');
+  // Join the node table for the New Item Request name
+  $query->innerJoin('node', 'n', 'nl.nid = n.nid');
+  // Declare which fields to return
+  $query->fields('nl', array('nid', 'uid', 'timestamp'));
+  $query->fields('u', array('name'));
+  $query->fields('n', array('title'));
+  // Order by node ID
+  $query->orderBy('nl.nid');
+  // Order from oldest to newest
+  $query->orderBy('nl.timestamp');
+  // Limit the number per page
+  $query->limit(variable_get('nir_lock_pager_limit'));
+  // Execute
+  $result = $query->execute();
+  // Loop through and store data as table rows
+  $rows = array();
+  while (($row = $result->fetchAssoc())) {
+    $rows[$row['nid'] . '-' . $row['uid']] = array(
+      'title' => check_plain($row['title']),
+      'user'  => check_plain($row['name']),
+      'time'  => format_interval(REQUEST_TIME - $row['timestamp']),
+    );
+  }
+  // Top pager
+  $form['pager_top'] = array(
+    '#theme' => 'pager',
+  );
+  // Build the table itself
+  $form['nir_locks'] = array(
+    '#type'   => 'tableselect',
+    '#header' => array(
+      'title' => t('Request'),
+      'user'  => t('User'),
+      'time'  => t('Time'),
+    ),
+    '#options' => $rows,
+    '#empty'   => t('No locks are currently in place.'),
+  );
+  // Bottom pager
+  $form['pager_bottom'] = array(
+    '#theme' => 'pager',
+  );
+  // Container for buttons
+  $form['actions'] = array('#type' => 'actions');
+  // The lonely submit button
+  $form['actions']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => t('Unlock selected entries'),
+  );
+  // Return
+  return $form;
+}
+
+/**
+ * Form API submit callback.
+ */
+function nir_lock_overview_submit($form, &$form_state) {
+  // Keep track of the number of entries to be deleted
+  $found = 0;
+  // Use OR conditions because if two IN arrays were used,
+  // entiries that were not check but still contained one
+  // of the pair would be deleted
+  $db_or = db_or();
+  // Loop through the table's values
+  foreach ($form_state['values']['nir_locks'] as $key => $selected) {
+    // Check if the row was selected
+    if (!empty($selected) && $key == $selected) {
+      // Break the key up into its ID parts
+      list($nid, $uid) = explode('-', $selected);
+      // Build an AND condition
+      $db_and = db_and()
+        ->condition('nid', $nid)
+        ->condition('uid', $uid);
+      // Add that condition to the OR condition
+      // The result will be:
+      // ((nid=100 AND uid=200) OR (nid=100 AND uid=201) ... )
+      $db_or->condition($db_and);
+      // Increment the number of entries to be deleted
+      $found++;
+    }
+  }
+  // If there are entries to be deleted
+  if ($found) {
+    // Query to delete
+    $query = db_delete('nir_lock');
+    // Apply the condition
+    $query->condition($db_or);
+    // Execute
+    $query->execute();
+    // Notify user
+    drupal_set_message(format_plural($found, 'Removed 1 lock.', 'Removed @count locks.'));
+  }
+  else {
+    // No entries to be deleted, but submit button pressed anyway
+    drupal_set_message(t('No locks were removed.'), 'warning');
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function nir_lock_form_request_form_node_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+  // Shortcut to the node object
+  $node = $form_state['build_info']['args'][0];
+  // If no ID, then return immediately
+  if (empty($node->nid) || empty($user->uid)) {
+    return;
+  }
+  // Attempt to apply lock
+  nir_lock_apply_lock($node, $user);
+  // Display other locks, if they exist
+  nir_lock_display_locks($node, $user);
+  // Add cancel button
+  $form['actions']['cancel_lock'] = array(
+    '#type'                    => 'submit',
+    '#value'                   => t('Cancel lock'),
+    '#name'                    => 'cancel_lock',
+    '#weight'                  => 10,
+    '#limit_validation_errors' => array(),
+    '#submit'                  => array('nir_lock_form_request_form_node_form_alter_submit'),
+  );
+}
+
+function nir_lock_form_request_form_node_form_alter_submit($form, &$form_state) {
+  global $user;
+  // Shortcut to the node object
+  $node = $form_state['build_info']['args'][0];
+  // If no ID, then return immediately
+  if (empty($node->nid) || empty($user->uid)) {
+    return;
+  }
+  // Query to delete
+  $query = db_delete('nir_lock');
+  $query->condition('nid', $node->nid);
+  $query->condition('uid', $user->uid);
+  // Execute
+  $query->execute();
+  //
+  if (
+    !empty($form_state['triggering_element']['#name'])
+    && $form_state['triggering_element']['#name'] == 'cancel_lock'
+  ) {
+    $form_state['redirect'] = 'node/' . $node->nid;
+  }
+}
+
+function nir_lock_apply_lock($node, $user) {
+  // Query roles to be ignored
+  $ignore_roles = variable_get('nir_lock_ignore_roles', array());
+  // Compare the user's roles to those to be ignored
+  // Also, remove the authenticated user role, because all users have that role anyway
+  $user_roles = array_diff_key($user->roles, $ignore_roles, array(2 => 'authenticated user'));
+  // If all of the user's roles are to be ignored for locking,
+  // then do nothing by returning immediately
+  if (empty($user_roles)) {
+    return;
+  }
+  // Write to the database using a merge
+  // which will create a new entry if the nid-uid key does not exist
+  // or update the entry if it does
+  $query = db_merge('nir_lock');
+  $query->key(array('nid' => $node->nid, 'uid' => $user->uid));
+  $query->fields(array('timestamp' => REQUEST_TIME));
+  $query->execute();
+  // Display a warning to the user that a lock has been applied
+  drupal_set_message(t('This New Item Request has be flagged as being edited by you.<BR />'.
+    'To unflag, either save changes or click the \'Cancel lock\' button at the bottom.'), 'warning');
+}
+
+function nir_lock_display_locks($node, $user) {
+  // Query for other users that are editing the New Item Request
+  $query = db_select('nir_lock', 'nl');
+  // Join the users table for the user name
+  $query->innerJoin('users', 'u', 'nl.uid = u.uid');
+  // Declare which fields to return
+  $query->fields('nl', array('uid', 'timestamp'));
+  $query->fields('u', array('name'));
+  // Select entries for the node
+  $query->condition('nl.nid', $node->nid);
+  // Select entries for other users
+  $query->condition('nl.uid', $user->uid, '!=');
+  // Order from oldest to newest
+  $query->orderBy('nl.timestamp');
+  // Execute
+  $result = $query->execute();
+  // Loop through and store data as readable strings
+  $user_locks = array();
+  while (($row = $result->fetchAssoc())) {
+    $user_locks[$row['uid']] = t('@n, @t ago', array(
+      '@n' => $row['name'],
+      '@t' => format_interval(REQUEST_TIME - $row['timestamp']),
+    ));
+  }
+  // If there are locks from other users, display a warning message
+  if (!empty($user_locks)) {
+    drupal_set_message(t('Others users are editing this New Item Request: ') . theme('item_list', array(
+      'type'  => 'ul',
+      'items' => $user_locks,
+    )), 'warning');
+  }
+}

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the unfi_supplier_group_update_workflow feature.
+ */
+
+include_once 'unfi_supplier_group_update_workflow.features.inc';

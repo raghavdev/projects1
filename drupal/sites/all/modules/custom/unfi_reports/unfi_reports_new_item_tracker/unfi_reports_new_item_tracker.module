@@ -1,0 +1,432 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ *
+ */
+function unfi_reports_new_item_tracker_menu() {
+  // Create a page to manually run the report.
+  $items['reports/new_item_tracker'] = array(
+    'title'            => t('New Item Tracker Report'),
+    'description'      => t('Display the duration in which new item requests took to complete each workflow step.'),
+    'page callback'    => 'unfi_reports_new_item_tracker',
+    'access callback'  => 'unfi_reports_user_access',
+    'access arguments' => array('access unfi new item tracker report'),
+  );
+  // Create a settings page.
+  $items['admin/config/unfi_reports/new_item_tracker_settings'] = array(
+    'title'            => t('New Item Tracker Report Settings'),
+    'description'      => t('Configure the new item tracker report settings.'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_reports_new_item_tracker_settings_form'),
+    'access callback'  => 'unfi_reports_user_access',
+    'access arguments' => array('access unfi new item tracker report'),
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function unfi_reports_new_item_tracker_permission() {
+  return array(
+    'access unfi new item tracker report' => array(
+      'title'           => t('Access UNFI New Item Tracker Report'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_cron().
+ */
+function unfi_reports_new_item_tracker_cron() {
+  if (unfi_reports_check_cron_report_status('unfi_reports_new_item_tracker')) {
+    $cron_vars = variable_get('unfi_reports_new_item_tracker_cron_info', array());
+    unfi_reports_set_background_process('unfi_reports_new_item_tracker', $cron_vars['recipient'], $cron_vars['filter_params'], $cron_vars['download_type']);
+  }
+}
+
+/**
+ * Display the form page that allows the user to set some filtering options.
+ */
+function unfi_reports_new_item_tracker() {
+  return drupal_get_form('unfi_reports_form', unfi_reports_new_item_tracker_params());
+}
+
+/**
+ * Permit access to report files if the user has access permissions for this module.
+ */
+function unfi_reports_new_item_tracker_file_download($uri) {
+  $params    = unfi_reports_new_item_tracker_params();
+  $path_info = unfi_reports_build_download_path($params);
+
+  if (drupal_dirname($uri) == $path_info['export_path']) {
+    if (unfi_reports_user_access('access unfi new item tracker report')) {
+      return array('Content-Type' => file_get_mimetype($uri));
+    }
+    else {
+      return -1;
+    }
+  }
+}
+
+/**
+ * Parse the filter params so that they can be used.
+ */
+function unfi_reports_new_item_tracker_parse_filters($filters) {
+  $parsed = unfi_reports_parse_filters($filters);
+
+  // The shared parse filters function will do most of the work, but additional adjustments can be done here.
+
+  return $parsed;
+}
+
+/**
+ * Return an array of params that will be used to build the filters form.
+ */
+function unfi_reports_new_item_tracker_params() {
+  $params = array(
+    'label'            => 'New Item Tracker Report',
+    'module_name'      => 'unfi_reports_new_item_tracker',
+    'processor'        => 'unfi_reports_new_item_tracker_requests',
+    'destination_path' => 'new_item_tracker',
+    'filename_prefix'  => 'new_item_tracker',  // NULL to use module_name.
+    'columns'          => array(
+      'nid'       => 'Request ID',
+      'request'   => 'Request Name',
+      'supplier'  => 'Supplier',
+      'cur_state' => 'Current Status',
+      'created'   => 'Created',
+    ),
+    'filter_params' => array(
+      'range' => array(
+        'title'          => 'Track New Item Requests',
+        'description'    => '',
+        'default_preset' => 'last_6_months',  // NULL to use reports default
+      ),
+    ),
+  );
+
+  // First update the workflow_node_history_unfi_log so that we can query it for cached duration data.
+  $states = unfi_reports_new_item_tracker_fetch_workflow_states(1);
+  if (!empty($states)) {
+    foreach ($states as $state) {
+      $params['columns']['s' . $state['sid'] . '_started'] = $state['state'];
+      $params['columns']['s' . $state['sid'] . '_duration'] = $state['state'] . t(' Duration');
+    }
+  }
+
+  return $params;
+}
+
+/**
+ * Execute the report.
+ */
+function unfi_reports_new_item_tracker_requests($filter_args, $page) {
+
+  $params = array('pagination' => FAlSE,);
+
+  if ($page >= 0) {
+    $params['pagination']['per_page'] = variable_get('unfi_reports_results_per_page', 100);
+    $params['pagination']['cur_page'] = $page;
+  }
+
+  $results = array('total' => 0, 'results' => array());
+
+  // First update the workflow_node_history_unfi_log so that we can query it for cached duration data.
+  unfi_report_new_item_tracker_update_workflow_history_log();
+
+  // note: Sorry Drupal... I just don't feel like pretending that I don't know SQL today.
+
+  $where = "
+  WHERE
+    request.type = 'new_item_request'
+    AND request.status > 0
+  ";
+
+  if (!empty($filter_args['range_preset']['range']['start_timestamp']) && is_numeric($filter_args['range_preset']['range']['start_timestamp'])) {
+    $where .= " AND request.created > {$filter_args['range_preset']['range']['start_timestamp']} ";
+  }
+
+  if (!empty($filter_args['range_preset']['range']['end_timestamp']) && is_numeric($filter_args['range_preset']['range']['end_timestamp'])) {
+    $where .= " AND request.created < {$filter_args['range_preset']['range']['end_timestamp']} ";
+  }
+
+  // Fetch the total rows.
+  $total_sql = "SELECT
+    request.nid AS nid
+  FROM node request ";
+
+  $total_sql .= $where;
+
+  $total_result = db_query($total_sql);
+  $results['total'] = $total_result->rowCount();
+
+  unset($total_sql, $total_result);
+
+  // Fetch the available workflow states for a new item request (wid = 1).
+  $states = unfi_reports_new_item_tracker_fetch_workflow_states(1);
+
+  // Now fetch the real data.
+  $sql = "SELECT
+    request.nid AS nid,
+    request.title AS request,
+    supplier.title AS supplier,
+    state.state AS cur_state,
+    DATE_FORMAT(FROM_UNIXTIME(request.created), '%c/%e/%y') as created";
+
+  if (!empty($states)) {
+    $sql .= ", ";
+    foreach ($states as $state) {
+      $sql .= "
+        IFNULL(s{$state['sid']}n.s{$state['sid']}_started, 'N/A') AS s{$state['sid']}_started,
+        s{$state['sid']}n.s{$state['sid']}_duration AS s{$state['sid']}_duration,
+      ";
+    }
+    $sql .= "'test' AS test ";
+  }
+
+  $sql .= "
+  FROM node request
+    LEFT JOIN og_membership og_m
+      ON og_m.etid = request.nid
+      AND og_m.entity_type = 'node'
+    LEFT JOIN field_data_group_group og_g
+      ON og_g.entity_id = og_m.gid
+      AND og_g.bundle = 'supplier'
+    LEFT JOIN node supplier
+      ON supplier.nid = og_g.entity_id
+      AND supplier.type = 'supplier'
+    LEFT JOIN workflow_node cur_workflow
+      ON cur_workflow.nid = request.nid
+    LEFT JOIN workflow_states state
+      ON cur_workflow.sid = state.sid ";
+
+  if (!empty($states)) {
+    foreach ($states as $state) {
+      $sql .= " LEFT JOIN (
+      SELECT
+        s{$state['sid']}.nid,
+        DATE_FORMAT(FROM_UNIXTIME(s{$state['sid']}.stamp), '%c/%e/%y') as s{$state['sid']}_started,
+        CONCAT(FLOOR(SUM(s{$state['sid']}.duration) / 86400), 'd ', FLOOR((SUM(s{$state['sid']}.duration) % 86400)  / 3600) , 'h') AS s{$state['sid']}_duration
+      FROM
+        workflow_node_history_unfi_log s{$state['sid']}
+      WHERE
+         s{$state['sid']}.sid = {$state['sid']}
+      GROUP BY s{$state['sid']}.nid
+    ) s{$state['sid']}n
+    ON s{$state['sid']}n.nid = request.nid ";
+    }
+  }
+
+  $sql .= $where;
+
+  $sql .= "
+  ORDER BY
+    request.created ASC";
+
+  if (!empty($params['pagination'])) {
+    $sql .= ' LIMIT ' . $params['pagination']['per_page'];
+    if ($params['pagination']['cur_page'] > 0) {
+      $sql .= ' OFFSET ' . ($params['pagination']['cur_page'] * $params['pagination']['per_page']);
+    }
+  }
+
+  $query_result = db_query($sql);
+
+  // Remove each.
+  while($row = $query_result->fetchAssoc()) {
+    $results['results'][] = $row;
+  }
+
+  unset($query_result);
+
+  return $results;
+}
+
+/**
+ * Fetch the currently available workflow states.
+ */
+function unfi_reports_new_item_tracker_fetch_workflow_states($wid) {
+  $states = array();
+  if (!is_numeric($wid)) {
+    return $states;
+  }
+  $sql = "SELECT
+            s.sid,
+            s.state
+          FROM workflow_states s
+          WHERE
+            s.wid = {$wid}
+            AND s.status = 1
+            AND s.sysid != 1
+          ORDER BY weight";
+
+  $query_result = db_query($sql);
+
+  while($row = $query_result->fetchAssoc()) {
+    $states[] = $row;
+  }
+
+  return $states;
+}
+
+/**
+ * Settings page for new item tracker report settings.
+ */
+function unfi_reports_new_item_tracker_settings_form($form, &$form_state) {
+  $var = variable_get('unfi_reports_new_item_tracker_cron_info', array(
+    'enabled'       => '0',
+    'recipient'     => '',
+    'filter_params' => '',
+    'download_type' => 'csv',
+    'interval'      => '',
+  ));
+
+  $form['unfi_reports_new_item_tracker_cron_info'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Background Report Settings'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => FALSE,
+    '#tree'        => TRUE,
+  );
+
+  $form['unfi_reports_new_item_tracker_cron_info']['enabled'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Enable'),
+    '#default_value' => $var['enabled'],
+  );
+
+  $form['unfi_reports_new_item_tracker_cron_info']['recipient'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Recipient(s)'),
+    '#default_value' => $var['recipient'],
+    '#description'   => unfi_reports_cron_setting_descriptions('recipient'),
+  );
+
+  $form['unfi_reports_new_item_tracker_cron_info']['filter_params'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Filter Parameter(s)'),
+    '#default_value' => $var['filter_params'],
+    '#description'   => unfi_reports_cron_setting_descriptions('filter_params'),
+  );
+
+  $form['unfi_reports_new_item_tracker_cron_info']['download_type'] = array(
+    '#type'          => 'select',
+    '#title'         => t('File Type'),
+    '#options'       => unfi_reports_download_options(),
+    '#default_value' => $var['download_type'],
+  );
+
+  $form['unfi_reports_new_item_tracker_cron_info']['interval'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Run Interval'),
+    '#default_value' => $var['interval'],
+    '#description'   => unfi_reports_cron_setting_descriptions('interval'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form API validation of user input
+ */
+function unfi_reports_new_item_tracker_settings_form_validate($form, &$form_state) {
+  if (
+    isset($form_state['values']['unfi_reports_new_item_tracker_cron_info']['interval']) 
+    && $form_state['values']['unfi_reports_new_item_tracker_cron_info']['interval'] != ''
+  ) {
+    if (strtotime($form_state['values']['unfi_reports_new_item_tracker_cron_info']['interval']) === FALSE) {
+      form_set_error('unfi_reports_new_item_tracker_cron_info][interval', t('Run Interval is not a valid format.'));
+    }
+    elseif (strtotime($form_state['values']['unfi_reports_new_item_tracker_cron_info']['interval']) >= REQUEST_TIME) {
+      form_set_error('unfi_reports_new_item_tracker_cron_info][interval', t('Run Interval should be a relative time in the past.'));
+    }
+  }
+}
+
+/**
+ * Update the workflow_node_load_unfi_log table with new transitions with durations and additional data.
+ */
+function unfi_report_new_item_tracker_update_workflow_history_log() {
+
+  $results_count = array();
+
+  // note: Sorry Drupal, Imma gonna SQL here.
+
+  // Update existing records that previously did not have a next state, but now do.
+  $sql = "UPDATE workflow_node_history_unfi_log whlog
+          INNER JOIN workflow_node_history wh
+            ON wh.hid = whlog.hid
+          LEFT JOIN (
+              SELECT
+                nwh.nid,
+                nwh.hid,
+                nwh.stamp
+              FROM
+                workflow_node_history nwh
+              GROUP BY nwh.hid, nwh.nid
+              ORDER BY nwh.stamp
+              ) nextwh
+              ON wh.nid = nextwh.nid AND nextwh.stamp > wh.stamp
+          SET
+            whlog.end_stamp = nextwh.stamp,
+            whlog.duration = (nextwh.stamp - whlog.stamp),
+            whlog.duration_display = CONCAT(FLOOR((nextwh.stamp - whlog.stamp) / 86400), 'd ', FLOOR(((nextwh.stamp - whlog.stamp) % 86400)  / 3600) , 'h'),
+            whlog.next_hid = nextwh.hid
+          WHERE
+            nextwh.hid IS NOT NULL
+            AND whlog.next_hid IS NULL";
+  $result = db_query($sql);
+  $results_count['updated'] = $result->rowCount();
+
+  // Insert the new records that have not previously been cached.
+  $sql = "INSERT INTO workflow_node_history_unfi_log (
+            hid,
+            entity_type,
+            nid,
+            old_sid,
+            sid,
+            uid,
+            stamp,
+            end_stamp,
+            duration,
+            duration_display,
+            next_hid
+          )
+          SELECT
+            wh.hid,
+            wh.entity_type,
+            wh.nid,
+            wh.old_sid,
+            wh.sid,
+            wh.uid,
+            wh.stamp,
+            nextwh.stamp AS end_stamp,
+            (nextwh.stamp - wh.stamp) AS duration,
+            CONCAT(FLOOR((nextwh.stamp - wh.stamp) / 86400), 'd ', FLOOR(((nextwh.stamp - wh.stamp) % 86400)  / 3600) , 'h')  AS duration_display,
+            nextwh.hid AS next_hid
+          FROM workflow_node_history wh
+          LEFT JOIN workflow_node_history_unfi_log whlog
+            ON whlog.hid = wh.hid
+          LEFT JOIN (
+              SELECT
+                nwh.nid,
+                nwh.hid,
+                nwh.stamp
+              FROM
+                workflow_node_history nwh
+              GROUP BY nwh.hid, nwh.nid
+              ORDER BY nwh.stamp
+              ) nextwh
+              ON wh.nid = nextwh.nid
+                AND nextwh.stamp > wh.stamp
+          WHERE
+            whlog.hid IS NULL
+          GROUP BY wh.hid";
+  $result = db_query($sql);
+  $results_count['inserted'] = $result->rowCount();
+
+  return $results_count;
+}

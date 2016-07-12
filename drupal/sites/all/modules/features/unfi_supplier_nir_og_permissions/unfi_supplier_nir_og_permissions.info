@@ -1,0 +1,13 @@
+name = unfi_supplier_nir_og_permissions
+description = Supplier group new_item_request content OG permissions configuration
+core = 7.x
+package = Features
+dependencies[] = features
+dependencies[] = og
+features[features_api][] = api:2
+features[og_features_permission][] = node:supplier:create new_item_request content
+features[og_features_permission][] = node:supplier:delete any new_item_request content
+features[og_features_permission][] = node:supplier:delete own new_item_request content
+features[og_features_permission][] = node:supplier:update any new_item_request content
+features[og_features_permission][] = node:supplier:update own new_item_request content
+project path = sites/all/modules/features

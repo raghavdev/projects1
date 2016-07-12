@@ -1,0 +1,38 @@
+<?php
+/**
+ * @file
+ * Code for the Supplier details feature.
+ */
+
+include_once 'supplier_details.features.inc';
+
+/**
+  * Implements hook_field_access()
+ **/
+
+function pick_up_location_field_access($op, $field, $entity_type, $entity = NULL, $account = NULL) {
+
+  // Early return TRUE if the $account->roles array does not contain either Supplier or Broker
+
+  if (!(in_array('Supplier', $account->roles) || in_array('Broker', $account->roles))) {
+    return TRUE;
+  }
+
+  // The following fields array contains names which should be excluded by the field level permissions
+  // for accounts with Supplier & Broker roles assigned.
+
+  $fields = array('field_supplier_id_east',
+                  'field_supplier_id_west');
+
+  // The following operations array contains operations which should be exluded by the field level
+  // permissions for accounts with Supplier & Broker roles assigned.
+
+  $operations = array('edit');
+
+  if (in_array($op, $operations)) {
+    if (in_array($field['field_name'], $fields)) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}

@@ -1,0 +1,6 @@
+name = UNFI Pseudo-members
+description = Adds a permission that allows users have privileges of group members, without actually joining
+package = "UNFI"
+core = 7.x
+
+dependencies[] = entityreference_autocomplete

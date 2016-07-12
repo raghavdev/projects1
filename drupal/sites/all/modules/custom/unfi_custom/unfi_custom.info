@@ -1,0 +1,10 @@
+name = UNFI Custom Functions
+description = Miscellaneous functions like form alters used on the Supplier Portal
+package = "UNFI"
+core = 7.x
+
+files[] = unfi_custom.views.inc
+files[] = handlers/unfi_custom_plugin_argument.inc
+files[] = handlers/unfi_custom_add_new_content_link_area_handler.inc
+
+dependencies[] = download_file

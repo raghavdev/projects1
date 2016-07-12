@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI roles feature.
+ */
+
+include_once 'unfi_roles.features.inc';

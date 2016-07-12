@@ -1,0 +1,5 @@
+name = UNFI Field validation
+description = Custom validators for UNFI.
+package = Fields
+core = 7.x
+dependencies[] = field_validation

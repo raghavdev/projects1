@@ -1,0 +1,10 @@
+<?php
+
+/**
+ * Change NIR Coder to Gatekeeper.
+ */
+function unfi_roles_update_7000() {
+  $role = user_role_load_by_name('NIR Coder');
+  $role->name = 'Gatekeeper';
+  user_role_save($role);
+}

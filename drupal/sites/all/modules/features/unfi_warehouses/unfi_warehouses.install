@@ -1,0 +1,364 @@
+<?php
+/**
+ * @file
+ * UNFI Warehouses installation and update functions.
+ */
+
+/**
+ * Updates request items with new warehouse fields and deletes old fields.
+ */
+function unfi_warehouses_update_7001(&$sandbox) {
+  // An array of Old Value => New Value
+  $value_map = array(
+    'ATL' => 27,
+    'AUB' => 35,
+    'CHE' => 24,
+    'DAY' => 26,
+    'DEN' => 37,
+    'GRN' => 29,
+    'HVA' => 32,
+    'IOW' => 28,
+    'LAN' => 39,
+    'LEI' => 31,
+    'MOR' => 36,
+    'RAC' => 33,
+    'RDG' => 38,
+    'ROC' => 34,
+    'SAR' => 30,
+    'YRK' => 25,
+  );
+
+  if (!isset($sandbox['max'])) {
+    $sandbox['max'] = db_select('node', 'n')
+      ->condition('n.type', 'request_item')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+    $sandbox['position'] = 0;
+  }
+
+  $limit = 10;
+  $pos = $sandbox['position'];
+  $nids = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'request_item')
+    ->range($pos, $limit)
+    ->execute()
+    ->fetchCol();
+  $nodes = node_load_multiple($nids);
+  foreach ($nodes as $node) {
+    $save = FALSE; // Avoid unnecessary node_save's
+    // Update East
+    if (isset($node->field_warehouse_activations_east['und'][0])) {
+      foreach ($node->field_warehouse_activations_east['und'] as $delta => $arr) {
+        $node->field_warehouses_east['und'][] = array(
+          'target_id' => $value_map[$arr['value']],
+        );
+      }
+      $save = TRUE;
+    }
+    if (isset($node->field_warehouse_activations_west['und'][0])) {
+      foreach ($node->field_warehouse_activations_west['und'] as $delta => $arr) {
+        $node->field_warehouses_west['und'][] = array(
+          'target_id' => $value_map[$arr['value']],
+        );
+      }
+      $save = TRUE;
+    }
+
+    if ($save) {
+      node_save($node);
+    }
+  }
+
+  $sandbox['position'] += $limit;
+  if ($sandbox['max'] > 0 && $sandbox['position'] < $sandbox['max']) {
+    $sandbox['#finished'] = $sandbox['position'] / $sandbox['max'];
+  }
+  else {
+    field_delete_field('field_warehouse_activations_east');
+    field_delete_field('field_warehouse_activations_west');
+
+    $sandbox['#finished'] = 1;
+  }
+}
+
+/**
+ * Add new Select region.
+ */
+function unfi_warehouses_update_7002() {
+  $node = (object) array(
+    'title' => 'Select',
+    'type' => 'region',
+    'language' => 'und',
+    'status' => 1,
+  );
+  node_save($node);
+  variable_set('unfi_warehouses_region_select_nid', $node->nid);
+}
+
+/**
+ * Adds new warehouses, and updates titles for existing warehouses.
+ */
+function unfi_warehouses_update_7003() {
+  // An array of Warehouse ID => node.nid's
+  $existing_warehouses = array(
+    'ATL' => 27,
+    'AUB' => 35,
+    'CHE' => 24,
+    'DAY' => 26,
+    'DEN' => 37,
+    'GRW' => 29,
+    'HVA' => 32,
+    'IOW' => 28,
+    'LAN' => 39,
+    'LEI' => 31,
+    'FON' => 36,
+    'RAC' => 33,
+    'RDG' => 38,
+    'ROC' => 34,
+    'SAR' => 30,
+    'YRK' => 25,
+  );
+  // An array of Warehouse ID => array(
+  //   'title' => Warehouse Title's,
+  //   'region' => Region Name's,
+  // )
+  $warehouses = array(
+    'ATL' => array(
+      'title' => 'Atlanta Warehouse',
+      'region' => 'East',
+    ),
+    'AUB' => array(
+      'title' => 'Auburn Warehouse',
+      'region' => 'West',
+    ),
+    'CHE' => array(
+      'title' => 'Chesterfield Warehouse',
+      'region' => 'East',
+    ),
+    'DAY' => array(
+      'title' => 'Dayville Warehouse',
+      'region' => 'East',
+    ),
+    'DEN' => array(
+      'title' => 'Denver Warehouse',
+      'region' => 'West',
+    ),
+    'GRW' => array(
+      'title' => 'Greenwood Warehouse',
+      'region' => 'East',
+    ),
+    'HVA' => array(
+      'title' => 'Hudson Valley Warehouse',
+      'region' => 'East',
+    ),
+    'IOW' => array(
+      'title' => 'Iowa City Warehouse',
+      'region' => 'East',
+    ),
+    'LAN' => array(
+      'title' => 'Lancaster Warehouse',
+      'region' => 'West',
+    ),
+    'LEI' => array(
+      'title' => 'Leicester Warehouse',
+      'region' => 'East',
+    ),
+    'FON' => array(
+      'title' => 'Moreno Valley',
+      'region' => 'West',
+    ),
+    'PHI' => array(
+      'title' => 'Philadelphia Warehouse',
+      'region' => 'Select',
+    ),
+    'RAC' => array(
+      'title' => 'Racine Warehouse',
+      'region' => 'East',
+    ),
+    'RDG' => array(
+      'title' => 'Ridgefield Warehouse',
+      'region' => 'West',
+    ),
+    'ROC' => array(
+      'title' => 'Rocklin Select Nutrition',
+      'region' => 'Select',
+    ),
+    'RCK' => array(
+      'title' => 'Rocklin Warehouse',
+      'region' => 'West',
+    ),
+    'SAR' => array(
+      'title' => 'Sarasota Warehouse',
+      'region' => 'East',
+    ),
+    'SNW' => array(
+      'title' => 'Select West',
+      'region' => 'Select',
+    ),
+    'TWC' => array(
+      'title' => 'Twin Cities',
+      'region' => 'East',
+    ),
+    'YRK' => array(
+      'title' => 'York Warehouse',
+      'region' => 'East',
+    ),
+  );
+
+  $existing_warhouse_nodes = node_load_multiple(array_values($existing_warehouses));
+
+  $regions = db_select('node', 'n')
+    ->fields('n', array('title', 'nid'))
+    ->condition('n.type', 'region')
+    ->execute()
+    ->fetchAllKeyed();
+
+  foreach ($warehouses as $code => $info) {
+    if (isset($regions[$info['region']])) {
+      $region_nid = $regions[$info['region']];
+    }
+    else {
+      $region_nid = 0;
+    }
+    if (isset($existing_warehouses[$code])) {
+      $nid = $existing_warehouses[$code];
+      $warehouse = $existing_warhouse_nodes[$nid];
+    }
+    else {
+      $warehouse = (object) array(
+        'type' => 'warehouse',
+        'status' => 1,
+        'language' => 'und',
+      );
+    }
+
+    $warehouse->title = $info['title'];
+    $warehouse->field_warehouse_id['und'][0]['value'] = $code;
+    if ($region_nid) {
+      $warehouse->field_region['und'][0]['target_id'] = $region_nid;
+    }
+    node_save($warehouse);
+  }
+}
+
+/**
+ * Remove the old select nutrition warehouses field.
+ */
+function unfi_warehouses_update_7004() {
+  field_delete_field('field_warehouse_activation_selec');
+}
+
+/**
+ * Implements hook_update()
+ * Add City and State to warehouses
+ */
+function unfi_warehouses_update_7005() {
+  //nested array of warehouse_title =>city, state
+  $warehouses = array(
+    'Atlanta Warehouse' => array(
+      'city' => 'Atlanta',
+      'state' => 'Georgia'
+    ),
+    'Auburn Warehouse' => array(
+       'city' => 'Auburn',
+       'state' => 'Washington'
+    ),
+    'Chesterfield Warehouse' => array(
+       'city' => 'Chesterfield',
+       'state' => 'New Hampshire'
+    ),
+    'Dayville Warehouse' => array(
+       'city' => 'Dayville',
+       'state' => 'Connecticut'
+    ),
+    'Denver Warehouse' => array(
+       'city' => 'Aurora',
+       'state' => 'Colorado'
+    ),
+    'Greenwood Warehouse' => array(
+       'city' => 'Greenwood',
+       'state' => 'Indiana'
+    ),
+    'Hudson Valley Warehouse' => array(
+       'city' => 'Montgomery',
+       'state' => 'New York'
+    ),
+    'Iowa City Warehouse' => array(
+       'city' => 'Iowa City',
+       'state' => 'Iowa'
+    ),
+    'Lancaster Warehouse' => array(
+       'city' => 'Lancaster',
+       'state' => 'Texas'
+    ),
+    'Leicester Warehouse' => array(
+       'city' => 'Leicester',
+       'state' => 'Massachusetts'
+    ),
+    'Moreno Valley' => array(
+       'city' => 'Fontana',
+       'state' => 'California'
+    ),
+    'Philadelphia Warehouse' => array(
+       'city' => 'Philadelphia',
+       'state' => 'Pennsylvania'
+    ),
+    'Racine Warehouse' => array(
+       'city' => 'Sturtevant',
+       'state' => 'Wisconsin'
+    ),
+    'Ridgefield Warehouse' => array(
+       'city' => 'Ridgefield',
+       'state' => 'Washington'
+    ),
+    'Rocklin Select Nutrition' => array(
+       'city' => 'Rocklin',
+       'state' => 'California'
+    ),
+    'Rocklin Warehouse' => array(
+       'city' => 'Rocklin',
+       'state' => 'California'
+    ),
+    'Sarasota Warehouse' => array(
+       'city' => 'Sarasota',
+       'state' => 'Florida'
+    ),
+    'Select West' => array(
+       'city' => 'Auburn',
+       'state' => 'California'
+    ),
+    'Twin Cities' => array(
+       'city' => 'Prescott',
+       'state' => 'Wisconsin'
+    ),
+    'York Warehouse' => array(
+       'city' => 'York',
+       'state' => 'Pennsylvania'
+    ),
+  );
+  //$warehouses=dbSelect(node) WHERE type = warehouse
+  $warehouse_nids = db_select('node', 'n')
+    ->fields('n', array('title', 'nid'))
+    ->condition('n.type', 'Warehouse')
+    ->execute()
+    ->fetchAllKeyed();
+
+  $query = db_select('taxonomy_term_data', 't');
+  $query->join('taxonomy_vocabulary','v','v.vid=t.vid');
+  $query->fields('t', array('name', 'tid'));
+  $query->condition('v.name', 'States/Provinces');
+  $tids = $query->execute()
+    ->fetchAllKeyed();
+
+//foreach warehouse_title, if part of array -> fill fields
+  foreach ($warehouses as $title => $info) {
+    if(!empty($warehouse_nids[$title]) && !empty($tids[$info['state']])) {
+      $warehouse = node_load($warehouse_nids[$title]);
+      $warehouse->field_city['und'][0]['value'] = $info['city'];
+      $warehouse->field_state['und'][0]['tid'] = $tids[$info['state']];
+      node_save($warehouse);
+    }
+  }
+}

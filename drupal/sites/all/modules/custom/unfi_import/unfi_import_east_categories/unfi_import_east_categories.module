@@ -1,0 +1,257 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Import SRM Assignments module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'unfi_import_east_categories') . '/unfi_import_east_categories.install';
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_import_east_categories_menu() {
+
+  $items = array();
+
+  // Create the main settings page.
+  $items['admin/config/unfi_import/east_categories'] = array(
+    'title' => t('Import East Categories'),
+    'description' => t('Upload a .csv file to update the East Category taxonomy.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unfi_import_east_categories_upload_form'),
+    'access arguments' => array('unfi import data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Upload form that allows the user to submit a .csv file for processing.
+ */
+function unfi_import_east_categories_upload_form() {
+
+  $example = unfi_import_generate_example(unfi_import_east_categories_fetch_tables());
+
+  $form['csv_file'] = array(
+    '#type' => 'file',
+    '#title' => t('Comma Separated File'),
+    '#description' => t('File must be in .csv format.') . $example,
+  );
+
+  $form['delimiter'] = array(
+    '#type' => 'select',
+    '#title' => t('Delimiter'),
+    '#options' => array(
+      'comma' => 'comma ,',
+      'tab' => 'tab \t',
+      'pipe' => 'pipe |',
+    ),
+    '#description' => t('Delimiter of the data file.'),
+    '#default_value' => 'comma',
+    '#required' => false,
+  );
+
+  $form['contains_header'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('File contains a header'),
+    '#description' => t('Skip the first line because it is a header.'),
+    '#default_value' => FALSE,
+  );
+
+  $form['#attributes']['enctype'] = 'multipart/form-data';
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Upload Data'),
+  );
+
+  return $form;
+}
+
+function unfi_import_east_categories_upload_form_validate($form, &$form_state) {
+
+  $file = file_save_upload('csv_file', array(
+    'file_validate_extensions' => array('csv txt'),
+  ));
+  if ($file) {
+    if ($file = file_move($file, 'public://tmp/')) {
+      $form_state['values']['csv_file'] = $file;
+    }
+    else {
+      form_set_error('csv_file', t('Failed to write the uploaded file the site\'s tmp folder.'));
+    }
+  }
+  else {
+    form_set_error('csv_file', t('No file was uploaded.'));
+  }
+}
+
+function unfi_import_east_categories_upload_form_submit($form, &$form_state) {
+
+  $file = $form_state['values']['csv_file'];
+
+  if(!empty($file->uri)) {
+    if(file_exists($file->uri)) {
+      unfi_import_east_categories_import_data($file->uri, $form_state['values']['contains_header'], $form_state['values']['delimiter']);
+    }
+  }
+}
+
+//read the csv file into the database
+function unfi_import_east_categories_import_data($file_path, $contains_header=TRUE, $delimiter=',') {
+  set_time_limit(300);
+
+  $auto_detect_line_endings = ini_get('auto_detect_line_endings');
+  ini_set('auto_detect_line_endings', TRUE);
+
+  // todo: create settings page to configure this.
+  $vocab = taxonomy_vocabulary_machine_name_load('east_category');
+
+  //read records from the csv file
+  $handle = fopen($file_path, 'r');
+
+  $header_row_check = 0;
+
+  $tables =  unfi_import_east_categories_fetch_tables();
+
+  // Prep the tables for import.
+  unfi_import_prepare_tables($tables);
+
+  // todo: ideally would have some validation here to make sure the columns in the file match what is expected.
+
+  $delimiter = unfi_import_convert_delimiter($delimiter);
+
+  // Load into staging table.
+  while (($row = fgetcsv($handle, 0, $delimiter, '"')) !== FALSE) {
+    // skip the header line if the form was told to expect a header.
+    if($contains_header && $header_row_check == 0) {
+      $header_row_check++;
+      continue;
+    }
+
+    // Check that data matches expected format.
+    if (empty($row[0]) || empty($row[2]) || !is_numeric($row[2])) {
+      continue;
+    }
+
+    foreach ($tables as $table_name => $table_info) {
+      unfi_import_insert_record($table_name, $table_info['fields'], $row);
+    }
+  }
+
+  ini_set('auto_detect_line_endings', $auto_detect_line_endings);
+
+  // #### PROCESS ####
+
+  $msg = 'CSV Uploaded<br/>';
+
+  // Update the staging table with SIDs for syncing to the terms.
+  $sql = "UPDATE unfi_import_east_categories
+          SET group_sid = prod_group,
+          category_sid = CONCAT(prod_group, '|', category_num),
+          class_sid = CONCAT(prod_group, '|', category_num, '|', class_num)";
+  db_query($sql)->execute();
+
+  // Loop through all categories and INSERT / UPDATE.
+  $sql = "SELECT * FROM unfi_import_east_categories";
+  $result = db_query($sql);
+
+  // Walk the cattree.
+  while($row = $result->fetchAssoc()) {
+    $parent_tid = unfi_import_east_categories_process_category(0, $row['group_sid'], $row, $vocab->vid);
+    if (!empty($row['category_num']) && is_numeric($row['category_num'])) {
+      $parent_tid = unfi_import_east_categories_process_category(1, $row['category_sid'], $row, $vocab->vid, $parent_tid);
+    }
+    if (!empty($row['class_num']) && is_numeric($row['class_num']) && ($row['class_num'] != $row['category_num'])) {
+      $parent_tid = unfi_import_east_categories_process_category(2, $row['class_sid'], $row, $vocab->vid, $parent_tid);
+    }
+  }
+
+  // Unpublish any terms that are no longer present.
+  $sql = "SELECT td.tid FROM taxonomy_term_data td
+          INNER JOIN taxonomy_vocabulary v ON v.vid = td.vid AND v.vid = {$vocab->vid}
+          INNER JOIN field_data_field_cat_sid s ON s.entity_id = td.tid AND s.bundle = v.machine_name
+          LEFT JOIN unfi_import_east_categories e ON e.group_sid = s.field_cat_sid_value OR e.category_sid = s.field_cat_sid_value OR e.class_sid = s.field_cat_sid_value
+          WHERE e.group_sid IS NULL";
+  $result = db_query($sql);
+
+  // Remove each.
+  while($row = $result->fetchAssoc()) {
+    taxonomy_term_delete($row['tid']);
+  }
+
+  // Update the log tables.
+  unfi_import_push_to_log_tables($tables);
+
+  // Clear cache.
+  drupal_flush_all_caches();
+
+  drupal_set_message(t($msg));
+}
+
+function unfi_import_east_categories_process_category($level, $sid, $row, $vid, $parent_tid=0) {
+  // Make sure the level exists.
+  $cur = unfi_import_east_categories_fetch_tid_by_sid($sid, $vid);
+
+  if (!empty($cur)) {
+    // Load the existing term for updating.
+    $term = taxonomy_term_load($cur['tid']);
+  }
+  else {
+    // Create a new term.
+    $term = new stdClass();
+    $term->description = '';
+    $term->vid = $vid;
+    $term->format = 'plain_text';
+    // Add the Cat SID field for later use.
+    $term->field_cat_sid = array(LANGUAGE_NONE => array(0 => array('value' => $sid)));
+  }
+
+  switch ($level) {
+    case 1:
+      $term->name = $row['category_description'];
+      break;
+    case 2:
+      $term->name = $row['class_description'];
+      break;
+    default:
+      $term->name = $row['prod_group'];
+      break;
+  }
+
+  $term->parent = array($parent_tid);
+
+  // Add the other fields as needed based on location in the hierarchy.
+  $term->field_prod_group = array(LANGUAGE_NONE => array(0 => array('value' => $row['prod_group'])));
+
+  if ($level > 0) {
+    $term->field_category_number = array(LANGUAGE_NONE => array(0 => array('value' => $row['category_num'])));
+    $term->field_category = array(LANGUAGE_NONE => array(0 => array('value' => $row['category_description'])));
+  }
+  if ($level > 1) {
+    $term->field_class_number = array(LANGUAGE_NONE => array(0 => array('value' => $row['class_num'])));
+    $term->field_class = array(LANGUAGE_NONE => array(0 => array('value' => $row['class_description'])));
+  }
+
+  taxonomy_term_save($term);
+
+  return empty($term->tid) ? 0 : $term->tid;
+}
+
+function unfi_import_east_categories_fetch_tid_by_sid($sid, $vid) {
+  $query = db_select('taxonomy_term_data', 'td');
+  $query->fields('td', array('tid', 'name'));
+  $query->join('taxonomy_vocabulary', 'v', 'v.vid = td.vid');
+  $query->join('field_data_field_cat_sid', 's', 's.entity_id = td.tid AND s.bundle = v.machine_name');
+  $query->condition('s.field_cat_sid_value', $sid);
+  $query->condition('td.vid', $vid);
+  $result = $query->execute()->fetchAssoc();
+
+  if (!empty($result)) {
+    return $result;
+  }
+
+  return array();
+}

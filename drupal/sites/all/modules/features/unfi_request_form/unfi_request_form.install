@@ -1,0 +1,46 @@
+<?php
+/**
+ * @file
+ * UNFI Request form update functions.
+ */
+
+/**
+ * Implements hook_update_N().
+ * Add new table to database to capture number of products in a request
+ */
+function unfi_request_form_update_7000() {
+  if (!db_table_exists('products_in_request')) {
+    $products_in_request_schema = array(
+      'fields' => array(
+        'id' => array(
+          'type' => 'serial',
+          'not null' => TRUE,
+          'unsigned' => TRUE,
+        ),
+        'num_products' => array(
+          'type' => 'int',
+          'not null' => FALSE,
+        ),
+        // Link to request_form node
+        'nid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'unsigned' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'foreign keys' => array(
+        'node' => array(
+          'table' => 'node',
+          'columns' => array('nid' => 'nid'),
+        ),
+      ),
+      'primary key' => array('id'),
+    );
+    db_create_table('products_in_request', $products_in_request_schema);
+    return 'products_in_request table added';
+  }
+  else {
+    return 'products_in_request table already exists, update failed';
+  }
+}

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the All SRMS role people view feature.
+ */
+
+include_once 'all_srms_role_people_view.features.inc';

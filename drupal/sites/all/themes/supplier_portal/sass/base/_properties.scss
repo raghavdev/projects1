@@ -1,0 +1,451 @@
+// Margin
+%margin-reset {
+  margin: 0;
+}
+%margin-reset-top {
+  margin-top: 0;
+}
+%margin-reset-bottom {
+  margin-bottom: 0;
+}
+%margin-reset-right {
+  margin-right: 0;
+}
+%margin-reset-left {
+  margin-left: 0;
+}
+%spacer-margin {
+  margin: $section-space;
+}
+%top-spacer-margin {
+  margin-top: $section-space;
+}
+%bottom-spacer-margin {
+  margin-bottom: $section-space;
+}
+%right-spacer-margin {
+  margin-right: $section-space;
+}
+%left-spacer-margin {
+  margin-left: $section-space;
+}
+%item-space-margin {
+  margin: $item-space;
+}
+%item-space-margin-top {
+  margin-top: $item-space;
+}
+%item-space-margin-right {
+  margin: $item-space;
+}
+%item-space-margin-bottom {
+  margin-bottom: $item-space;
+}
+%item-space-margin-left {
+  margin-left: $item-space;
+}
+%double-item-space-margin-left {
+  margin-left: $double-space;
+}
+%double-item-space-margin-right {
+  margin-right: $double-space;
+}
+%double-item-space-margin-top {
+  margin-top: $double-space;
+}
+%double-item-space-margin-bottom {
+  margin-bottom: $double-space;
+}
+%big-space-margin-top {
+  margin-top: $big-space;
+}
+%big-space-margin-bottom {
+  margin-bottom: $big-space;
+}
+%big-space-margin-left {
+  margin-left: $big-space;
+}
+%big-space-margin-right {
+  margin-right: $big-space;
+}
+// Padding
+%padding-reset {
+  padding: 0;
+}
+%padding-reset-top {
+  padding-top: 0;
+}
+%padding-reset-bottom {
+  padding-bottom: 0;
+}
+%padding-reset-right {
+  padding-right: 0;
+}
+%padding-reset-left {
+  padding-left: 0;
+}
+%spacer {
+  padding: $section-space;
+}
+%top-spacer {
+  padding-top: $section-space;
+}
+%bottom-spacer {
+  padding-bottom: $section-space;
+}
+%left-spacer {
+  padding-left: $section-space;
+}
+%right-spacer {
+  padding-right: $section-space;
+}
+%item-spacer {
+  padding: $item-space;
+}
+%item-space-top {
+  padding-top: $item-space;
+}
+%item-space-bottom {
+  padding-bottom: $item-space;
+}
+%item-space-left {
+  padding-left: $item-space;
+}
+%item-space-right {
+  padding-right: $item-space;
+}
+%double-item-spacer {
+  padding: $double-space;
+}
+%double-item-space-right {
+  padding-right: $double-space;
+}
+%double-item-space-left {
+  padding-left: $double-space;
+}
+%double-item-space-top {
+  padding-top: $double-space;
+}
+%double-item-space-bottom {
+  padding-bottom: $double-space;
+}
+%big-spacer {
+  padding: $big-space;
+}
+%big-space-top {
+  padding-top: $big-space;
+}
+%big-space-bottom {
+  padding-bottom: $big-space;
+}
+%big-space-left {
+  padding-left: $big-space;
+}
+%big-space-right {
+  padding-right: $big-space;
+}
+%bigger-space-top {
+  padding-top: $double-big-space;
+}
+%bigger-space-bottom {
+  padding-bottom: $double-big-space;
+}
+%bigger-space-left {
+  padding-left: $double-big-space;
+}
+%bigger-space-right {
+  padding-right: $double-big-space;
+}
+// Line Height
+%line-height-small {
+  line-height: $line-height-small;
+}
+%line-height-normal {
+  line-height: $line-height-normal;
+}
+%line-height-big {
+  line-height: $line-height-big;
+}
+
+// Dimensions
+%full-width {
+  width: 100%;
+}
+%auto-width {
+  width: auto;
+}
+%full-height {
+  height: 100%;
+}
+%auto-height {
+  height: auto;
+}
+%no-width {
+  width: 0;
+}
+%no-height {
+  height: 0;
+}
+
+// Floats & Positioning
+%floatleft {
+  float:left;
+}
+%floatright {
+  float:right;
+}
+%floatnone {
+  float:none;
+}
+%clear {
+  clear:both;
+}
+%valign-top {
+  vertical-align: top;
+}
+%valign-middle {
+  vertical-align: middle;
+}
+%position-relative {
+  position: relative;
+}
+%position-absolute {
+  position: absolute;
+}
+%margin-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Displays
+%display-block {
+  display: block;
+}
+%display-inline {
+  display: inline;
+}
+%display-inline-block {
+  display: inline-block;
+}
+%display-list {
+  display: list-item;
+}
+%display-none {
+  display: none;
+}
+%list-style-none {
+  list-style-type: none;
+}
+%pointer {
+  cursor: pointer;
+}
+%zindex2 {
+  z-index: 2;
+}
+
+// Overflow & Box Sizing
+%overflow-hidden {
+  overflow: hidden;
+}
+%overflow-auto {
+  overflow: auto;
+}
+%border-box {
+  @include box-sizing(border-box); // Requires "compass/css3/box-sizing"
+}
+%content-box {
+  @include box-sizing(content-box); // Requires "compass/css3/box-sizing"
+}
+
+//////// Colors //////////////////////
+// Background assignments
+%background-white {
+  background-color: $white;
+}
+%background-dark {
+  background-color: $dark;
+}
+%background-dark-gray {
+  background-color: $dark-gray;
+}
+%background-light-gray {
+  background-color: $light-gray;
+}
+%background-orange {
+  background-color: $orange;
+}
+%background-green {
+  background-color: $green;
+}
+%background-light-orange {
+  background-color: $light-orange;
+}
+%background-off-white {
+  background-color: $off-white;
+}
+%background-transparent {
+  background-color: transparent;
+}
+
+%background-norepeat {
+  background-repeat:  no-repeat;
+}
+
+// Text Color assignments
+%color-white {
+  color: $white;
+}
+%color-dark {
+  color: $dark;
+}
+%color-orange {
+  color: $orange;
+}
+%color-light-orange {
+  color: $light-orange;
+}
+%color-green {
+  color: $green;
+}
+%color-dark-gray {
+  color: $dark-gray;
+}
+%color-light-gray {
+  color: $light-gray;
+}
+%color-off-white {
+  color: $off-white;
+}
+
+// Borders
+%no-border {
+  border: 0px;
+}
+%border-color-white {
+  border-color: $white;
+}
+%border-color-dark {
+  border-color: $dark;
+}
+%border-color-dark-gray {
+  border-color: $dark-gray;
+}
+%border-color-light-gray {
+  border-color: $light-gray;
+}
+%border-color-orange {
+  border-color: $orange;
+}
+
+%border-thin {
+  border: 1px solid;
+}
+%border-bottom-thin {
+  border-bottom-width:  1px;
+  border-bottom-style: solid;
+}
+%border-top-thin {
+  border-top-width:  1px;
+  border-top-style: solid;
+}
+%border-right-thin {
+  border-right-width:  1px;
+  border-right-style: solid;
+}
+%border-left-thin {
+  border-left-width:  1px;
+  border-left-style: solid;
+}
+%border-medium {
+  border: 3px solid;
+}
+%border-top-medium {
+  border-top-width: 3px;
+  border-top-style: solid;
+}
+%border-bottom-medium {
+  border-bottom-width: 3px;
+  border-bottom-style: solid;
+}
+%border-thick {
+  border: 6px solid;
+}
+%border-bottom-thick {
+  border-bottom-width: 6px;
+  border-bottom-style: solid;
+}
+
+//////// Typography & Text //////////
+%align-right {
+  text-align: right;
+}
+%align-left {
+  text-align: left;
+}
+%align-center {
+  text-align: center;
+}
+%normal-font {
+  font-weight: normal;
+}
+%bold-font {
+  font-weight: bold;
+}
+%italic-font {
+  font-style: italic;
+}
+%underline-text {
+  text-decoration: underline;
+}
+%no-decoration {
+  text-decoration: none;
+}
+%no-shadow {
+  text-shadow: none;
+}
+%uppercase {
+  text-transform: uppercase;
+}
+%capitalize {
+  text-transform: capitalize;
+}
+%regular-font {
+  font-size: $regular-font;
+}
+%h1-font {
+  font-size: $h1-font;
+}
+%h2-font {
+  font-size: $h2-font;
+}
+%h3-font {
+  font-size: $h3-font;
+}
+%small-font {
+  font-size: $small-font;
+}
+%font-family-sans {
+  font-family: $sans-font;
+}
+
+%label-border-edit {
+  border-left: 4px solid $orange;
+}
+
+%label-border {
+  border-left: 4px solid $medium-gray;
+  box-sizing: border-box;
+  padding-left: 5px;
+  margin-top:0px;
+  margin-bottom:8px;
+}
+
+%form-float-l {
+  width: 50%;
+  float: left;
+}
+%form-input-half {
+  input {
+    width: 215px;
+  }
+}

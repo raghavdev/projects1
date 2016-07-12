@@ -1,0 +1,245 @@
+Bulk,1,1,Bulk Food Service - Misc Deli,1 or 3,,
+Bulk,1,2,Bulk Grains & Beans,1,,
+Bulk,1,3,Bulk Coffee/ Tea,1,,
+Bulk,1,4,Bulk Nuts & Seeds,1,,
+Bulk,1,5,Bulk Snacks/ Trail Mix/ Cereals,1,,
+Bulk,1,6,Bulk Dried Fruit,1,,
+Bulk,1,7,Bulk Coated Confections,1,,
+Bulk,1,8,Bulk Flours/ Sweeteners/ Baking Supplies,1,,
+Bulk,1,9,Bulk Herbs & Spices,1,,
+Bulk,1,10,Bulk Pasta,1,,
+Grocery,4,11,"Pasta, packaged",1,,
+GM/Pet,4,12,Paper Goods/ Wipes,1 or 4,blank,
+Personal Care,5,14,Feminine Hygiene,4,,
+Grocery,4,15,"Bars, Nutritional",1 or 4,,varies but more often 1
+Grocery,4,16,"Sweeteners, pkgd & Flavoring/Syrups",1,,
+Grocery,4,18,"Bars, Cereal/ Snack/ Granola",1 or 4,,varies
+Grocery,4,19,Specialty,1 or 4,,
+Beverages,4,20,"Beverage, Juices/Nectars/Concentrates",1,,
+Vit/Supp,6,21,"Beverage, Supplements",4,,*Displays always under 1
+Beverages,4,22,"Beverage, Waters/Coconut water",1,,
+Personal Care,5,23,"Oils, Essential/ Body/ Massage",4,,
+Beverages,4,24,"Beverage, Carbonated Juice/Soda",1,,
+Beverages,4,25,"Beverage, Non-Dairy/Aseptic Milk",1,,
+Grocery,4,27,"Cereal, Hot",1,,
+Grocery,4,28,"Cereal, pkgd/ Ready to Eat",1,,
+Grocery,4,30,Cookies,1,,
+Vit/Supp,6,31,"Vitamin A& D, Beta Carotene",4,,"If large full case, put under 1"
+Vit/Supp,6,32,Vitamin B& B Complex,4,,Some products need to go under cooler
+Vit/Supp,6,33,Vitamin C & C Complex,4,,example: Spectrum Veg Omegas
+Grocery,4,35,Rice Cakes,1,,
+Vit/Supp,6,36,Digestive Aids/ Fiber & Intestinal Cleansers,4,,
+Vit/Supp,6,37,Vitamin E Products,4,,
+Grocery,4,38,"Spreads, Nut & Seed / Tahini",1,,
+Vit/Supp,6,39,Food Supplements,4,,
+Grocery,4,40,"Fruit, Spreads/ Sauces/ Can'd",1,,
+Vit/Supp,6,41,"Mineral, & Complexes",4,,
+Vit/Supp,6,42,Multivitamins,4,,
+Vit/Supp,6,43,"Supplement, Specialty",4,,
+Grocery,4,44,"Oils, Food Grade",1,,
+Vit/Supp,6,45,"Herbs, single",4,,
+Beverages,4,46,"Beverage, Tea-Bags/Loose/Ready to Drink",1,,
+Beverages,4,47,"Beverage, Coffee/ Coffee Substitutes/ Misc Mixes",1,,
+Vit/Supp,6,48,Herbal Formulas,4,,
+Vit/Supp,6,49,Diet Formulas,4,,
+Grocery,4,50,"Seasoning/Salt, pkgd",1,,
+Vit/Supp,6,51,"Oils, Fish/ EPA & GLA",4,,
+Vit/Supp,6,52,Homepathic,4,,
+Grocery,4,53,"Soup, & Broths/ Chili (can&jar)",1,,
+Grocery,4,54,"Soup, Dry Mixes/ Bouillion / Ramen",1 or 4,,
+Grocery,4,55,"Canned, Seafood/ Beans / Misc. Goods",1,,
+Personal Care,5,56,Facial Care,4,,
+Personal Care,5,57,Deoderants,4,,
+Personal Care,5,58,"Bath, & Shower Preperations",4,,*Displays always under 1
+Personal Care,5,59,"Ointments, & Medicinal Creams",4,,
+Grocery,4,60,Candy Bars/ Candy/ Gum/ Cough Drops,1 or 4,,
+Grocery,4,67,Desserts (non-frozen & non-cookies),1,,
+Grocery,4,68,"Tomatoes, can'd & Tomato products",1,,
+Personal Care,5,69,Sun Care,4,,
+Grocery,4,70,Salad Dressing,1,,
+Personal Care,5,71,Oral Hygiene,4,,
+Grocery,4,72,Condiments (mayo/mustard/catsup/vinegar),1,,
+Grocery,4,73,Salsa & Dips,1,,
+Grocery,4,74,Tamaris/ Gravy/ Sauces,1,,
+GM/Pet,4,75,Labels/ Boxes/ Misc Internal Supplies,1 or 4,blank,
+Grocery,4,76,Pasta Sauces,1,,
+Grocery,4,78,Pickles/ Olives/ Sauerkraut ,1,,
+GM/Pet,4,79,Misc. Non Foods,1 or 4,blank,
+Personal Care,5,80,Hair Care,4,,
+Personal Care,5,81,"Lotion, Hand & Body",4,,
+Personal Care,5,82,"Soaps, Body & Hand",4,,
+Personal Care,5,83,Cosmetics,4,,"If large full case, put under 1"
+Vit/Supp,6,84,Amino Acids,4,,
+Vit/Supp,6,85,Sports Supplements,4,,
+GM/Pet,4,86,Merchandising Aids,1 or 4,blank,
+Personal Care,5,87,Personal Care Accessories,4,,
+Grocery,4,88,"Entres, Main Dish/ Mixes",1,,
+Grocery,4,89,"Baking, Mixes/ Flours/  Granules",1,,
+GM/Pet,4,91,Apparel,1 or 4,blank,
+Grocery,4,92,"Macrobiotic, Foods/ Tofu (aseptic pak)/ Japanese",1,,
+Refrigerated,3,93,"Refrigerated, Cheese & Substitutes",3,,
+Refrigerated,3,94,"Refrigerated, Yogurts/ Cultures",3,9401,Yogurt ND Coconut
+Refrigerated,3,95,"Refrigerated, Soy Foods / Seitan",3,,
+Refrigerated,3,97,"Refrigerated, Beverages",3,9701,Milk ND Coconut
+Refrigerated,3,98,"Refrigerated, Misc.",3,,
+Grocery,4,99,Sea Vegetables,1,,
+GM/Pet,4,100,Office & School ,1 or 4,blank,
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,130,
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,131,Air Fresheners
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,132,Bath & Kitchen & Other Cleaners
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,133,Cleaning Supplies
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,134,Dishwashing Products
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,135,Liquid Laundry Products
+GM/Pet,4,130,Household Cleaning Supplies,1 or 4,136,Powder Laundry Products
+GM/Pet,5,170,Candles,1 or 4,170,
+GM/Pet,5,170,Candles,1 or 4,171,Container Candles
+GM/Pet,5,170,Candles,1 or 4,172,Other Candles
+GM/Pet,5,170,Candles,1 or 4,173,Opillar Candles
+GM/Pet,5,170,Candles,1 or 4,174,Taper Candles
+GM/Pet,5,170,Candles,1 or 4,175,Tealight Candles
+GM/Pet,5,170,Candles,1 or 4,176,Votive Candles
+GM/Pet,4,190,Pet Food & Care,1 or 4,190,
+GM/Pet,4,190,Pet Food & Care,1 or 4,191,Cat Food
+GM/Pet,4,190,Pet Food & Care,1 or 4,192,Dog Food
+GM/Pet,4,190,Pet Food & Care,1 or 4,193,Other Pet Food
+GM/Pet,4,190,Pet Food & Care,1 or 4,194,Pet Personal & Body Care
+GM/Pet,4,190,Pet Food & Care,1 or 4,195,Pet Supplements
+GM/Pet,4,190,Pet Food & Care,1 or 4,196,Pet Supplies
+GM/Pet,4,190,Pet Food & Care,1 or 4,197,Pet Treats & Snacks
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,600,
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,601,FROZEN MEAT ALTERNATIVES OTHER
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,602,FROZEN MEATLESS BREAKFAST ALTERNATIVE
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,603,FROZEN MEATLESS BURGERS
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,604,FROZEN MEATLESS DOGS
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,605,FROZEN MEATLESS GROUND
+Frozen,2,600,FROZEN MEAT ALTERNATIVES,2,606,FROZEN MEATLESS POULTRY
+Frozen,2,610,FZ APPETIZERS & SNACKS,2,610,
+Frozen,2,610,FZ APPETIZERS & SNACKS,2,611,"FZ APPETIZERS, SNACKS, CONVENIENCE FD"
+Frozen,2,610,FZ APPETIZERS & SNACKS,2,612,"FZ BURRITOS, WRAPS & POCKETS"
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,620,
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,621,FROZ BACON
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,622,FROZ BEEF & PORK
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,623,FROZ BREAKFAST MEATS OTHER
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,624,FROZ BURGERS
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,625,FROZ DELI MEATS
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,626,FROZ DINNER SAUSAGES
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,627,FROZ DOGS
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,628,FROZ OTHER
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,629,FROZ POULTRY & FOWL
+Frozen,2,620,FROZ MEATS POULTRY & SEAFOOD,2,631,FROZ SEAFOOD
+Frozen,2,640,Frozen  Breakfast Foods,2,640,
+Frozen,2,640,Frozen  Breakfast Foods,2,641,Frz Breakfast Meals
+Frozen,2,640,Frozen  Breakfast Foods,2,642,"FRZ Fr Toast,Crepes,Blintz"
+Frozen,2,640,Frozen  Breakfast Foods,2,643,Frz Pancakes
+Frozen,2,640,Frozen  Breakfast Foods,2,644,Frz Waffles
+Frozen,2,650,FROZEN DESSERTS,2,650,
+Frozen,2,650,FROZEN DESSERTS,2,651,FROZEN NON-DAIRY DESSERTS
+Frozen,2,650,FROZEN DESSERTS,2,652,FROZEN NON-DAIRY NOVELTIES (BARS)
+Frozen,2,650,FROZEN DESSERTS,2,653,FROZEN NOVELTIES (BARS)
+Frozen,2,650,FROZEN DESSERTS,2,654,FROZEN PIES & BROWNIES & OTHERS
+Frozen,2,650,FROZEN DESSERTS,2,655,FROZEN SORBET CREAM BLEND
+Frozen,2,650,FROZEN DESSERTS,2,656,FROZEN SORBETS
+Frozen,2,650,FROZEN DESSERTS,2,657,FROZEN YOGURTS
+Frozen,2,650,FROZEN DESSERTS,2,658,ICE CREAM
+Frozen,2,660,FROZEN JUICES & BEVERAGES,2,660,
+Frozen,2,660,FROZEN JUICES & BEVERAGES,2,661,FROZEN JUICES & BEVERAGES
+Frozen,2,670,FROZEN FRUITS & VEGETABLES,2,670,
+Frozen,2,670,FROZEN FRUITS & VEGETABLES,2,671,FROZEN EDAMAME/SOYBEANS
+Frozen,2,670,FROZEN FRUITS & VEGETABLES,2,672,FROZEN FRUITS
+Frozen,2,670,FROZEN FRUITS & VEGETABLES,2,673,FROZEN OTHER VEGETABLES
+Frozen,2,670,FROZEN FRUITS & VEGETABLES,2,674,FROZEN POTATOES
+Frozen,2,680,FZ KIDS & BABY FOODS,2,680,
+Frozen,2,680,FZ KIDS & BABY FOODS,2,681,FZ BABY FOOD
+Frozen,2,680,FZ KIDS & BABY FOODS,2,682,FZ KIDS MEALS SIDES & SNACKS
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,690,
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,691,"FZ MEAT, POULTRY & SEAFOOD ENTREES"
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,692,FZ PASTAS
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,693,FZ PIZZAS
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,694,"FZ PREPARED MEAT, POULTRY & SEAFOOD"
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,695,FZ SOUP
+Frozen,2,690,FZ LUNCH & DINNER ENTREES,2,696,FZ VEG LUNCH & DINNER ENTREES
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,700,
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,701,FZ BAGELS ENGLISH MUFFINS & CRUMPETS
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,702,FZ BAKED GOODS
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,703,FZ BREAD LOAVES
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,704,FZ BUNS & ROLLS
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,705,FZ PIZZA SHELLS & FOCACCIA
+Frozen,2,700,FZ BREAD & BAKED GOODS,2,706,FZ TORTILLAS PITAS & TACO SHELLS
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,850,
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,851,RF Bagels/English Muffins & Crumpets
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,852,RF Baked Goods
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,853,RF Bread Loaves
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,854,RF Buns & Rolls
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,855,RF Pizza Shells & Focaccia
+Refrigerated,3,850,Refrig Bread & Baked Goods,3,856,RF Tortillas Pitas & Taco Shells
+Bulk,4,1001,"Store Supplies, Food Service",1,,
+Grocery,4,1001,"Store Supplies, Food Service",1,,
+Grocery,4,2600,Baby Food,1 or 4,2600,
+Grocery,4,2600,Baby Food,1 or 4,2601,Baby Cereal & Teething Biscuits
+Grocery,4,2600,Baby Food,1 or 4,2602,Baby Formula
+Grocery,4,2600,Baby Food,1 or 4,2603,Baby Juices
+Grocery,4,2600,Baby Food,1 or 4,2604,Junior Foods
+Grocery,4,2600,Baby Food,1 or 4,2605,Strained Foods 
+Grocery,4,2900,Beans/ Grains & Rice,1,, 
+Grocery,4,2900,Beans/ Grains & Rice,1,2901,Packaged Beans
+Grocery,4,2900,Beans/ Grains & Rice,1,2902,Packaged Grains
+Grocery,4,2900,Beans/ Grains & Rice,1,2903,Packaged Rice
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,,
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,3001,Dried Fruits
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,3002,Dried Vegetables
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,3003,Packaged Nuts
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,3004,Seeds
+Grocery,4,3000,Nuts/ Seeds/ Dried Fruits & Vegetables,1,3005,Trail Mix
+Refrigerated,3,3100,Refrigerated Salad Dressings,3,,
+Grocery,4,3400,Crackers & Crispbreads,1,3400, 
+Grocery,4,3400,Crackers & Crispbreads,1,3401,Breadstick
+Grocery,4,3400,Crackers & Crispbreads,1,3402,Classic & Deli Crackers
+Grocery,4,3400,Crackers & Crispbreads,1,3403,Crispbreads & Wafers & Toasts
+Grocery,4,3400,Crackers & Crispbreads,1,3404,Rice & Alternative Grain Crackers
+Grocery,4,3400,Crackers & Crispbreads,1,3405,Snack & Sandwich Crackers
+Grocery,4,4018,"Kosher for Passover,(all but not specified below)",1,,
+Grocery,4,4030,"Kosher for Passover,Cookies",1,,
+Grocery,4,4034,"Kosher for Passover,Crackers",1,,
+Beverages,4,4050,"Beverage,Non-Alcoholic Wines",1,,
+Grocery,4,4060,"Kosher for Passover,Candy",1,,
+Grocery,4,4065,"Kosher for Passover,Chips & Pretzels",1,,
+Grocery,4,4100,"Baking Supplies,Cake Decorating",1 or 4,,varies
+GM/Pet,4,4300,Party Supplies,1 or 4,blank,
+Grocery,4,4800,"Sweeteners and Syrups, Diet",1,,
+GM/Pet,4,4881,Housewares,1 or 4,blank,
+GM/Pet,blank,4881,Housewares,1 or 4,blank,Candles & Accessories
+GM/Pet,blank,4881,Housewares,1 or 4,blank,Incense & Scent Holders
+Grocery,4,4900,Spirits & Mixers,1,4900,
+Grocery,4,4900,Spirits & Mixers,1,4901,Distilled Spirits & Liquor
+Grocery,4,4900,Spirits & Mixers,1,4902,Flavored Alcoholic Bevs
+Grocery,4,4900,Spirits & Mixers,1,4903,Mixers
+Grocery,4,5100,Beer,1,5100,
+Grocery,4,5100,Beer,1,5101,Beer
+Grocery,4,5200,"Wine,Cooking",1,5200,
+Grocery,4,5200,"Wine,Cooking",1,5201,Blush & Rose Wines
+Grocery,4,5200,"Wine,Cooking",1,5202,Mead & Other Wines
+Grocery,4,5200,"Wine,Cooking",1,5203,Red Wine
+Grocery,4,5200,"Wine,Cooking",1,5204,Sake
+Grocery,4,5200,"Wine,Cooking",1,5205,Sparkling Wine & Ciders
+Grocery,4,5200,"Wine,Cooking",1,5206,Swt Sherry Dessert & Cooking Wines
+Grocery,4,5200,"Wine,Cooking",1,5207,White Wine
+Vit/Supp,6,6100,Over the counter medications,4,,
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6400,
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6401,Bagels/English Muffins & Crumpets
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6402,Baked Goods
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6403,Bread Loaves
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6404,Buns & Rolls
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6405,Pizza Shells & Focaccia
+Grocery,4,6400,Bread & Baked Goods (Non-Perishable),1,6406,Tortillas Pitas & Taco Shells
+Grocery,4,6500,Chips & Pretzels,1,6500, 
+Grocery,4,6500,Chips & Pretzels,1,6501,Bagel & Pita Chips
+Grocery,4,6500,Chips & Pretzels,1,6502,Corn & Tortilla Chips
+Grocery,4,6500,Chips & Pretzels,1,6503,Microwave & Unpopped Popcorn
+Grocery,4,6500,Chips & Pretzels,1,6504,Other Snacks
+Grocery,4,6500,Chips & Pretzels,1,6505,Popcorn
+Grocery,4,6500,Chips & Pretzels,1,6506,Potato Chips
+Grocery,4,6500,Chips & Pretzels,1,6507,Pretzels
+Grocery,4,6500,Chips & Pretzels,1,6508,Puffed Snacks
+Grocery,4,6500,Chips & Pretzels,1,6509,Soy Crisps & Snacks
+Grocery,4,6500,Chips & Pretzels,1,6510,Vegetable & Fruit Chips
+Prod Group,Acct Code,Category #,Category Description,Whse Grp,Class #,Class Description

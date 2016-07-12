@@ -1,0 +1,36 @@
+//Color Palette
+$dark: #3e3e3e;
+$white: #f9f9f9;
+$pure-white: #fff;
+$orange: #f27f1b;
+$light-orange: #f9bf8d;
+$green: #004833;
+$dark-gray: #808080;
+$medium-gray: #aaa;
+$medium-light-gray: #bbb;
+$light-gray: #ccc;
+$lightest-gray: #ddd;
+$off-white: #eee;
+$ghost-white: #fafafa;
+
+// Spacing
+$section-space: 15px;
+$item-space: 5px;
+$double-space: $item-space * 2;
+$big-space: 25px;
+$double-big-space: $big-space * 2;
+
+// Font Sizing
+$small-font: 12px; //h6
+$regular-font: 14px;
+$h1-font: 36px;
+$h2-font: 24px;
+$h3-font: 18px;
+
+// Line Height
+$line-height-small: 20px;
+$line-height-normal: 24px;
+$line-height-big: 28px;
+
+// Fonts
+$sans-font: "PT Sans";

@@ -1,0 +1,418 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Import SRM Assignments module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'unfi_import_srm_assignments') . '/unfi_import_srm_assignments.install';
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_import_srm_assignments_menu() {
+
+  $items = array();
+
+  // Create the main settings page.
+  $items['admin/config/unfi_import/srm_assignments'] = array(
+    'title' => t('Import SRM Assignments'),
+    'description' => t('Upload a .csv file to upload the SRM to Supplier assignments.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unfi_import_srm_assignments_upload_form'),
+    'access arguments' => array('unfi import data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Upload form that allows the user to submit a .csv file for processing.
+ */
+function unfi_import_srm_assignments_upload_form() {
+
+  $form['csv_file'] = array(
+    '#type'               => 'managed_file',
+    '#title'              => t('Comma Separated File'),
+    '#upload_location'    => 'temporary://',
+    '#upload_validators'  => array('file_validate_extensions' => array('csv txt')),
+    '#description'        => t('File must be in .csv format.') .
+      unfi_import_generate_example(unfi_import_srm_assignments_fetch_tables()),
+  );
+
+  $form['delimiter'] = array(
+    '#type'    => 'select',
+    '#title'   => t('Delimiter'),
+    '#options' => array(
+      'comma' => 'comma ,',
+      'tab'   => 'tab \t',
+      'pipe'  => 'pipe |',
+      'tilde' => 'tilde ~',
+    ),
+    '#required'      => false,
+    '#default_value' => 'comma',
+    '#description'   => t('Delimiter of the data file.'),
+  );
+
+  $form['contains_header'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('File contains a header'),
+    '#default_value' => TRUE,
+    '#description'   => t('Skip the first line because it is a header.'),
+  );
+
+  $form['batch_limit'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Processing Throttle'),
+    '#size'          => 6,
+    '#required'      => TRUE,
+    '#default_value' => variable_get('unfi_import_srm_assignments_batch_limit', 500),
+    '#description'   => t('The number of lines to process per iteration.')
+  );
+
+  $form['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => t('Upload Data'),
+  );
+
+  return $form;
+}
+
+function unfi_import_srm_assignments_upload_form_validate($form, &$form_state) {
+  if (
+    empty($form_state['values']['csv_file'])
+    || !file_load($form_state['values']['csv_file'])
+  ) {
+    form_set_error('csv_file', t('No file was uploaded.'));
+  }
+
+  if (
+    empty($form_state['values']['batch_limit'])
+    || !is_numeric($form_state['values']['batch_limit'])
+    || $form_state['values']['batch_limit'] < 1
+  ) {
+    form_set_error('batch_limit', t('Processing Throttle must be a positive whole number greater than zero.'));
+  }
+}
+
+function unfi_import_srm_assignments_upload_form_submit($form, &$form_state) {
+
+  variable_set('unfi_import_srm_assignments_batch_limit', (int)$form_state['values']['batch_limit']);
+
+  $file = file_load($form_state['values']['csv_file']);
+
+  batch_set(array(
+    'operations' => array(
+      array('unfi_import_srm_assignments_import_data', array(
+        $form_state['values']['csv_file'], // $file_id
+        (bool)$form_state['values']['contains_header'], // $contains_header
+        $form_state['values']['delimiter'], // $delimiter
+        (int)$form_state['values']['batch_limit']), // $limit
+      ),
+      array('unfi_import_srm_assignments_add_test_supplier', array()),
+    ),
+    'finished'         => 'unfi_import_srm_assignments_import_data_finished',
+    'title'            => t('Importing !v', array('!v' => $file->filename)),
+    'init_message'     => t('!v import is starting.', array('!v' => $file->filename)),
+    'progress_message' => '',
+    'error_message'    => t('!v import has encountered an error.', array('!v' => $file->filename)),
+    'file'             => drupal_get_path('module', 'unfi_import_srm_assignments') . '/unfi_import_srm_assignments.module',
+  ));
+}
+
+/**
+ * Read the csv file into the database
+ */
+function unfi_import_srm_assignments_import_data($file_id, $contains_header, $delimiter, $limit, &$context) {
+
+  $auto_detect_line_endings = ini_get('auto_detect_line_endings');
+  ini_set('auto_detect_line_endings', TRUE);
+
+  // Query file data
+  $file = file_load($file_id);
+
+  //read records from the csv file
+  $handle = fopen($file->uri, 'r');
+
+  // Get the tables to work with
+  $tables = unfi_import_srm_assignments_fetch_tables();
+
+  if (!isset($context['sandbox']['total'])) {
+    // Prepare counters for results
+    $context['results']['insert']     = 0;
+    $context['results']['delete']     = 0;
+    $context['results']['duplicates'] = 0;
+    // Prepare sandbox for progress tracking
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['total']    = 0;
+    while (!feof($handle)) {
+      $context['sandbox']['total']++;
+      fgets($handle);
+    }
+    fseek($handle, 0);
+    // Prep the tables for import.
+    unfi_import_prepare_tables($tables);
+  }
+
+  // Temp progress counter for this iteration
+  $ix = 0;
+  // Get lines to move pointer until the end of file or where the last iteration ended
+  while (!feof($handle) && $ix < $context['sandbox']['progress']) {
+    $ix++;
+    fgets($handle);
+  }
+
+  // Do some super-basic double-checking to make sure Header row looks the same as expected.
+  // Only run this stuff on the first row.
+  if ($context['sandbox']['progress'] == 0) {
+
+    // Build the expected row.
+    $expected = array();
+    foreach ($tables['srm_assignments']['fields'] as $field) {
+      if (isset($field['map_to'])) {
+        // We'll assume that lowercase/uppercase discrepancies are cool.
+        $expected[] = strtolower($field['description']);
+      }
+    }
+
+    // Grab the file row data.
+    $header = fgetcsv($handle, 0, unfi_import_convert_delimiter($delimiter), '"');
+    $header = array_map('strtolower', $header);
+
+    if ($contains_header) {
+      // If there's a header row, check if header exactly matches expected.
+      if ($expected !== $header) {
+        drupal_set_message('Import Aborted: Imported CSV headers do not match the system\'s expected headers.', 'error');
+        drupal_set_message('Please double-check that your .csv Header row matches the expected format.', 'warning');
+        return;
+      }
+    }
+    else {
+      // If there's no header (bummer), check if at least the counts are right.
+      if (count($expected) != count($header)) {
+        drupal_set_message('Import Aborted: Imported CSV does not match expected format.', 'error');
+        drupal_set_message('Please double-check that your .csv data matches the expected format.', 'warning');
+        return;
+      }
+    }
+  }
+  // End basic validation.
+
+  $ix = 0; // Batch counter
+  // Loop to the end of the file
+  while (!feof($handle) && $ix < $limit) {
+    $ix++; // Increment counter
+    $context['sandbox']['progress']++; // Increment total progress counter
+    // Get line and parse CSV data
+    $row = fgetcsv($handle, 0, unfi_import_convert_delimiter($delimiter), '"');
+    // A blank line will return as array(0 => NULL)
+    if (isset($row[1])) { // todo: could do a count check compared to expected count (see todo note above)
+      // skip the header line if the form was told to expect a header.
+      if($contains_header && $context['sandbox']['progress'] == 1) {
+        continue;
+      }
+      // Check that row one is an integer, to prevent bad data coming through.
+      if(!is_numeric($row[1])) {
+        continue;
+      }
+      // Store data in a staging/temp table to be processed below
+      foreach ($tables as $table_name => $table_info) {
+        unfi_import_insert_record($table_name, $table_info['fields'], $row);
+      }
+    }
+  }
+  // Close file stream
+  fclose($handle);
+  ini_set('auto_detect_line_endings', $auto_detect_line_endings);
+  // Notify user of progess
+  $context['message'] = t('Processed @c out of @t lines', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+
+  // #### PROCESS ####
+
+  // Find the UID's of the SRM users.
+  $sql = "UPDATE unfi_import_srm_assignments sa
+          INNER JOIN field_data_field_user_sid s ON CAST(s.field_user_sid_value AS char(11)) = sa.srm AND s.entity_type = 'user'
+          INNER JOIN users u ON s.entity_id = u.uid AND s.entity_id = u.uid AND u.status = 1
+          INNER JOIN users_roles ur ON u.uid = ur.uid AND ur.rid = 8
+          SET sa.srm_uid = u.uid";
+  db_query($sql)->execute();
+
+  // Find the NID's of the remit numbers.
+  $sql = "UPDATE unfi_import_srm_assignments sa
+          INNER JOIN field_data_field_remit_number rn ON sa.lawson_remit_vendor = rn.field_remit_number_value AND rn.entity_type = 'node'
+          INNER JOIN node s ON s.nid = rn.entity_id AND s.type = 'supplier' AND s.status = 1
+          SET sa.supplier_nid = s.nid";
+  db_query($sql)->execute();
+
+  // Discover any NULL user or node IDs
+  $query = db_select('unfi_import_srm_assignments', 'sa')
+    ->fields('sa', array('lawson_remit_vendor', 'srm', 'srm_uid', 'supplier_nid'))
+    ->condition(db_or()
+      ->isNull('sa.srm_uid')
+      ->isNull('sa.supplier_nid')
+    );
+
+  // To reduce overhead, exclude already discovered NULL rows
+  if (!empty($context['results']['empty_srm_uids'])) {
+    $query->condition('sa.srm', $context['results']['empty_srm_uids'], 'NOT IN');
+  }
+  if (!empty($context['results']['empty_supplier_nids'])) {
+    $query->condition('sa.lawson_remit_vendor', $context['results']['empty_supplier_nids'], 'NOT IN');
+  }
+
+  $results = $query->execute();
+  while (($row = $results->fetchAssoc())) {
+    // Store the business (UNFI) IDs for display to the user at the end so they
+    // can rectify the error
+    if (empty($row['srm_uid'])) {
+      $context['results']['empty_srm_uids'][$row['srm']] = $row['srm'];
+    }
+    if (empty($row['supplier_nid'])) {
+      $context['results']['empty_supplier_nids'][$row['lawson_remit_vendor']] = $row['lawson_remit_vendor'];
+    }
+  }
+
+  // Add new records.
+  $sql = "INSERT INTO og_membership (type, etid, entity_type, gid, group_type, state, field_name, language)
+          SELECT
+            'og_membership_type_default',
+            sa.srm_uid,
+            'user',
+            sa.supplier_nid,
+            'node',
+            1,
+            'og_user_node',
+            'en'
+          FROM unfi_import_srm_assignments sa
+          LEFT JOIN og_membership og ON og.gid = sa.supplier_nid AND og.etid = sa.srm_uid
+          WHERE og.id IS NULL
+          AND sa.srm_uid IS NOT NULL
+          AND sa.supplier_nid IS NOT NULL";
+  $result = db_query($sql);
+  $context['results']['insert'] += $result->rowCount();
+
+  // Delete unneeded records.
+  $sql = "DELETE og.* FROM og_membership og
+          INNER JOIN users u ON og.etid = u.uid
+          INNER JOIN users_roles ur ON u.uid = ur.uid AND ur.rid = 8
+          LEFT JOIN unfi_import_srm_assignments sa ON sa.srm_uid = og.etid AND og.gid = sa.supplier_nid
+          WHERE og.entity_type = 'user'
+          AND sa.lawson_remit_vendor IS NULL";
+  $result = db_query($sql);
+  $context['results']['delete'] += $result->rowCount();
+
+  // Cleanup dupliate records caused by multiple vendor ID's per each remit (lawson) number.
+  $sql = "DELETE og1.* FROM og_membership og1, og_membership og2
+          WHERE og1.id > og2.id
+          AND og1.etid = og2.etid
+          AND og1.gid = og2.gid
+          AND og1.entity_type = 'user'
+          AND og1.field_name = 'og_user_node'
+          AND og2.entity_type = 'user'
+          AND og2.field_name = 'og_user_node'";
+  $result = db_query($sql);
+  $context['results']['duplicates'] += $result->rowCount();
+
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['total'];
+  }
+}
+
+function unfi_import_srm_assignments_add_test_supplier(&$context) {
+  // Initialize
+  if (!isset($context['sandbox']['total'])) {
+    // Prepare counter for results
+    $context['results']['test_supplier'] = 0;
+    // Count query for SRMs
+    $query = db_select('users_roles', 'ur');
+    $query->condition('ur.rid', 8);
+    // Prepare sandbox for progress tracking
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['total']    = (int)$query->countQuery()->execute()->fetchField();
+  }
+  // Make sure the group exists
+  // TODO: this hard-coded for Test Supplier (20)
+  if (!($group = node_load(20))) {
+    $context['finished'] = 1;
+    return;
+  }
+  // Query for user IDs
+  $query = db_select('users_roles', 'ur');
+  $query->fields('ur', array('uid'));
+  $query->condition('ur.rid', 8);
+  $query->orderBy('ur.uid');
+  $query->range($context['sandbox']['progress'], 10);
+  // Execute
+  $result = $query->execute();
+  // Loop through each of the returned IDs
+  while (($uid = (int)$result->fetchField())) {
+    // Increment progress
+    $context['sandbox']['progress']++;
+    // If able to load the user account
+    if (($account = user_load($uid))) {
+      // Add the user to the group
+      og_group('node', $group->nid, array('entity' => $account));
+      // Increment the number of SRMs processed
+      $context['results']['test_supplier']++;
+    }
+  }
+  // Notify user of progess
+  $context['message'] = t('Processed @c out of @t SRM users', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+  // Calculate if finished
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['total'];
+  }
+}
+
+function unfi_import_srm_assignments_import_data_finished($success, $results, $operations) {
+  // Update the log tables.
+  $tables = unfi_import_srm_assignments_fetch_tables();
+  unfi_import_push_to_log_tables($tables);
+  if ($success) {
+    // Clear cache.
+    drupal_flush_all_caches();
+    // Report simple stats to user
+    $message  = t('Import Finished');
+    $message .= t('<BR />@c Associations Added', array('@c' => $results['insert']));
+    $message .= t('<BR />@c Associations Removed', array('@c' => $results['delete']));
+    $message .= t('<BR />@c Remit# Duplicates Removed', array('@c' => $results['duplicates']));
+    $message .= t('<BR />@c SRM users added to Test Supplier', array('@c' => $results['test_supplier']));
+    drupal_set_message($message);
+    // Notify the user of what Supplier remit and/or SRM IDs failed in the import
+    if (!empty($results['empty_srm_uids'])) {
+      $message = t('Could not find a SRM user that matches the following SRM IDs:');
+      $message .= theme('item_list', array(
+        'items' => $results['empty_srm_uids'],
+      ));
+      drupal_set_message($message, 'error');
+    }
+    if (!empty($results['empty_supplier_nids'])) {
+      $message = t('Could not find a Supplier group that matches the following remit IDs:');
+      $message .= theme('item_list', array(
+        'items' => $results['empty_supplier_nids'],
+      ));
+      drupal_set_message($message, 'error');
+    }
+  }
+  // An error occurred.
+  // $operations contains the operations that remained unprocessed.
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %op with arguments: <pre>@arg</pre>', array(
+      '%op'  => $error_operation[0],
+      '@arg' => print_r($error_operation[1], TRUE)
+    ));
+    drupal_set_message($message, 'error');
+  }
+}

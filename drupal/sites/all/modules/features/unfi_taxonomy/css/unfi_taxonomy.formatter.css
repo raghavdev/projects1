@@ -1,0 +1,26 @@
+/**
+* @file
+* Styles for formatted output of the UNFI Taxonomy module.
+*/
+
+.field-type-taxonomy-term-reference ul.term-hierarchy {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.field-type-taxonomy-term-reference .links ul.term-hierarchy li {
+  float: left;
+  padding: 0 5px 0 0;
+  white-space: nowrap;
+}
+.field-type-taxonomy-term-reference .links ul.term-hierarchy li.last {
+  padding: 0;
+}
+.term-hierarchy li:after {
+  content: '>';
+  margin: 0 0 0 5px;
+}
+.term-hierarchy li.last:after {
+  content: '';
+  margin: 0;
+}

@@ -1,0 +1,924 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Product feature.
+ */
+
+include_once 'unfi_product.features.inc';
+
+/**
+ * Implements hook_init().
+ */
+function unfi_product_init() {
+  drupal_add_js(drupal_get_path('module', 'unfi_product') . '/js/column-editing.js');
+  drupal_add_css(drupal_get_path('module', 'unfi_product') . '/css/column-editing.css');
+}
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_product_menu() {
+  $items = array();
+
+  // Special ajax file upload handler for our master row when doing column
+  // editing.
+  // @see js/column-editing.js
+  $items['unfi_product/ajax/master_file_upload'] = array(
+    'page callback' => 'unfi_product_master_file_ajax_upload',
+    'delivery callback' => 'ajax_deliver',
+    'access arguments' => array('access content'),
+    'theme callback' => 'ajax_base_page_theme',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function unfi_product_menu_alter(&$items) {
+  foreach ($items as $path => $item) {
+    // Override all edit-products views with our access callback.
+    if (strpos($path, 'node/%/edit-products') === 0) {
+      $args = array(
+        1, // Node ID
+        $items[$path]['access callback'], // Preserve callback
+        $items[$path]['access arguments'], // Preserve orig. args
+      );
+      $items[$path]['access callback'] = 'unfi_product_edit_products_access';
+      $items[$path]['access arguments'] = $args;
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_load().
+ */
+function unfi_product_entity_load($entities, $type) {
+  if ($type == 'node') {
+    array_walk($entities, '_unfi_product_entity_load_alter_west_fob_pricing');
+  }
+}
+
+/**
+ * Menu access callback: Edit products views.
+ *
+ * @see unfi_product_menu_alter()
+ */
+function unfi_product_edit_products_access($nid, $callback = NULL, $args = array()) {
+  // First, test the original access callback
+  if (
+    !empty($callback)
+    && function_exists($callback)
+    && !call_user_func_array($callback, $args)
+  ) {
+    return FALSE;
+  }
+  // Test node access
+  $node = node_load($nid);
+  if (!isset($node->type) || $node->type != 'request_form') {
+    return FALSE;
+  }
+  return node_access('update', $node);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function unfi_product_form_editableviews_entity_form_products_alter(&$form, &$form_state) {
+  global $user;
+  // Load the products views
+  $view = $form_state['build_info']['args'][3];
+  $current_display = $view->current_display;
+
+  // Make alterations to West/WBS coding price fields
+  $west_pricing_fields = array(
+    'field_srp_west', 'field_wholesale_price_west',
+  );
+
+  $edit_displays = array();
+  foreach ($view->display as $display_id => $display) {
+    // Only list the edit page displays
+    if ((strpos($display_id, 'edit_') === 0) && $view->access($display_id, $user)) {
+      // Set sort key based on menu tab weight.
+      $edit_displays[$display->display_options['menu']['weight']] = $display_id;
+    }
+  }
+
+  // Sort edit displays low-to-high based on menu tab weight.
+  ksort($edit_displays);
+  // Reset keys to start at 0 (allows negative weights).
+  $edit_displays = array_values($edit_displays);
+
+  $position = array_search($current_display, $edit_displays);
+  if ($position > 0) {
+    // Add previous submit button
+    $form['actions']['previous'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save & Previous'),
+      '#weight' => -10,
+    );
+  }
+
+  if ($position < count($edit_displays) - 1) {
+    // Change save button to say "Save & Next"
+    $form['actions']['submit']['#value'] = t('Save & Next');
+  }
+
+  $form_state['unfi_editing_entities'] = _unfi_product_editableviews_entity_ids($form_state);
+  $entity_type = $form_state['unfi_editing_entities']['entity_type'];
+  $entity_ids = $form_state['unfi_editing_entities']['entity_ids'];
+
+  // Find all file upload fields
+  foreach ($entity_ids as $entity_id) {
+    if (isset($form[$entity_type][$entity_id])) {
+      foreach (element_children($form[$entity_type][$entity_id]) as $field_name) {
+        $element = $form[$entity_type][$entity_id][$field_name];
+        if (isset($element['#language'])) {
+          $lang = $element['#language'];
+          // We need to add a #process callback to file upload fields
+          if (isset($element[$lang][0]['#type']) && $element[$lang][0]['#type'] == 'managed_file') {
+            foreach (element_children($element[$lang]) as $delta) {
+              $element[$lang][$delta]['#value_callback'] = 'unfi_product_editableviews_file_value';
+              // Add our process to the end, so that our submit handler happens at the end.
+              $element[$lang][$delta]['#process'][] = 'unfi_product_editableviews_file_process';
+            }
+          }
+        }
+        $form[$entity_type][$entity_id][$field_name] = $element;
+
+        // Alter West/WBS pricing fields
+        if (in_array($field_name, $west_pricing_fields)) {
+          _unfi_product_alter_west_fob_pricing_view_form_element($form[$entity_type][$entity_id][$field_name], $form_state);
+        }
+      }
+    }
+  }
+
+  // Add our own submit handler to redirect to the next/previous display
+  $form['#submit'][] = 'unfi_product_editableviews_products_form_submit';
+  $form['#validate'][] = 'unfi_product_editableviews_products_form_validate';
+
+  // Save display information for our submit callaback.
+  $form_state['unfi_edit_displays'] = $edit_displays;
+  $form_state['unfi_current_display'] = $current_display;
+  $form_state['unfi_current_position'] = $position;
+
+  // We have uploaded/removed a master file. Now the form has gone through a
+  // rebuild and we need to ensure all the rows have the same number of files as
+  // the first row.
+  if (!empty($form_state['unfi_column_editing_rebuild'])) {
+    foreach (array_keys($form_state['unfi_column_editing_rebuild']) as $field_name) {
+      $eid = $entity_ids[0];
+
+      // Get the fully built element
+      $current_element = $form[$entity_type][$eid][$field_name];
+      $lang = $current_element['#language'];
+      $current_element = $current_element[$lang];
+      $upload_delta = isset($current_element['#file_upload_delta']) ? $current_element['#file_upload_delta'] : 0;
+      // Loop through the elements in the first row to build the defaults.
+      $defaults = array();
+      foreach (element_children($current_element) as $delta) {
+        $defaults[$delta] = $current_element[$delta]['#default_value'];
+      }
+      // Loop through the rows and set the value for this field for all of
+      // the entities.
+      foreach ($entity_ids as $entity_id) {
+        if (isset($form[$entity_type][$entity_id][$field_name])) {
+          $element = $form[$entity_type][$entity_id][$field_name];
+          $lang = $element['#language'];
+          $element[$lang]['#file_upload_delta'] = $upload_delta;
+          $delta = 0;
+          $base_element = $element[$lang][0];
+          while ($delta <= $upload_delta) {
+            // If there isn't a file field for this delta in the current row, we
+            // need to add one so that we have the extra "Add a new file" field
+            // on every row. Also required if more then one master file is uploaded
+            // via ajax.
+            if (!isset($element[$lang][$delta])) {
+              // Copy the previous field and then call form_builder() on it.
+              $previous_element = $base_element;
+              $previous_element['#default_value'] = $defaults[$delta];
+              $previous_element['#weight'] = $delta;
+              $element[$lang][$delta] = $previous_element;
+            }
+            // Don't require files after the first one.
+            if ($delta > 0) {
+              $element[$lang][$delta]['#required'] = FALSE;
+            }
+            $delta++;
+          }
+          $form[$entity_type][$entity_id][$field_name] = $element;
+        }
+      }
+    }
+    // Reset flags now that we have rebuilt the file fields.
+    unset($form_state['unfi_column_editing_rebuild']);
+  }
+
+  if (isset($form['node'])) {
+    foreach ($form['node'] as $nid => $row) {
+      _unfi_add_state('field_shipper', 'field_shipper_components', $nid, $row, $form, 'radio');
+    }
+  }
+}
+
+/**
+ * Assigns states and related classes
+**/
+function _unfi_add_state($field_name, $field_dependent, $nid, &$row, &$form, $elemtype) {
+  if (isset($row[$field_name]) && isset($row[$field_dependent])) {
+    switch ($elemtype) {
+      case 'radio':
+        $cond = 'value';
+        $val = '1';
+        break;
+      default:$cond = 'checked';
+        $val = TRUE;
+    }
+    $lang = $row[$field_name]['#language'];
+    $form['node'][$nid][$field_dependent]['#attributes']['class'][] = "unfi-state-hidden-" . $field_name;
+    $form['node'][$nid][$field_name]['#attributes']['class'][] = "unfi-state-trigger-" . $field_name;
+    $form['node'][$nid][$field_name]['#attributes']['class'][] = "unfi-state-trigger";
+    $form['node'][$nid][$field_dependent]['#states'] = array(
+      'visible' => array(
+        ':input[name^="node[' . $nid . '][' . $field_name . '][' . $lang . ']"]' => array($cond => $val),
+      ),
+    );
+  }
+}
+
+/**
+ * Form element #process callback: Products Editableviews form managed_file fields.
+ */
+function unfi_product_editableviews_file_process($element, &$form_state, $form) {
+  // Add another submit handler to the upload and remove buttons, to implement
+  // functionality needed by the field widget. This submit handler, along with
+  // the rebuild logic in file_field_widget_form() requires the entire field,
+  // not just the individual item, to be valid.
+  foreach (array('upload_button', 'remove_button') as $key) {
+    $element[$key]['#submit'][] = 'unfi_product_editableviews_file_submit';
+  }
+  return $element;
+}
+
+/**
+ * Form element #submit callback: Products Editableviews form managed_file fields.
+ */
+function unfi_product_editableviews_file_submit($form, &$form_state) {
+  $entity_type = $form_state['unfi_editing_entities']['entity_type'];
+  $entity_ids = $form_state['unfi_editing_entities']['entity_ids'];
+  $trigger = _unfi_product_editableviews_get_trigger();
+
+  // If remove button was clicked
+  if ($trigger && $trigger['button_key'] == 'remove_button') {
+    $field_name = $trigger['field_name'];
+    $eid = $entity_ids[0];
+    $langcode = $form[$entity_type][$eid][$field_name]['#language'];
+    $parents = array(
+      $entity_type,
+      $eid,
+      $field_name,
+      $langcode,
+    );
+    // Since our submit handler happens after file_field_widget_submit(), then
+    // this should already be re-indexed.
+    $submitted_values = drupal_array_get_nested_value($form_state['values'], $parents);
+    // Loop through all the rows and set all the rows to the same values.
+    foreach ($entity_ids as $entity_id) {
+      $parents = array(
+        $entity_type,
+        $entity_id,
+        $field_name,
+        $langcode,
+      );
+      $field_parents = $form[$entity_type][$entity_id][$field_name][$langcode]['#field_parents'];
+
+      // ---- Stolen and modified to work on multiple file fields from file_field_widget_submit() ----
+      // During the form rebuild, file_field_widget_form() will create field item
+      // widget elements using re-indexed deltas, so clear out $form_state['input']
+      // to avoid a mismatch between old and new deltas. The rebuilt elements will
+      // have #default_value set appropriately for the current state of the field,
+      // so nothing is lost in doing this.
+      drupal_array_set_nested_value($form_state['input'], $parents, NULL);
+
+      // Update form_state values.
+      drupal_array_set_nested_value($form_state['values'], $parents, $submitted_values);
+
+      // Update items.
+      $field_state = field_form_get_state($field_parents, $field_name, $langcode, $form_state);
+      $field_state['items'] = $submitted_values;
+      field_form_set_state($field_parents, $field_name, $langcode, $form_state, $field_state);
+      // ---- End code stolen from file_field_widget_submit() ----
+    }
+  }
+}
+
+/**
+ * Form element #value_callback: Products Editableviews form managed_file fields.
+ */
+function unfi_product_editableviews_file_value($element, $input = FALSE, &$form_state) {
+  // Bail out early if we don't have our entities.
+  if (!isset($form_state['unfi_editing_entities'])) {
+    return file_field_widget_value($element, $input, $form_state);
+  }
+
+  $trigger = _unfi_product_editableviews_get_trigger();
+  $master_files = _unfi_product_editableviews_get_master_files($form_state);
+
+  if (!$input) {
+    return file_field_widget_value($element, $input, $form_state);
+  }
+
+  $field_name = $element['#field_name'];
+  $weight = $element['#weight'];
+
+  // A file has been uploaded but not processed.
+  if (isset($master_files[$field_name])) {
+    // If this element is the upload field, return the uploaded file.
+    $parent_element = $form_state['complete form'];
+    $parents = $element['#parents'];
+    array_pop($parents);
+    foreach ($parents as $key) {
+      $parent_element = $parent_element[$key];
+    }
+    $upload_delta = isset($parent_element['#file_upload_delta']) ? $parent_element['#file_upload_delta'] : 0;
+
+    // If this is the upload element.
+    if ($upload_delta == $weight) {
+      if ($file = _unfi_product_editableviews_upload_master_file($element, $field_name, $master_files[$field_name])) {
+        $fid = $file->fid;
+
+        $info = array(
+          'fid' => $fid,
+          'display' => 1,
+          '_weight' => $upload_delta,
+          'upload' => NULL,
+        );
+        // Alter $form_state, although this is a documented use of a
+        // #value_callback, it is still possible, and we only want to upload
+        // the file once.
+        $form_state['unfi_master_file_upload'][$field_name] = $info;
+      }
+    }
+  }
+
+  // An ajax button wasn't clicked but a file was uploaded, meaning a submit
+  // button was pressed.
+  if (!$trigger && isset($form_state['unfi_master_file_upload'][$field_name])) {
+    $file_info = $form_state['unfi_master_file_upload'][$field_name];
+    // If this is the element for the uploaded file.
+    if ($file_info['_weight'] == $weight) {
+      return $file_info;
+    }
+  }
+  // Check to see if an ajax button was clicked in the "master" row
+  if ($trigger['field_name'] == $field_name && $trigger['delta'] == $weight) {
+    // Also store something in $form_state, so we know during rebuild that
+    // we need to spoof all the rows.
+    $form_state['unfi_column_editing_rebuild'][$field_name] = TRUE;
+    if ($trigger['button_key'] == 'remove_button') {
+      return array(
+        'fid' => 0,
+        'display' => 1,
+        'description' => '',
+      );
+    }
+    elseif ($trigger['button_key'] == 'upload_button') {
+      // A previous #value_callback already uploaded a file
+      if (isset($form_state['unfi_master_file_upload'][$field_name])) {
+          $info = $form_state['unfi_master_file_upload'][$field_name];
+          return $info;
+      }
+    }
+  }
+
+  $info = file_field_widget_value($element, $input, $form_state);
+  $info += array(
+    '_weight' => $weight,
+  );
+  return $info;
+}
+
+/**
+ * Helper method to get the entity ids for the entities being edited in the
+ * editable view.
+ *
+ * @param array $form_state
+ *   The form state array.
+ *
+ * @return array|FALSE
+ *   Returns FALSE on failure. Otherwise returns an array with the keys:
+ *   - entity_type
+ *   - entity_ids
+ */
+function _unfi_product_editableviews_entity_ids($form_state) {
+  // Collect the entity ids that we are editing.
+  $ret = FALSE;
+  if (isset($form_state['build_info']['args'][1]['entities_to_results'])) {
+    $entity_types = array_keys($form_state['build_info']['args'][1]['entities_to_results']);
+    $entity_type = array_shift($entity_types);
+    $ret['entity_type'] = $entity_type;
+    $ret['entity_ids'] = array();
+    if (isset($form_state['build_info']['args'][1]['results_to_entities'][$entity_type])) {
+      foreach ($form_state['build_info']['args'][1]['results_to_entities'][$entity_type] as $data) {
+        if (isset($data[1])) {
+          $ret['entity_ids'][] = $data[1];
+        }
+      }
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Helper method to return the button that was clicked in the master row.
+ *
+ * @return array|FALSE
+ *   Returns FALSE if the trigger wasn't an element in the master row.
+ *   Otherwise, returns an array with the keys:
+ *   - field_name
+ *   - delta
+ *   - button_key
+ */
+function _unfi_product_editableviews_get_trigger() {
+  $ret = FALSE;
+  if (isset($_POST['_triggering_element_name'])) {
+    $trigger = $_POST['_triggering_element_name'];
+    if (substr($trigger, 0, 7) == 'master_') {
+      $trigger = substr($trigger, 7);
+      $matches = array();
+      if (preg_match('/^([a-z_]+)_([0-9]+)_(remove_button|upload_button)$/i', $trigger, $matches)) {
+        $ret = array(
+          'field_name' => $matches[1],
+          'delta' => $matches[2],
+          'button_key' => $matches[3],
+        );
+      }
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Helper method to get the uploaded master files.
+ */
+function _unfi_product_editableviews_get_master_files(&$form_state) {
+  $ret =& drupal_static(__FUNCTION__, array());
+
+  if (empty($ret) && !empty($_FILES)) {
+    // Find any "master" row files that were uploaded.
+    foreach (array_keys($_FILES) as $master_key) {
+      if (substr($master_key, 0, 7) == 'master_') {
+        $field_name = substr($master_key, 7);
+
+        // Keep a copy of the original and unset it from the $_FILES array
+        $ret[$field_name] = $_FILES[$master_key];
+        unset($_FILES[$master_key]);
+      }
+    }
+  }
+  // Also store something in $form_state for when we rebuild the form.
+  $form_state['unfi_column_editing_master_file'] = array_keys($ret);
+  return $ret;
+}
+
+/**
+ * Helper method to upload the master file.
+ */
+function _unfi_product_editableviews_upload_master_file($element, $field_name, $master_file) {
+  // Save the uploaded file
+  if (isset($element['#parents'])) {
+    $parents = $element['#parents'];
+  }
+  else {
+    $parents = isset($element['#field_parents']) ? $element['#field_parents'] : array();
+    $parents += array($element['#field_name'], $element['#language'], $element['#delta']);
+    $element['#parents'] = $parents;
+  }
+  $upload_name = implode('_', $parents);
+  // Now we need to spoof the $_FILES array to pretend we actually uploaded
+  // the file to the first row.
+  foreach ($master_file as $key => $val) {
+    $_FILES['files'][$key][$upload_name] = $val;
+  }
+
+  // @todo we need to remove this file from the drupal_static() variable now
+  // that it has been uploaded, otherwise I think this will break with multiple
+  // file fields in the same row.
+  drupal_static_reset('_unfi_product_editableviews_get_master_files');
+
+  return file_managed_file_save_upload($element);
+}
+
+function unfi_product_editableviews_products_form_validate($form, &$form_state) {
+  //Check that Exclusive End Date is a Future Date
+  $today = strtotime(date('m/d/Y'));
+  $exDate=strtotime($form_state['input']['master_field_wf_exclusive_end_date'][0]['value']);
+  if($exDate < $today && !empty($exDate)){
+    form_set_error('Exclusive Date', 'Exclusive End Date must be a future date');
+  }
+  //Make sure that Exclusive Date is populated when a Product is set to Exclusive
+  if($form_state['input']['master_field_exclusive']['value'] == 'Exclusive Item'
+    && empty($form_state['input']['master_field_wf_exclusive_end_date'][0]['value'])
+    && isset($form_state['input']['master_field_wf_exclusive_end_date'][0]['value'])){
+    form_set_error('Exclusive Date', 'Exclusive Products must have Exclusive Date filled in');
+  }
+  
+  $upc_fields = array('field_unit_upc', 'field_pack_upc', 'field_case_upc');
+
+  if($form['#view_display_name'] == 'edit_origin'){
+    foreach($form_state['input']['node'] as $editedNode) {
+      if (($editedNode['field_country_of_origin']['und'][0] == 229 || $editedNode['field_country_of_origin']['und'][0] == 38) && empty($editedNode['field_state_providence_of_origin']['und'][0]['value'])) {
+        form_set_error('field_country_of_origin][und][0', t('A State/Province is required for the US or Canada'));
+      }
+    }
+  }
+
+  foreach ($form_state['values']['node'] as $nid => $values) {
+    foreach ($upc_fields as $upc_field) {
+      if (isset($values[$upc_field])) {
+        $lang = $form['node'][$nid][$upc_field]['#language'];
+        $value = $values[$upc_field][$lang][0]['value'];
+
+        if (!empty($value) && !unfi_product_valid_upc($value)) {
+          $title = $form['node'][$nid][$upc_field][$lang]['#title'];
+
+          $form_item = 'node][' . $nid . '][' . $upc_field . '][' . $lang . '][0][value';
+          $form_error = t('%title does not appear to be a valid UPC.', array('%title' => $title));
+
+          form_set_error($form_item, $form_error);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Form #submit callback: Products Editableviews form.
+ *
+ * @see unfi_product_form_editableviews_entity_form_products_alter()
+ */
+function unfi_product_editableviews_products_form_submit($form, &$form_state) {
+  $view = $form_state['build_info']['args'][3];
+  $edit_displays = $form_state['unfi_edit_displays'];
+  $position = $form_state['unfi_current_position'];
+  if ($form_state['triggering_element']['#value'] == t('Save & Previous')) {
+    $position--;
+  }
+  else {
+    $position++;
+  }
+
+  if ($position === count($edit_displays) && arg(0) == 'node' && is_numeric(arg(1))) {
+    drupal_goto("node/" . arg(1) . "/workflow");
+  } elseif (isset($edit_displays[$position])) {
+    $display_name = $edit_displays[$position];
+    $view->set_display($display_name);
+    $url = $view->get_url();
+    $form_state['redirect'] = $url;
+  }
+}
+
+function unfi_product_valid_upc($value) {
+  if ($value == '' || is_null($value)) {
+    return FALSE;
+  }
+
+  $value = str_replace('-', '', $value); //strip dashes
+  if (strlen($value) > 14) {
+    return FALSE;
+  }
+  else {
+    if (strlen($value) < 14) {
+      $multiplier = strlen($value);
+      $value = str_repeat('0', 14 - $multiplier) . $value;
+    }
+    if (!unfi_product_upc14_valid($value)) {
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+  * UPC/GTIN validate helper function.
+  */
+function unfi_product_upc14_valid($digits) {
+  $even = $digits[1] + $digits[3] + $digits[5] + $digits[7] + $digits[9] + $digits[11];
+  $odd = $digits[0] + $digits[2] + $digits[4] + $digits[6] + $digits[8] + $digits[10] + $digits[12];
+  $odd = $odd * 3;
+  $total = $even + $odd;
+  $checksum = $total % 10;
+  $checksum = 10 - $checksum;
+
+  // if $checksum is 10, it will convert to a check digit of 0
+  if ($checksum == 10) {
+    $checksum = 0;
+  }
+
+  return $digits[13] == $checksum;
+}
+
+/**
+ * Page callback: Master row ajax file upload.
+ */
+function unfi_product_master_file_ajax_upload($field_name) {
+  // Prepare $_POST['ajax_html_ids'] for use later
+  if (empty($_POST['ajax_html_ids'])) {
+    $ajax_html_ids = array();
+  }
+  else {
+    if (isset($_POST['ajax_html_ids'][0]) && strpos($_POST['ajax_html_ids'][0], ',') === FALSE) {
+      $ajax_html_ids = $_POST['ajax_html_ids'];
+    }
+    else {
+      // jquery.form.js may send the server a comma-separated string as the
+      // first element of an array (see http://drupal.org/node/1575060), so
+      // we need to convert it to an array in that case.
+      $ajax_html_ids = explode(',', $_POST['ajax_html_ids'][0]);
+    }
+  }
+
+  /* Stolen from the first part of file_ajax_upload() */
+  $form_parents = func_get_args();
+  $form_build_id = (string) array_pop($form_parents);
+
+  if (empty($_POST['form_build_id']) || $form_build_id != $_POST['form_build_id']) {
+    // Invalid request.
+    drupal_set_message(t('An unrecoverable error occurred. The uploaded file likely exceeded the maximum file size (@size) that this server supports.', array('@size' => format_size(file_upload_max_size()))), 'error');
+    $commands = array();
+    $commands[] = ajax_command_replace(NULL, theme('status_messages'));
+    return array('#type' => 'ajax', '#commands' => $commands);
+  }
+
+  list($form, $form_state, $form_id, $form_build_id, $commands) = ajax_get_form();
+
+  if (!$form) {
+    // Invalid form_build_id.
+    drupal_set_message(t('An unrecoverable error occurred. Use of this form has expired. Try reloading the page and submitting again.'), 'error');
+    $commands = array();
+    $commands[] = ajax_command_replace(NULL, theme('status_messages'));
+    return array('#type' => 'ajax', '#commands' => $commands);
+  }
+  /* End code stolen from file_ajax_upload() */
+
+  // Bail out early if we don't have our entities.
+  if (!isset($form_state['unfi_editing_entities'])) {
+    drupal_set_message(t('An unrecoverable error occurred. Unable to determine editing state. Try again later.'), 'error');
+    $commands = array();
+    $commands[] = ajax_command_replace(NULL, theme('status_messages'));
+    return array('#type' => 'ajax', '#commands' => $commands);
+  }
+
+  $entity_ids = $form_state['unfi_editing_entities']['entity_ids'];
+  $entity_type = $form_state['unfi_editing_entities']['entity_type'];
+
+  // Process user input. $form and $form_state are modified in the process.
+  drupal_process_form($form['#form_id'], $form, $form_state);
+
+  if ($entity_ids) {
+    // Copy the element from the first row
+    $eid = $entity_ids[0];
+    $current_element = $form[$entity_type][$eid][$field_name];
+    $lang = $current_element['#language'];
+    $current_element = $current_element[$lang];
+
+    // Remove #ajax and #attached to avoid javascript errors caused by
+    // Drupal.ajax[element].url being an array instead of a string.
+    unset($current_element['#attached'], $current_element['#ajax']);
+    foreach (element_children($current_element) as $delta) {
+      unset($current_element[$delta]['#attached'], $current_element[$delta]['#ajax']);
+      foreach (element_children($current_element[$delta]) as $subfield) {
+        unset($current_element[$delta][$subfield]['#attached'], $current_element[$delta][$subfield]['#ajax']);
+      }
+    }
+
+    // Replace the "master" row
+    $output = theme('status_messages') . drupal_render($current_element);
+    $js = drupal_add_js();
+    $settings = call_user_func_array('array_merge_recursive', $js['settings']['data']);
+
+    // Note: used str_replace() instead of drupal_clean_css_identifier() because
+    // this id is created in javascript with no equivalent. Plus the field name
+    // shouldn't contain any other special characters.
+    $css_id = '#master-file-' . str_replace('_', '-', $field_name);
+    $commands[] = ajax_command_html($css_id, $output, $settings);
+
+    // Loop through the rows and set the value for this field
+    foreach ($entity_ids as $entity_id) {
+      // Retrieve the element to be rendered.
+      $current_element = $form[$entity_type][$entity_id][$field_name];
+      $lang = $current_element['#language'];
+      $current_element = $current_element[$lang];
+
+      // Get the id for the ajax wrapper for the other file fields in the form
+      $base_id = drupal_clean_css_identifier('edit-' . $entity_type . '-' . $entity_id . '-' . $field_name . '-' . $lang);
+      $max_id = 0;
+      $id = '#' . $base_id;
+      $candidate_ids = array();
+      // Since the id's change every time they are ajax replaced, we have to find
+      // the current id from the POSTed ajax_html_ids. We can't use
+      // $current_element['#id'] because that is the next id.
+      foreach ($ajax_html_ids as $html_id) {
+        if (strpos($html_id, $base_id) === 0 && strrpos($html_id, '-ajax-wrapper') !== FALSE) {
+          $candidate_ids[] = $html_id;
+          $parts = explode('--', $html_id, 2);
+          if (!empty($parts[1]) && is_numeric($parts[1])) {
+            list($prefix, $suffix) = $parts;
+          }
+          else {
+            $suffix = 1;
+          }
+          if ($suffix > $max_id) {
+            $id = '#' . $html_id;
+          }
+        }
+      }
+
+      // Render the element
+      $output = theme('status_messages') . drupal_render($current_element);
+      $js = drupal_add_js();
+      $settings = call_user_func_array('array_merge_recursive', $js['settings']['data']);
+
+      $commands[] = ajax_command_replace($id, $output, $settings);
+    }
+  }
+
+  return array('#type' => 'ajax', '#commands' => $commands);
+}
+
+/**
+ * Simplifies Wholesale and SRP west pricing fields.
+ *
+ * @param array $element
+ * @param array $form_state
+ */
+function _unfi_product_alter_west_fob_pricing_view_form_element(&$element, &$form_state) {
+  $langcode = $element['#language'];
+
+  $wrapper = entity_metadata_wrapper($element[$langcode][0]['value']['#entity_type'], $element[$langcode][0]['value']['#entity']);
+
+  // Remove theme function, because:
+  // 1. unaesthetic table nesting
+  // 2. no re-ordering
+  // 3. no "add more"
+  $element[$langcode]['#theme'] = NULL;
+
+  $element[$langcode]['label'] = array(
+    '#theme'      => 'html_tag',
+    '#tag'        => 'label',
+    '#value'      => $element[$langcode]['#title'],
+    '#attributes' => array(),
+    '#weight'     => -1,
+  );
+
+  $delta = 0;
+  if (
+    $wrapper->field_use_mcc_west->value() == 'mcc_fob'
+    && ($temp_raw = $wrapper->field_warehouses_west->raw())
+    && !empty($temp_raw)
+  ) {
+    $warehouses = $wrapper->field_warehouses_west->value();
+
+    foreach ($warehouses as $delta => $warehouse) {
+      $element[$langcode][$delta]['_weight']['#access'] = FALSE;
+      $element[$langcode][$delta]['value']['#title'] = $warehouse->title;
+    }
+
+    $element[$langcode][$delta + 1]['#access'] = FALSE;
+    $element[$langcode]['add_more']['#access'] = FALSE;
+  }
+  else {
+    $element[$langcode][$delta]['_weight']['#access'] = FALSE;
+    $element[$langcode][$delta + 1]['#access'] = FALSE;
+    $element[$langcode]['add_more']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Expands Wholesale and SRP Pricing fields per West warehouse location.
+ *
+ * @param $entity product node
+ */
+function _unfi_product_entity_load_alter_west_fob_pricing($entity) {
+  if ($entity->type == 'product') {
+    $langcode = $entity->language;
+
+    if (
+      !empty($entity->field_use_mcc_west[$langcode][0]['value'])
+      && !empty($entity->field_warehouses_west[$langcode])
+      && isset($entity->field_srp_west)
+      && isset($entity->field_wholesale_price_west)
+      && $entity->field_use_mcc_west[$langcode][0]['value'] == 'mcc_fob'
+    ) {
+      $wares = $entity->field_warehouses_west[$langcode];
+
+      foreach ($wares as $delta => $ware_data) {
+        if (!isset($entity->field_srp_west[$langcode][$delta])) {
+          $entity->field_srp_west[$langcode][$delta] = array('value' => '');
+        }
+      }
+
+      foreach ($wares as $delta => $ware_data) {
+        if (!isset($entity->field_wholesale_price_west[$langcode][$delta])) {
+          $entity->field_wholesale_price_west[$langcode][$delta] = array('value' => '');
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_post_execute().
+ */
+function unfi_product_views_post_execute(&$view) {
+  if ($view->name == 'products' && $view->current_display == 'basic_info') {
+    foreach ($view->result as &$result) {
+      if (
+        !empty($result->field_field_use_mcc_west[0]['raw']['value'])
+        && $result->field_field_use_mcc_west[0]['raw']['value'] == 'mcc_fob'
+      ) {
+        _unfi_product_alter_west_fob_pricing_view_display($result);
+      }
+    }
+  }
+}
+
+/**
+ * Adds West warehouse location names
+ * @param stdClass $result
+ */
+function _unfi_product_alter_west_fob_pricing_view_display(&$result) {
+  $field_names = array('field_wholesale_price_west', 'field_srp_west');
+  $node        = entity_load_single('node', $result->nid);
+  $warehouses  = entity_metadata_wrapper('node', $node)->field_warehouses_west->value();
+  foreach ($field_names as $field_name) {
+    $row = &$result->{'field_' . $field_name};
+    foreach ($row as $idx => &$value) {
+      if (!empty($warehouses[$idx])) {
+        $value['rendered']['#markup'] = check_plain($warehouses[$idx]->title) .
+          ':<br />' . $value['rendered']['#markup'];
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function unfi_product_node_update($node) {
+  // Obtain the request_form ID from products
+  if (
+    $node->type == 'product'
+    && !empty($node->field_request_form[LANGUAGE_NONE][0]['target_id'])
+  ) {
+    $request_form_id = $node->field_request_form[LANGUAGE_NONE][0]['target_id'];
+  }
+
+  if (!empty($request_form_id)) {
+    // Clear product details cache for the parent request form
+    // TODO: since this is done on every product save, could improve with a static var $once or something
+    $bin       = 'cache_views_data';
+    $cids      = array();
+    $view_name = 'products';
+    $view      = views_get_view($view_name);
+    // Build a list of cache IDs to clear
+    foreach (array_keys($view->display) as $display_id) {
+      foreach (array('output', 'results') as $entry_type) {
+        $cids[] = $view_name . ':' . $display_id . ':' . $entry_type . ':' . md5($request_form_id);
+      }
+    }
+    // Now clear all caches for the parent's
+    foreach ($cids as $cid) {
+      cache_clear_all($cid, $bin, TRUE);
+    }
+  }
+}
+
+/**
+ * Adds the link to create Vendor Warehouse from new Item
+ *
+ * Does this by adding a link in the header section of the applicable view
+ */
+function unfi_product_views_pre_render(&$view){
+  global $user;
+  if($view->current_display == 'edit_vendor_warehouse_locations'){
+    $view->attachment_before = '<a href="/node/add/pick-up-location?destination='. current_path() . '">Create New Warehouse Location</a>';
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ *
+ * Sets the comment form to use WYSIWYG
+ */
+function unfi_workflow_form_alter(&$form, &$form_state, $form_id) {
+  if(strstr($form_id, 'workflow_transition_form') != FALSE){
+    $form['workflow']['workflow_comment']['#format'] = 'wysiwyg';
+    $form['workflow']['workflow_comment']['#type'] = 'text_format';
+  }
+}

@@ -1,0 +1,400 @@
+{
+  "title": "BEHAT PRODUCT DESCRIPTION",
+  "status": "1",
+  "type": "request_item",
+  "language": "und",
+  "field_case_height": {
+    "value": "24.50"
+  },
+  "field_case_length": {
+    "value": "19.50"
+  },
+  "field_case_pack": {
+    "value": "2"
+  },
+  "field_case_upc": {
+    "value": "000-70875-80010-4",
+    "format": null,
+    "safe_value": "000-70875-80010-4"
+  },
+  "field_case_weight": {
+    "value": "12.75"
+  },
+  "field_case_width": {
+    "value": "17.00"
+  },
+  "field_contains_attributes": "Artificial Preservatives",
+  "field_country_of_origin": "United States",
+  "field_fair_trade": {
+    "value": "0"
+  },
+  "field_fair_trade_certificate": {
+    "fid": "319",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "private://fair_trade_certificate/300x200.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_fat_content_attributes": "Trans Fat Free",
+  "field_high": {
+    "value": "8"
+  },
+  "field_ingredients": {
+    "value": "BEHAT INGREDIENTS LIST",
+    "format": null,
+    "safe_value": "BEHAT INGREDIENTS LIST"
+  },
+  "field_inner_pack": {
+    "value": "4"
+  },
+  "field_kosher_certificate": {
+    "fid": "320",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "private://kosher_certificate/300x200.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_major_allergen_attributes": "Egg Free",
+  "field_mc_pack": {
+    "value": "1"
+  },
+  "field_organic_certificate": {
+    "fid": "321",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "private://organic_certificate/300x200.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_pack_height": {
+    "value": "12.25"
+  },
+  "field_pack_length": {
+    "value": "6.50"
+  },
+  "field_pack_upc": {
+    "value": "000-70875-80010-4",
+    "format": null,
+    "safe_value": "000-70875-80010-4"
+  },
+  "field_pack_width": {
+    "value": "8.50"
+  },
+  "field_package_type": {
+    "value": "Can"
+  },
+  "field_part_number": {
+    "value": "8759573",
+    "format": null,
+    "safe_value": "8759573"
+  },
+  "field_primary_image": {
+    "fid": "322",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "public://primary_image/300x200_6.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "alt": "",
+    "title": "",
+    "width": "300",
+    "height": "200"
+  },
+  "field_print_in_publications": {
+    "value": "0"
+  },
+  "field_processing_attributes": "No Animal Testing",
+  "field_random_weight": {
+    "value": "0"
+  },
+  "field_rcm_category": "SODA",
+  "field_salt_content_attributes": "Low Sodium",
+  "field_shelf_life_at_dock": {
+    "value": "300"
+  },
+  "field_shelf_life_at_prod": {
+    "value": "360"
+  },
+  "field_shelf_life_retail": {
+    "value": "240"
+  },
+  "field_shipper": {
+    "value": "0"
+  },
+  "field_specialty": {
+    "value": "1"
+  },
+  "field_sweetener_attributes": "Alternative Natural Sweetener",
+  "field_temp_zone": {
+    "value": "Ambient"
+  },
+  "field_tie": {
+    "value": "6"
+  },
+  "field_unit_height": {
+    "value": "6.13"
+  },
+  "field_unit_length": {
+    "value": "3.25"
+  },
+  "field_unit_upc": {
+    "value": "000-70875-80010-4",
+    "format": null,
+    "safe_value": "000-70875-80010-4"
+  },
+  "field_unit_width": {
+    "value": "4.25"
+  },
+  "field_freight_protection_level": {
+    "value": "No Protection Needed"
+  },
+  "field_freight_protection_from": {
+    "value": "Heat"
+  },
+  "field_flavor": {
+    "value": "BEHAT FLAVOR",
+    "format": null,
+    "safe_value": "BEHAT FLAVOR"
+  },
+  "field_form": {
+    "value": "BEHAT FORM",
+    "format": null,
+    "safe_value": "BEHAT FORM"
+  },
+  "field_type": {
+    "value": "BEHAT TYPE",
+    "format": null,
+    "safe_value": "BEHAT TYPE"
+  },
+  "field_size": {
+    "value": "5.00"
+  },
+  "field_case_cost_fob_east": {
+    "value": "85.99"
+  },
+  "field_unit_cost_fob_east": {
+    "value": "54.97"
+  },
+  "field_unit_retail_fob_east": {
+    "value": "12.89"
+  },
+  "field_case_cost_del_east": {
+    "value": "86.99"
+  },
+  "field_unit_cost_del_east": {
+    "value": "55.97"
+  },
+  "field_unit_retail_del_east": {
+    "value": "13.89"
+  },
+  "field_case_cost_fob_west": {
+    "value": "87.99"
+  },
+  "field_unit_cost_fob_west": {
+    "value": "56.97"
+  },
+  "field_unit_retail_fob_west": {
+    "value": "14.89"
+  },
+  "field_case_cost_del_west": {
+    "value": "88.99"
+  },
+  "field_unit_cost_del_west": {
+    "value": "57.97"
+  },
+  "field_unit_retail_del_west": {
+    "value": "15.89"
+  },
+  "field_gluten_free": {
+    "value": "0"
+  },
+  "field_gluten_free_certification": {
+    "fid": "323",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "private://gluten_free_certificate/300x200.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_free_of_attributes": "Alcohol Free",
+  "field_brand": {
+    "value": "BEHAT PRODUCT BRAND",
+    "format": null,
+    "safe_value": "BEHAT PRODUCT BRAND"
+  },
+  "field_notes_east": {
+    "value": "BEHAT DISTRIBUTOR COSTS EAST NOTES",
+    "format": null,
+    "safe_value": "BEHAT DISTRIBUTOR COSTS EAST NOTES"
+  },
+  "field_notes_west": {
+    "value": "BEHAT DISTRIBUTOR COSTS WEST NOTES",
+    "format": null,
+    "safe_value": "BEHAT DISTRIBUTOR COSTS WEST NOTES"
+  },
+  "field_pricing_sheet": {
+    "fid": "324",
+    "uid": "135",
+    "filename": "test.xlsx",
+    "uri": "private://test_6.xlsx",
+    "filemime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "filesize": "539350",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_pricing_sheet_west": {
+    "fid": "325",
+    "uid": "135",
+    "filename": "test.xlsx",
+    "uri": "private://test_7.xlsx",
+    "filemime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "filesize": "539350",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_product_category": {
+    "value": "Beverage"
+  },
+  "field_beverage_container": {
+    "value": "California"
+  },
+  "field_bottle_color": {
+    "value": "GREEN",
+    "format": null,
+    "safe_value": "GREEN"
+  },
+  "field_container_type": {
+    "value": "Aluminum"
+  },
+  "field_exclusive": {
+    "value": "Private Label"
+  },
+  "field_product_labels": {
+    "fid": "326",
+    "uid": "135",
+    "filename": "300x200.jpg",
+    "uri": "private://300x200_7.jpg",
+    "filemime": "image/jpeg",
+    "filesize": "9541",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_unit_of_measure": {
+    "value": "COUNT"
+  },
+  "field_mc_upc_same_as_item_upc": {
+    "value": "0"
+  },
+  "field_east_category": "BULK COATED CONFECTIONS",
+  "field_west_category": "FLOURS & POWDERS",
+  "field_enrobed_in_chocolate_": {
+    "value": "0"
+  },
+  "field_nop_organic": {
+    "value": "0"
+  },
+  "field_ethnic_cultural": {
+    "value": "BEHAT CULTURAL",
+    "format": null,
+    "safe_value": "BEHAT CULTURAL"
+  },
+  "field_new_product_discount_type": {
+    "value": "Off Invoice"
+  },
+  "field_unfi_buy_dates": "2014-10-05 00:00:00,2014-10-24 00:00:00,America/New_York,America/New_York,datetime",
+  "field_pre_90_day_discount_": {
+    "value": "0"
+  },
+  "field_pre_90_order_dates": "2014-10-21 00:00:00,2014-10-29 00:00:00,America/New_York,America/New_York,datetime",
+  "field_unfi_contribution": {
+    "value": "2.00"
+  },
+  "field_new_product_discount": {
+    "value": "4.00"
+  },
+  "field_intro_promo_months": "2014-10-01 00:00:00,2014-11-01 00:00:00,America/New_York,America/New_York,datetime",
+  "field_type_of_code_life_dating": {
+    "value": "No Expiration"
+  },
+  "field_baltimore_beverage_tax": {
+    "value": "1"
+  },
+  "field_chicago_water_tax": {
+    "value": "1"
+  },
+  "field_need_by_date": "2014-10-12 00:00:00,America/New_York,America/New_York,datetime",
+  "field_shipper_unit_total": {
+    "value": "0"
+  },
+  "field_ubs_number": {
+    "value": "12345"
+  },
+  "field_warehouse_group": "Cooler",
+  "field_warehouses_east": {
+    "target_id": "27"
+  },
+  "field_warehouses_west": {
+    "target_id": "35"
+  },
+  "field_west_dept": "Vitamin Cottage Only",
+  "field_west_subheader_catalog": "ARTHRITIS & JOINT HEALTH",
+  "field_east_brand": {
+    "value": "ESTBRN",
+    "format": null,
+    "safe_value": "ESTBRN"
+  },
+  "field_freight_form": {
+    "fid": "327",
+    "uid": "135",
+    "filename": "test.xlsx",
+    "uri": "private://freight_forms/test_45.xlsx",
+    "filemime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "filesize": "539350",
+    "status": "1",
+    "timestamp": "1412791273",
+    "display": "1",
+    "description": ""
+  },
+  "field_requested_by": {
+    "value": "BEHAT REQUESTED BY",
+    "format": null,
+    "safe_value": "BEHAT REQUESTED BY"
+  },
+  "field_west_brand": {
+    "value": "WSTBRND",
+    "format": null,
+    "safe_value": "WSTBRND"
+  },
+  "field_warehouses_select": {
+    "target_id": "3644"
+  },
+  "field_national_selling_pack": {
+    "value": "IN"
+  }
+}

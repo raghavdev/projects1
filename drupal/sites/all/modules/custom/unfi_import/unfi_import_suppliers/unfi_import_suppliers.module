@@ -1,0 +1,427 @@
+<?php
+/**
+ * @file
+ * Code for UNFI Import Suppliers module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'unfi_import_suppliers') . '/unfi_import_suppliers.install';
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_import_suppliers_menu() {
+  $items['admin/config/unfi_import/suppliers'] = array(
+    'title' => t('Import Supplier Users'),
+    'description' => t('Upload a .csv file to create new users for Suppliers.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unfi_import_suppliers_upload_form'),
+    'access arguments' => array('unfi import data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Upload form that allows the user to submit a .csv file for processing.
+ */
+function unfi_import_suppliers_upload_form() {
+  $form['csv_file'] = array(
+    '#type'               => 'managed_file',
+    '#title'              => t('Comma Separated File'),
+    '#upload_location'    => 'temporary://',
+    '#upload_validators'  => array('file_validate_extensions' => array('csv txt')),
+    '#description'        => t('File must be in .csv format.') .
+      unfi_import_generate_example(unfi_import_suppliers_fetch_tables()),
+  );
+
+  $form['delimiter'] = array(
+    '#type'    => 'select',
+    '#title'   => t('Delimiter'),
+    '#options' => array(
+      'comma' => 'comma ,',
+      'tab'   => 'tab \t',
+      'pipe'  => 'pipe |',
+      'tilde' => 'tilde ~',
+    ),
+    '#required'      => FALSE,
+    '#default_value' => 'comma',
+    '#description'   => t('Delimiter of the data file.'),
+  );
+
+  $form['contains_header'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('File contains a header'),
+    '#default_value' => TRUE,
+    '#description'   => t('Skip the first line because it is a header.'),
+  );
+
+  $form['batch_limit'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Processing Throttle'),
+    '#size'          => 6,
+    '#required'      => TRUE,
+    '#default_value' => variable_get('unfi_import_suppliers_batch_limit', 500),
+    '#description'   => t('The number of lines to process per iteration.')
+  );
+
+  $roles = og_roles('node', 'supplier', 0, FALSE, FALSE);
+  if (!empty($roles)) {
+    $options = array(0 => 'member') + $roles;
+    $form['group_role'] = array(
+      '#type' => 'select',
+      '#title' => t('Group Role'),
+      '#options' => $options,
+      '#default_value' => 0,
+    );
+  }
+
+  $form['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => t('Upload Data'),
+  );
+
+  return $form;
+}
+
+function unfi_import_suppliers_upload_form_validate($form, &$form_state) {
+  if (
+    empty($form_state['values']['csv_file'])
+    || !file_load($form_state['values']['csv_file'])
+  ) {
+    form_set_error('csv_file', t('No file was uploaded.'));
+  }
+
+  if (
+    empty($form_state['values']['batch_limit'])
+    || !is_numeric($form_state['values']['batch_limit'])
+    || $form_state['values']['batch_limit'] < 1
+  ) {
+    form_set_error('batch_limit', t('Processing Throttle must be a positive whole number greater than zero.'));
+  }
+}
+
+function unfi_import_suppliers_upload_form_submit($form, &$form_state) {
+
+  variable_set('unfi_import_suppliers_batch_limit', (int)$form_state['values']['batch_limit']);
+
+  $file = file_load($form_state['values']['csv_file']);
+
+  batch_set(array(
+    'operations' => array(
+      array('unfi_import_suppliers_import_data', array(
+        $form_state['values']['csv_file'], // $file_id
+        (bool)$form_state['values']['contains_header'], // $contains_header
+        $form_state['values']['delimiter'], // $delimiter
+        (int)$form_state['values']['batch_limit']), // $limit
+      ),
+      array('unfi_import_suppliers_add_users', array($form_state['values']['group_role'])),
+    ),
+    'finished'         => 'unfi_import_suppliers_import_data_finished',
+    'title'            => t('Importing !v', array('!v' => $file->filename)),
+    'init_message'     => t('!v import is starting.', array('!v' => $file->filename)),
+    'progress_message' => '',
+    'error_message'    => t('!v import has encountered an error.', array('!v' => $file->filename)),
+    'file'             => drupal_get_path('module', 'unfi_import_suppliers') . '/unfi_import_suppliers.module',
+  ));
+}
+
+/**
+ * Read the csv file into the database
+ */
+function unfi_import_suppliers_import_data($file_id, $contains_header, $delimiter, $limit, &$context) {
+
+  $auto_detect_line_endings = ini_get('auto_detect_line_endings');
+  ini_set('auto_detect_line_endings', TRUE);
+
+  // Query file data
+  $file = file_load($file_id);
+
+  //read records from the csv file
+  $handle = fopen($file->uri, 'r');
+
+  // Get the tables to work with
+  $tables = unfi_import_suppliers_fetch_tables();
+
+  if (!isset($context['sandbox']['total'])) {
+    // Prepare counters for results
+    $context['results']['insert']     = 0;
+    $context['results']['delete']     = 0;
+    $context['results']['duplicates'] = 0;
+    // Prepare sandbox for progress tracking
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['total']    = 0;
+    while (!feof($handle)) {
+      $context['sandbox']['total']++;
+      fgets($handle);
+    }
+    fseek($handle, 0);
+    // Prep the tables for import.
+    unfi_import_prepare_tables($tables);
+  }
+
+  // Temp progress counter for this iteration
+  $ix = 0;
+  // Get lines to move pointer until the end of file or where the last iteration ended
+  while (!feof($handle) && $ix < $context['sandbox']['progress']) {
+    $ix++;
+    fgets($handle);
+  }
+
+  // todo: ideally would have some validation here to make sure the columns in the file match what is expected.
+
+  $ix = 0; // Batch counter
+  // Loop to the end of the file
+  while (!feof($handle) && $ix < $limit) {
+    $ix++; // Increment counter
+    $context['sandbox']['progress']++; // Increment total progress counter
+    // Get line and parse CSV data
+    $row = fgetcsv($handle, 0, unfi_import_convert_delimiter($delimiter), '"');
+    // A blank line will return as array(0 => NULL)
+    if (isset($row[1])) { // todo: could do a count check compared to expected count (see todo note above)
+      // skip the header line if the form was told to expect a header.
+      if($contains_header && $context['sandbox']['progress'] == 1) {
+        continue;
+      }
+      // Check that row one is an integer, to prevent bad data coming through.
+      if(!is_numeric($row[1])) {
+        continue;
+      }
+      // Store data in a staging/temp table to be processed below
+      foreach ($tables as $table_name => $table_info) {
+        unfi_import_insert_record($table_name, $table_info['fields'], $row);
+      }
+    }
+  }
+  // Close file stream
+  fclose($handle);
+  ini_set('auto_detect_line_endings', $auto_detect_line_endings);
+  // Notify user of progess
+  $context['message'] = t('Processed @c out of @t lines', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['total'];
+  }
+}
+
+function unfi_import_suppliers_add_users($og_role, &$context) {
+  // Initialize
+  if (!isset($context['sandbox']['total'])) {
+    // Count query for SRMs
+    $query = db_select('unfi_import_suppliers', 'uis');
+    // Prepare sandbox for progress tracking
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['total']    = (int) $query->countQuery()->execute()->fetchField();
+    $context['results']['users_created'] = array();
+    $context['results']['failed_accounts'] = array();
+    $context['results']['contacts_created'] = array();
+    $context['results']['ignored_suppliers'] = array();
+  }
+
+  $limit = 10;
+  $pos = $context['sandbox']['progress'];
+  $result = db_select('unfi_import_suppliers', 'uis')
+    ->fields('uis')
+    ->range($pos, $limit)
+    ->execute();
+  foreach ($result as $row) {
+    $account = user_load_by_mail($row->contact_email);
+
+    // No user with that email, create an account
+    if (!$account) {
+      $firstname = trim($row->contact_firstname);
+      $lastname = trim($row->contact_lastname);
+      $fullname = trim($firstname . ' ' . $lastname);
+
+      $edit = array(
+        'mail' => $row->contact_email,
+        'name' => $row->contact_email,
+        'init' => $row->contact_email,
+        'field_first_name' => array(
+          LANGUAGE_NONE => array(
+            array(
+              'value' => $firstname,
+            ),
+          ),
+        ),
+        'field_last_name' => array(
+          LANGUAGE_NONE => array(
+            array(
+              'value' => $lastname,
+            ),
+          ),
+        ),
+        'roles' => array(
+          9 => 'Supplier',
+        ),
+        'status' => 1,
+        'data' => array(),
+      );
+      $account = (object) $edit;
+      try {
+        $account = user_save($account, $edit);
+        _user_mail_notify('register_admin_created', $account);
+        $context['results']['users_created'][] = $account->uid;
+      }
+      catch (Exception $e) {
+        $context['results']['failed_accounts'][] = $row->contact_email;
+      }
+    }
+    else {
+      $account->roles[9] = 'Supplier';
+      user_save($account);
+    }
+
+    $supplier_nid = db_select('field_data_field_remit_number', 'rn')
+      ->fields('rn', array('entity_id'))
+      ->condition('rn.entity_type', 'node')
+      ->condition('rn.bundle', 'supplier')
+      ->condition('rn.deleted', 0)
+      ->condition('rn.delta', 0)
+      ->condition('rn.field_remit_number_value', $row->remit_number)
+      ->execute()
+      ->fetchField();
+
+    if (!$supplier_nid) {
+      if (!isset($context['results']['ignored_suppliers'][$row->remit_number])) {
+        $context['results']['ignored_suppliers'][$row->remit_number] = $row->supplier;
+      }
+    }
+    else {
+      // Associate the user with the supplier.
+      $membership = array(
+        'entity_type' => 'user',
+        'entity' => $account,
+      );
+      og_group('node', $supplier_nid, $membership);
+
+      if (!empty($og_role)) {
+        og_role_grant('node', $supplier_nid, $account->uid, $og_role);
+      }
+
+      // Check to see if there is a contact for this email
+      $query = db_select('field_data_field_email_address', 'e')
+        ->condition('e.entity_type', 'node')
+        ->condition('e.bundle', 'supplier_contact')
+        ->condition('e.deleted', 0)
+        ->condition('e.delta', 0)
+        ->condition('e.field_email_address_email', $row->contact_email)
+        ->fields('e', array('entity_id'));
+      $query->innerJoin('og_membership', 'gm', 'e.entity_id=gm.etid AND e.entity_type=gm.entity_type');
+      $contact_nid = $query->condition('gm.group_type', 'node')
+        ->condition('gm.field_name', 'og_group_ref')
+        ->condition('gm.state', 1)
+        ->condition('gm.gid', $supplier_nid)
+        ->execute()
+        ->fetchField();
+      if (!$contact_nid) {
+        $contact = (object) array(
+          'type' => 'supplier_contact',
+          'title' => $fullname,
+          'field_first_name' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'value' => $firstname,
+              ),
+            ),
+          ),
+          'field_last_name' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'value' => $lastname,
+              ),
+            ),
+          ),
+          'field_contact_type' => array(
+            LANGUAGE_NONE => array(
+            ),
+          ),
+          'field_phone' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'value' => $row->contact_phone,
+              ),
+            ),
+          ),
+          'field_email_address' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'email' => $row->contact_email,
+              ),
+            ),
+          ),
+          'og_group_ref' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'target_id' => $supplier_nid,
+              ),
+            ),
+          ),
+          'field_primary_contact' => array(
+            LANGUAGE_NONE => array(
+              array(
+                'value' => (int) $row->is_primary,
+              ),
+            ),
+          ),
+        );
+        node_save($contact);
+        $context['results']['contacts_created'][] = $contact->nid;
+      }
+    }
+  }
+  $context['sandbox']['progress'] += $limit;
+
+  // Notify user of progess
+  $context['message'] = t('Processed @c out of @t Supplier users', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+  // Calculate if finished
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = min($context['sandbox']['progress'] / $context['sandbox']['total'], 1);
+  }
+}
+
+function unfi_import_suppliers_import_data_finished($success, $results, $operations) {
+  // Update the log tables.
+  $tables = unfi_import_suppliers_fetch_tables();
+  unfi_import_push_to_log_tables($tables);
+  if ($success) {
+    // Clear cache.
+    drupal_flush_all_caches();
+    $missing = count($results['ignored_suppliers']);
+    // Report simple stats to user
+    $message  = t('Import Finished');
+    $message .= '<br /><strong>' . t('Summary') . '</strong>';
+    $message .= '<br />' . t('@c Suppliers Not Found', array('@c' => $missing));
+    $message .= '<br />' . t('@c User Accounts Failed to be created', array('@c' => count($results['failed_accounts'])));
+    $message .= '<br />' . t('@c New User Accounts', array('@c' => count($results['users_created'])));
+    $message .= '<br />' . t('@c New Supplier Contacts', array('@c' => count($results['contacts_created'])));
+    if ($missing) {
+      $message .= '<br /><br /><strong>' . t('Missing Suppliers') . '</strong>';
+      foreach ($results['ignored_suppliers'] as $number => $name) {
+        $message .= '<br />' . t('@num: @name', array('@num' => $number, '@name' => $name));
+      }
+    }
+    drupal_set_message($message);
+  }
+  // An error occurred.
+  // $operations contains the operations that remained unprocessed.
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %op with arguments: <pre>@arg</pre>', array(
+      '%op'  => $error_operation[0],
+      '@arg' => print_r($error_operation[1], TRUE)
+    ));
+    drupal_set_message($message, 'error');
+  }
+}

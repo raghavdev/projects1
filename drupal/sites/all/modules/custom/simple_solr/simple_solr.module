@@ -1,0 +1,268 @@
+<?php
+
+/*
+ * Read entity data from SOLR.
+ */
+function simple_solr_search($variables) {
+  // Expected defaults
+  $variables += array(
+    'query_parameters' => array(),
+    'searched_fields'  => array(),
+    'return_fields'    => array(),
+    'non_wild_fields'  => array(),
+  );
+  // Preserve parameters
+  $variables['original_parameters'] = $variables['query_parameters'];
+  // Initialize return
+  $retval = array(
+    'total'   => 0,
+    'count'   => 0,
+    'results' => array(),
+  );
+  // User error checking
+  if (empty($variables['index_name'])) {
+    // TODO: Throw/Display error
+    return $retval;
+  }
+  // Extract passed-in variables,
+  // as memory references that do not overwrite existing
+  extract($variables, EXTR_REFS | EXTR_SKIP);
+
+  //get the search index object
+  $index = search_api_index_load($index_name);
+
+  //get the server
+  $server = search_api_index_get_server($index);
+
+  if (empty($server) || empty($index)) {
+    // TODO: Throw/Display error
+    return $retval;
+  }
+
+  $query = new SearchApiQuery($index);
+
+  //without this we get lots of errors
+  $query->fields(array());
+
+  // For Drupal alters
+  $objects = array(
+    'server' => $server,
+    'index'  => $index,
+    'query'  => $query,
+  );
+
+  // Allow query to be altered
+  drupal_alter('simple_solr_search_query_build', $query, $variables, $objects);
+
+  //page parameters
+  if (array_key_exists('page', $query_parameters)) {
+    //pass 0 to get all of the entities in the index
+    if ($query_parameters['perPage'] != 0) {
+      $query->range($query_parameters['page'] * $query_parameters['perPage'], $query_parameters['perPage']);
+    }
+    //remove it from the list
+    unset($query_parameters['page']);
+    unset($query_parameters['perPage']);
+  }
+
+  //sort parameters
+  if (array_key_exists('sort', $query_parameters)) {
+    $sort_dir = 'ASC';
+
+    if (array_key_exists('sort_dir', $query_parameters)) {
+      $sort_dir = $query_parameters['sort_dir'];
+      //double check the value
+      if ($sort_dir != 'ASC' && $sort_dir != 'DESC') {
+        $sort_dir = 'ASC';
+      }
+      unset($query_parameters['sort_dir']);
+    }
+
+    $query->sort($query_parameters['sort'], $sort_dir);
+    unset($query_parameters['sort']);
+  }
+
+  //a flag to signify that we will be doing a search and to employ wild cards
+  if (array_key_exists('search', $query_parameters) && count($searched_fields) > 0) {
+    $fulltext_fields = $index->getFulltextFields();
+
+    $filter = $query->createFilter('OR');
+
+    //set it to look at the fields that are searched
+    foreach ($searched_fields as $field_name) {
+      if (is_array(($query_parameters['search']))) {
+        foreach ($query_parameters['search'] as $s) {
+          if (in_array($field_name, $non_wild_fields)) {
+            //TODO: TEMP need to fix this to use better and more logic
+            if (is_numeric($s)) {
+              $filter->condition($field_name, $s);
+            }
+          }
+          else {
+            if (!in_array($field_name, $fulltext_fields)) {
+              $filter->condition($field_name, '*' . $s . '*');
+            }
+            else {
+              $filter->condition($field_name, $s);
+            }
+          }
+        }
+      }
+      else {
+        if (in_array($field_name, $non_wild_fields)) {
+          //TODO: TEMP need to fix this to use better and more logic
+          //assuming the lack of wild card is due to numeric
+          if (is_numeric($query_parameters['search'])) {
+            $filter->condition($field_name, $query_parameters['search']);
+          }
+        }
+        else {
+          if (!in_array($field_name, $fulltext_fields)) {
+            $filter->condition($field_name, '*' . $query_parameters['search'] . '*');
+          }
+          else {
+            $filter->condition($field_name, $query_parameters['search']);
+          }
+        }
+      }
+    }
+
+    $query->filter($filter);
+
+    unset($query_parameters['search']);
+  }
+
+  foreach ($query_parameters as $q => $v) {
+    //if an array is passed in we do an or condition on that set
+    if (is_array($v)) {
+     $filter = $query->createFilter('OR');
+
+     foreach ($v as $subvalue) {
+       $filter->condition($q, $subvalue);
+     }
+
+     $query->filter($filter);
+    }
+    else {
+      $query->condition($q, $v);
+    }
+  }
+
+  $solr = new SearchApiSolrService($server);
+
+  // For Drupal alters
+  $object['solr'] = $solr;
+
+  // Allow query to be altered again just before execution
+  drupal_alter('simple_solr_search_pre_execute', $query, $variables, $objects);
+
+  $results = $solr->search($query);
+
+  // Allow "raw" results to be altered
+  drupal_alter('simple_solr_search_post_execute', $results, $variables, $objects);
+
+  $result_data = array();
+
+  if (array_key_exists('results', $results)) {
+
+    //remove some solr fields
+    $removal_list = array('search_api_id', 'search_api_relevance', 'search_api_language');
+
+    //clean up the data returned
+    foreach ($results['results'] as $result) {
+
+      foreach ($removal_list as $field) {
+        if (array_key_exists($field, $result['fields'])) {
+          unset($result['fields'][$field]);
+        }
+      }
+
+      //remove any fields that are not in the returned list, but skip image fields
+      if (count($return_fields) > 0) {
+        foreach ($result['fields'] as $key => $value) {
+          if (
+            !in_array($key, $return_fields)
+            && !in_array(str_replace('field_', '', $key), $return_fields)
+            && strpos($key, '_image') === false
+          ) {
+            unset($result['fields'][$key]);
+          }
+        }
+      }
+
+      $result_data[] = $result['fields'];
+    }
+  }
+
+  $retval['total']   = $results['result count'];
+  $retval['count']   = sizeof($result_data);
+  $retval['results'] = $result_data;
+
+  // Allow final results to be altered
+  drupal_alter('simple_solr_search_results', $retval, $variables, $objects);
+
+  return $retval;
+}
+
+/**
+ * Quick and direct update to the Solr index.
+ */
+function simple_solr_direct_update_field($variables) {
+
+  // TODO: entity_type is pointless, unless the index is either determined from name or entity_type
+  // which the latter could be used by multiple indexes
+  $var_keys = array('index_name', 'entity_type', 'field_name', 'entity_id', 'field_value');
+  $key_diff = array_diff($var_keys, array_keys($variables));
+  if (!empty($key_diff)) {
+    return; // TODO: error
+  }
+  // Extract passed-in variables,
+  // as memory references that do not overwrite existing
+  extract($variables, EXTR_REFS | EXTR_SKIP);
+
+  //get the search index object
+  $index = search_api_index_load($index_name);
+
+  //get the server
+  $server = search_api_index_get_server($index);
+
+  // TODO: error checking to make sure it is a Solr server
+  //get the Solr connection
+  $conn = $server->getSolrConnection();
+
+  //get the data for the Solr field name
+  $variables['field_type']  = $index->options['fields'][$field_name]['type']; // TODO: error checking
+  $variables['solr_prefix'] = 'ss_';
+  // "Extract" new variables
+  $field_type  = &$variables['field_type'];
+  $solr_prefix = &$variables['solr_prefix'];
+
+  // TODO: other entities
+  $entity_ref_types = array('node', 'taxonomy_term');
+
+  if ($field_type == 'integer') {
+    $solr_prefix = 'is_';
+  }
+  else if ($field_type == 'boolean') {
+    $solr_prefix = 'bs_';
+  }
+  else if ($field_type == 'date') {
+    $solr_prefix = 'ds_';
+  }
+  else if (in_array($field_type, $entity_ref_types)) {
+    $solr_prefix = 'is_';
+  }
+
+  $objects = array(
+    'server' => $server,
+    'index'  => $index,
+  );
+
+  // Allow variables to be altered
+  drupal_alter('simple_solr_direct_update_field', $variables, $objects);
+
+  $req = '<add><doc><field name="id">' . $index_name . '-' . $entity_id . '</field><field name="' . $solr_prefix . $field_name . '" update="set">' . $field_value . '</field></doc></add>';
+
+  //use the connection to run a query
+  $r = $conn->update($req);
+}

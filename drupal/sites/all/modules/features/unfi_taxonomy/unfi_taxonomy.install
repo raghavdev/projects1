@@ -1,0 +1,939 @@
+<?php
+/**
+ * @file
+ * UNFI Taxonomy installation and update functions.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function unfi_taxonomy_uninstall() {
+  variable_delete('unfi_taxonomy_fields');
+}
+
+/**
+ * Update East Category terms with tax codes from spreadsheet.
+ */
+function unfi_taxonomy_update_7001() {
+  // An array of Category Number => Tax Code's
+  $term_tax_codes = array(
+    58 => 1, // Bath, & Shower Preperations
+    170 => 1, // Candles
+    83 => 1, // Cosmetics
+    57 => 1, // Deoderants
+    56 => 1, // Facial Care
+    80 => 1, // Hair Care
+    130 => 1, // Household Cleaning Supplies
+    75 => 1, // Labels/ Boxes/ Misc Internal Supplies
+    81 => 1, // Lotion, Hand & Body
+    86 => 1, // Merchandising Aids
+    79 => 1, // Misc. Non Foods
+    23 => 1, // Oils, Essential/ Body/ Massage
+    87 => 1, // Personal Care Accessories
+    190 => 1, // Pet Food & Care
+    82 => 1, // Soaps, Body
+    69 => 1, // Sun Care
+    84 => 2, // Amino Acids
+    21 => 2, // Beverage, Supplements
+    49 => 2, // Diet Formulas
+    39 => 2, // Food Supplements
+    48 => 2, // Herbal Formulas
+    52 => 2, // Homepathic
+    41 => 2, // Mineral, & Complexes
+    42 => 2, // Multivitamins
+    51 => 2, // Oils, Fish/ EPA & GLA
+    85 => 2, // Sports Supplements
+    43 => 2, // Supplement, Specialty
+    31 => 2, // Vitamin A& D, Beta Carotene
+    32 => 2, // Vitamin B& B Complex
+    33 => 2, // Vitamin C & C Complex
+    37 => 2, // Vitamin E Products
+    7 => 3, // Bulk Coated Confections
+    60 => 3, // Candy Bars/ Candy/ Gum/ Cough Drops
+    24 => 4, // Beverage, Carbonated Juice/Soda
+    18 => 5, // Bars, Cereal/ Snack/ Granola
+    5 => 5, // Bulk Snacks/ Trail Mix/ Cereals
+    30 => 5, // Cookies
+    3400 => 5, // Crackers
+    67 => 5, // Dessert (non-frozen & non-cookies)
+    35 => 5, // Rice Cakes
+    91 => 6, // Apparel
+    14 => 7, // Feminine Hygiene
+    12 => 7, // Paper Goods/ Fem Hygiene/ Wipes
+    71 => 9, // Oral Hygiene
+    6400 => 10, // Baked Goods, non-perishable
+    89 => 10, // Baking, Mixes/ Flours/  Granules
+    2900 => 10, // Beans Grains & Rice
+    47 => 10, // Beverage, Coffee/ Coffee Substitutes/ Misc Mixes
+    20 => 10, // Beverage, Juices/Nectars/Concentrates
+    25 => 10, // Beverage, Non-Dairy/Aseptic Milk
+    46 => 10, // Beverage, Tea-Bags/Loose/Ready to Drink
+    3 => 10, // Bulk Coffee/ Tea
+    8 => 10, // Bulk Flours/ Sweeteners/ Baking Supplies
+    1 => 10, // Bulk Food Service - Misc Deli
+    2 => 10, // Bulk Grains & Beans
+    9 => 10, // Bulk Herbs, Spices, Nutritional
+    4 => 10, // Bulk Nuts & Seeds
+    10 => 10, // Bulk Pasta
+    55 => 10, // Canned, Seafood, Beans, & Misc. Goods
+    27 => 10, // Cereal, Hot
+    28 => 10, // Cereal, pkgd/ Ready to Eat
+    72 => 10, // Condiments (mayo/mustard/catsup/vinegar)
+    88 => 10, // Entres, Main Dish/ Mixes
+    77 => 10, // Frozen, Fruit & Veggies
+    40 => 10, // Fruit, Spread/ Sauces/ Can'd
+    45 => 10, // Herbs, single
+    92 => 10, // Macrobiotic, Foods/ Tofu (aseptic pak)/ Japanese
+    19 => 10, // NPS Frozen Foods
+    44 => 10, // Oils, Food Grade
+    76 => 10, // Pasta Sauces
+    11 => 10, // Pasta, packaged
+    97 => 10, // Refrigerated, Beverages
+    93 => 10, // Refrigerated, Cheese & Substitutes
+    95 => 10, // Refrigerated, Soy Foods / Seitan
+    94 => 10, // Refrigerated, Yogurts/ Cultures
+    98 => 10, // Refrigerated, Misc.
+    850 => 10, // Refrig Bread & Baked Goods
+    78 => 10, // Pickles/ Olives/ Sauerkraut
+    70 => 10, // Salad Dressing
+    73 => 10, // Salsa & Dips
+    99 => 10, // Sea Vegetables
+    50 => 10, // Seasoning/Salt, pkgd
+    53 => 10, // Soup, & Broths/ Chili (can&jar)
+    54 => 10, // Soup, Dry Mixes/ Bouillion / Ramen
+    38 => 10, // Spreads, Nut & Seed/ Tahini
+    16 => 10, // Sweeteners, pkgd & Flavoring/Syrups
+    74 => 10, // Tamaris/ Gravy/ Sauces
+    68 => 10, // Tomatoes, canned & Tomato Products
+    15 => 11, // Bars, Nutritional
+    22 => 15, // Beverage, Waters
+    6 => 16, // Bulk Dried Fruit
+    36 => 17, // Digestive Aids/ Fiber & Intestinal Cleansers
+    59 => 17, // Ointments, & Medicinal Creams
+  );
+
+  $ret = '';
+
+  foreach ($term_tax_codes as $category_number => $tax_code) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'taxonomy_term')
+      ->entityCondition('bundle', 'east_category')
+      ->fieldCondition('field_category_number', 'value', $category_number);
+    $result = $query->execute();
+    if (isset($result['taxonomy_term'])) {
+      $tids = array_keys($result['taxonomy_term']);
+      $terms = entity_load('taxonomy_term', $tids);
+      foreach ($terms as $term) {
+        $term->field_tax_code['und'][0]['value'] = $tax_code;
+        taxonomy_term_save($term);
+      }
+    }
+    else {
+      $ret .= t('No terms found for category @num', array('@num' => $category_number)) . "\n";
+    }
+  }
+
+  return $ret;
+}
+
+
+/**
+ * Update East Category terms with Account codes from spreadsheet.
+ */
+function unfi_taxonomy_update_7002() {
+  // Array of Account Codes' => Account Code Names
+  $account_codes = array(
+    1 => 'Bulk Foods',
+    2 => 'Frozen Foods',
+    3 => 'Perishables',
+    4 => 'Grocery & Beverages & Pet Products',
+    5 => 'Personal Care ',
+    6 => 'Supplements',
+    7 => 'Produce',
+    8 => 'General Merchandise',
+  );
+
+  // An array of Category Number => Account Code's
+  $term_account_codes = array(
+    1 => 1,
+    2 => 1,
+    3 => 1,
+    4 => 1,
+    5 => 1,
+    6 => 1,
+    7 => 1,
+    8 => 1,
+    9 => 1,
+    10 => 1,
+    11 => 4,
+    12 => 4,
+    14 => 5,
+    15 => 4,
+    16 => 4,
+    18 => 4,
+    19 => 4,
+    20 => 4,
+    21 => 6,
+    22 => 4,
+    23 => 5,
+    24 => 4,
+    25 => 4,
+    27 => 4,
+    28 => 4,
+    30 => 4,
+    31 => 6,
+    32 => 6,
+    33 => 6,
+    35 => 4,
+    36 => 6,
+    37 => 6,
+    38 => 4,
+    39 => 6,
+    40 => 4,
+    41 => 6,
+    42 => 6,
+    43 => 6,
+    44 => 4,
+    45 => 6,
+    46 => 4,
+    47 => 4,
+    48 => 6,
+    49 => 6,
+    50 => 4,
+    51 => 6,
+    52 => 6,
+    53 => 4,
+    54 => 4,
+    55 => 4,
+    56 => 5,
+    57 => 5,
+    58 => 5,
+    59 => 5,
+    60 => 4,
+    67 => 4,
+    68 => 4,
+    69 => 5,
+    70 => 4,
+    71 => 5,
+    72 => 4,
+    73 => 4,
+    74 => 4,
+    75 => 4,
+    76 => 4,
+    78 => 4,
+    79 => 4,
+    80 => 5,
+    81 => 5,
+    82 => 5,
+    83 => 5,
+    84 => 6,
+    85 => 6,
+    86 => 4,
+    87 => 5,
+    88 => 4,
+    89 => 4,
+    91 => 4,
+    92 => 4,
+    93 => 3,
+    94 => 3,
+    95 => 3,
+    97 => 3,
+    98 => 3,
+    99 => 4,
+    100 => 4,
+    130 => 4,
+    170 => 5,
+    190 => 4,
+    600 => 2,
+    610 => 2,
+    620 => 2,
+    640 => 2,
+    650 => 2,
+    660 => 2,
+    670 => 2,
+    680 => 2,
+    690 => 2,
+    700 => 2,
+    850 => 3,
+    1001 => 4,
+    2600 => 4,
+    2900 => 4,
+    3000 => 4,
+    3100 => 3,
+    3400 => 4,
+    4018 => 4,
+    4030 => 4,
+    4034 => 4,
+    4050 => 4,
+    4060 => 4,
+    4065 => 4,
+    4100 => 4,
+    4300 => 4,
+    4800 => 4,
+    4881 => 4,
+    4900 => 4,
+    5100 => 4,
+    5200 => 4,
+    6100 => 6,
+    6400 => 4,
+    6500 => 4,
+  );
+
+  $ret = '';
+
+  $account_code_term_map = array();
+
+  $account_codes_vocab = taxonomy_vocabulary_machine_name_load('account_codes');
+  $vid = $account_codes_vocab->vid;
+  // Add terms for account_codes taxonomy
+  foreach ($account_codes as $code_number => $term_name) {
+    $terms = taxonomy_get_term_by_name($term_name);
+    if (count($terms) == 0) {
+      $term = (object) array(
+        'vid' => $vid,
+        'name' => $term_name,
+        'field_account_code_number' => array(
+          'und' => array(
+            array(
+              'value' => $code_number,
+            ),
+          ),
+        ),
+      );
+      taxonomy_term_save($term);
+    }
+    else {
+      $term = array_shift($terms);
+    }
+    $account_code_term_map[$code_number] = $term->tid;
+  }
+
+  foreach ($term_account_codes as $category_number => $account_code) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'taxonomy_term')
+      ->entityCondition('bundle', 'east_category')
+      ->fieldCondition('field_category_number', 'value', $category_number);
+    $result = $query->execute();
+    if (isset($result['taxonomy_term'])) {
+      $tids = array_keys($result['taxonomy_term']);
+      $terms = entity_load('taxonomy_term', $tids);
+      foreach ($terms as $term) {
+        $term->field_account_code['und'][0]['tid'] = $account_code_term_map[$account_code];
+        taxonomy_term_save($term);
+      }
+    }
+    else {
+      $ret .= t('No terms found for category @num', array('@num' => $category_number)) . "\n";
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Update East Category terms with allowed Warehouse Groups from spreadsheet.
+ */
+function unfi_taxonomy_update_7003() {
+  // Array of Warehouse Group => Warehouse Group Names
+  $warehouse_codes = array(
+    1 => 'Dry Grocery',
+    2 => 'Freezer',
+    3 => 'Cooler',
+    4 => 'Repack/ Small Items',
+    9 => 'Don\'t Sell (UNFI)',
+  );
+
+  // An array of Category Number => Warehouse Group's
+  $term_warehouse_groups = array(
+    1 => array(1, 3), // Bulk Food Service - Misc Deli
+    2 => array(1), // Bulk Grains & Beans
+    3 => array(1), // Bulk Coffee/ Tea
+    4 => array(1), // Bulk Nuts & Seeds
+    5 => array(1), // Bulk Snacks/ Trail Mix/ Cereals
+    6 => array(1), // Bulk Dried Fruit
+    7 => array(1), // Bulk Coated Confections
+    8 => array(1), // Bulk Flours/ Sweeteners/ Baking Supplies
+    9 => array(1), // Bulk Herbs & Spices
+    10 => array(1), // Bulk Pasta
+    11 => array(1), // Pasta, packaged
+    12 => array(1, 4), // Paper Goods/ Wipes
+    14 => array(4), // Feminine Hygiene
+    15 => array(1, 4), // Bars, Nutritional
+    16 => array(1), // Sweeteners, pkgd & Flavoring/Syrups
+    18 => array(1, 4), // Bars, Cereal/ Snack/ Granola
+    19 => array(1, 4), // Specialty
+    20 => array(1), // Beverage, Juices/Nectars/Concentrates
+    21 => array(4), // Beverage, Supplements
+    22 => array(1), // Beverage, Waters/Coconut water
+    23 => array(4), // Oils, Essential/ Body/ Massage
+    24 => array(1), // Beverage, Carbonated Juice/Soda
+    25 => array(1), // Beverage, Non-Dairy/Aseptic Milk
+    27 => array(1), // Cereal, Hot
+    28 => array(1), // Cereal, pkgd/ Ready to Eat
+    30 => array(1), // Cookies
+    31 => array(4), // Vitamin A& D, Beta Carotene
+    32 => array(4), // Vitamin B& B Complex
+    33 => array(4), // Vitamin C & C Complex
+    35 => array(1), // Rice Cakes
+    36 => array(4), // Digestive Aids/ Fiber & Intestinal Cleansers
+    37 => array(4), // Vitamin E Products
+    38 => array(1), // Spreads, Nut & Seed / Tahini
+    39 => array(4), // Food Supplements
+    40 => array(1), // Fruit, Spreads/ Sauces/ Can'd
+    41 => array(4), // Mineral, & Complexes
+    42 => array(4), // Multivitamins
+    43 => array(4), // Supplement, Specialty
+    44 => array(1), // Oils, Food Grade
+    45 => array(4), // Herbs, single
+    46 => array(1), // Beverage, Tea-Bags/Loose/Ready to Drink
+    47 => array(1), // Beverage, Coffee/ Coffee Substitutes/ Misc Mixes
+    48 => array(4), // Herbal Formulas
+    49 => array(4), // Diet Formulas
+    50 => array(1), // Seasoning/Salt, pkgd
+    51 => array(4), // Oils, Fish/ EPA & GLA
+    52 => array(4), // Homepathic
+    53 => array(1), // Soup, & Broths/ Chili (can&jar)
+    54 => array(1, 4), // Soup, Dry Mixes/ Bouillion / Ramen
+    55 => array(1), // Canned, Seafood/ Beans / Misc. Goods
+    56 => array(4), // Facial Care
+    57 => array(4), // Deoderants
+    58 => array(4), // Bath, & Shower Preperations
+    59 => array(4), // Ointments, & Medicinal Creams
+    60 => array(1, 4), // Candy Bars/ Candy/ Gum/ Cough Drops
+    67 => array(1), // Desserts (non-frozen & non-cookies)
+    68 => array(1), // Tomatoes, can'd & Tomato products
+    69 => array(4), // Sun Care
+    70 => array(1), // Salad Dressing
+    71 => array(4), // Oral Hygiene
+    72 => array(1), // Condiments (mayo/mustard/catsup/vinegar)
+    73 => array(1), // Salsa & Dips
+    74 => array(1), // Tamaris/ Gravy/ Sauces
+    75 => array(1, 4), // Labels/ Boxes/ Misc Internal Supplies
+    76 => array(1), // Pasta Sauces
+    78 => array(1), // Pickles/ Olives/ Sauerkraut
+    79 => array(1, 4), // Misc. Non Foods
+    80 => array(4), // Hair Care
+    81 => array(4), // Lotion, Hand & Body
+    82 => array(4), // Soaps, Body & Hand
+    83 => array(4), // Cosmetics
+    84 => array(4), // Amino Acids
+    85 => array(4), // Sports Supplements
+    86 => array(1, 4), // Merchandising Aids
+    87 => array(4), // Personal Care Accessories
+    88 => array(1), // Entres, Main Dish/ Mixes
+    89 => array(1), // Baking, Mixes/ Flours/  Granules
+    91 => array(1, 4), // Apparel
+    92 => array(1), // Macrobiotic, Foods/ Tofu (aseptic pak)/ Japanese
+    93 => array(3), // Refrigerated, Cheese & Substitutes
+    94 => array(3), // Refrigerated, Yogurts/ Cultures
+    95 => array(3), // Refrigerated, Soy Foods / Seitan
+    97 => array(3), // Refrigerated, Beverages
+    98 => array(3), // Refrigerated, Misc.
+    99 => array(1), // Sea Vegetables
+    100 => array(1, 4), // Office & School
+    130 => array(1, 4), // Household Cleaning Supplies
+    170 => array(1, 4), // Candles
+    190 => array(1, 4), // Pet Food & Care
+    600 => array(2), // FROZEN MEAT ALTERNATIVES
+    610 => array(2), // FZ APPETIZERS & SNACKS
+    620 => array(2), // FROZ MEATS POULTRY & SEAFOOD
+    640 => array(2), // Frozen  Breakfast Foods
+    650 => array(2), // FROZEN DESSERTS
+    660 => array(2), // FROZEN JUICES & BEVERAGES
+    670 => array(2), // FROZEN FRUITS & VEGETABLES
+    680 => array(2), // FZ KIDS & BABY FOODS
+    690 => array(2), // FZ LUNCH & DINNER ENTREES
+    700 => array(2), // FZ BREAD & BAKED GOODS
+    850 => array(3), // Refrig Bread & Baked Goods
+    1001 => array(1), // Store Supplies, Food Service
+    2600 => array(1, 4), // Baby Food
+    2900 => array(1), // Beans/ Grains & Rice
+    3000 => array(1), // Nuts/ Seeds/ Dried Fruits & Vegetables
+    3100 => array(3), // Refrigerated Salad Dressings
+    3400 => array(1), // Crackers & Crispbreads
+    4018 => array(1), // Kosher for Passover,(all but not specified below)
+    4030 => array(1), // Kosher for Passover,Cookies
+    4034 => array(1), // Kosher for Passover,Crackers
+    4050 => array(1), // Beverage,Non-Alcoholic Wines
+    4060 => array(1), // Kosher for Passover,Candy
+    4065 => array(1), // Kosher for Passover,Chips & Pretzels
+    4100 => array(1, 4), // Baking Supplies,Cake Decorating
+    4300 => array(1, 4), // Party Supplies
+    4800 => array(1), // Sweeteners and Syrups, Diet
+    4881 => array(1, 4), // Housewares
+    4900 => array(1), // Spirits & Mixers
+    5100 => array(1), // Beer
+    5200 => array(1), // Wine,Cooking
+    6100 => array(4), // Over the counter medications
+    6400 => array(1), // Bread & Baked Goods (Non-Perishable)
+    6500 => array(1), // Chips & Pretzels
+  );
+
+  $ret = '';
+
+  $warehouse_group_term_map = array();
+
+  $wareshouse_groups_vocab = taxonomy_vocabulary_machine_name_load('warehouse_groups');
+  $vid = $wareshouse_groups_vocab->vid;
+  // Add terms for wareshouse_groups taxonomy
+  foreach ($warehouse_codes as $code_number => $term_name) {
+    $terms = taxonomy_get_term_by_name($term_name);
+    if (count($terms) == 0) {
+      $term = (object) array(
+        'vid' => $vid,
+        'name' => $term_name,
+        'weight' => $code_number,
+        'field_warehouse_group_number' => array(
+          'und' => array(
+            array(
+              'value' => $code_number,
+            ),
+          ),
+        ),
+      );
+      taxonomy_term_save($term);
+    }
+    else {
+      $term = array_shift($terms);
+    }
+    $warehouse_group_term_map[$code_number] = $term->tid;
+  }
+
+  foreach ($term_warehouse_groups as $category_number => $warehouse_groups) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'taxonomy_term')
+      ->entityCondition('bundle', 'east_category')
+      ->fieldCondition('field_category_number', 'value', $category_number);
+    $result = $query->execute();
+    if (isset($result['taxonomy_term'])) {
+      $tids = array_keys($result['taxonomy_term']);
+      $terms = entity_load('taxonomy_term', $tids);
+      foreach ($terms as $term) {
+        foreach ($warehouse_groups as $warehouse_group) {
+          $term->field_allowed_warehouse_groups['und'][] = array(
+            'tid' => $warehouse_group_term_map[$warehouse_group],
+          );
+        }
+        taxonomy_term_save($term);
+      }
+    }
+    else {
+      $ret .= t('No terms found for category @num', array('@num' => $category_number)) . "\n";
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Add West Department terms from spreadsheet.
+ */
+function unfi_taxonomy_update_7004() {
+  $departments = array(
+    703 => array(
+      'name' => 'Breakfast, Granola, Snack Bars',
+      'profile' => 'G',
+    ),
+    704 => array(
+      'name' => 'Body Care Products',
+      'profile' => 'H',
+    ),
+    705 => array(
+      'name' => 'Breads',
+      'profile' => 'F',
+    ),
+    706 => array(
+      'name' => 'Cookies',
+      'profile' => 'A',
+    ),
+    707 => array(
+      'name' => 'Candy & Snacks',
+      'profile' => 'G',
+    ),
+    708 => array(
+      'name' => 'Canned Goods',
+      'profile' => 'G',
+    ),
+    709 => array(
+      'name' => 'Cereal',
+      'profile' => 'A',
+    ),
+    710 => array(
+      'name' => 'Cheese, Net Restrict X, Markup 1.15 (Cindy Adamson approval only)',
+      'profile' => 'A',
+    ),
+    711 => array(
+      'name' => 'Chips & Snacks',
+      'profile' => 'A',
+    ),
+    712 => array(
+      'name' => 'Crackers',
+      'profile' => 'A',
+    ),
+    713 => array(
+      'name' => 'Coffee & Substitutes',
+      'profile' => 'G',
+    ),
+    714 => array(
+      'name' => 'Condiments',
+      'profile' => 'G',
+    ),
+    715 => array(
+      'name' => 'Salad Dressings',
+      'profile' => 'G',
+    ),
+    716 => array(
+      'name' => 'Oils & Vinegars',
+      'profile' => 'G',
+    ),
+    717 => array(
+      'name' => 'Tomato & Pasta Sauces',
+      'profile' => 'G',
+    ),
+    719 => array(
+      'name' => 'Fruit Spreads & Syrups',
+      'profile' => 'G',
+    ),
+    721 => array(
+      'name' => 'Bulk Herbs & Spices',
+      'profile' => 'G',
+    ),
+    722 => array(
+      'name' => 'Herbs & Spices',
+      'profile' => 'G',
+    ),
+    723 => array(
+      'name' => 'Frozen Foods',
+      'profile' => 'F',
+    ),
+    724 => array(
+      'name' => 'Non Foods, Cleaners & Paper',
+      'profile' => 'H',
+    ),
+    725 => array(
+      'name' => 'Macrobiotic Products',
+      'profile' => 'H',
+    ),
+    726 => array(
+      'name' => 'Soups, Ramens & Chilis',
+      'profile' => 'G',
+    ),
+    727 => array(
+      'name' => 'Baking Ingredients & Mixes',
+      'profile' => 'G',
+    ),
+    728 => array(
+      'name' => 'Packaged Grains, Beans & Seeds',
+      'profile' => 'G',
+    ),
+    729 => array(
+      'name' => 'Packaged Grocery & Mixes',
+      'profile' => 'G',
+    ),
+    730 => array(
+      'name' => 'Pasta',
+      'profile' => 'G',
+    ),
+    731 => array(
+      'name' => 'Fruits, Nuts, Gelatin & Pudding',
+      'profile' => 'G',
+    ),
+    732 => array(
+      'name' => 'Nut Butters',
+      'profile' => 'G',
+    ),
+    733 => array(
+      'name' => 'Nutritional Supplements',
+      'profile' => 'H',
+    ),
+    738 => array(
+      'name' => 'Pet Products',
+      'profile' => 'G',
+    ),
+    740 => array(
+      'name' => 'Rice, Corn & Soy Cakes',
+      'profile' => 'G',
+    ),
+    744 => array(
+      'name' => 'Sodas/Waters',
+      'profile' => 'G',
+    ),
+    745 => array(
+      'name' => 'Refrigerated & Chill Products',
+      'profile' => 'C',
+    ),
+    746 => array(
+      'name' => 'Non Dairy & Shelf Stable Mlk',
+      'profile' => 'A',
+    ),
+    749 => array(
+      'name' => 'Teas',
+      'profile' => 'G',
+    ),
+    750 => array(
+      'name' => 'Bulk Teas',
+      'profile' => 'G',
+    ),
+    751 => array(
+      'name' => 'Bottled Juice',
+      'profile' => 'G',
+    ),
+    752 => array(
+      'name' => 'Milk net net pricing, Net Restrict X, Markup 1.212  (Denver/Lancaster 25 margin+, NOT net restricted)',
+      'profile' => 'C',
+    ),
+    754 => array(
+      'name' => 'Yogurt/Dairy',
+      'profile' => 'C',
+    ),
+    755 => array(
+      'name' => 'Small juices',
+      'profile' => 'G',
+    ),
+    756 => array(
+      'name' => 'Miscellaneous (All Books)',
+      'profile' => 'G',
+    ),
+    758 => array(
+      'name' => 'Bulk Foods',
+      'profile' => 'G',
+    ),
+    799 => array(
+      'name' => 'Produce (NO LONGER IN USE)',
+      'profile' => 'C',
+    ),
+    800 => array(
+      'name' => 'Frozen Protein, Net Restrict X, Markup 1.111 except holiday turkeys.  Turkey markup varies. (David Chavez/Cindy Adamson approval only)',
+      'profile' => 'F',
+    ),
+    801 => array(
+      'name' => 'Frozen Holiday Turkeys',
+      'profile' => 'F',
+    ),
+    802 => array(
+      'name' => 'Fresh Protein, Net Restrict X, Markup 1.08, 1.10, 1.111 as directed.  SDSC or Promo can override order discount.  (David Chavez/Cindy Adamson approval only)',
+      'profile' => 'C',
+    ),
+    820 => array(
+      'name' => 'Pallet/MOD Program/ *Net Restrict X, Markup 1.06 or Higher',
+      'profile' => 'G',
+    ),
+    525 => array(
+      'name' => 'PCC Private Label Only',
+      'profile' => 'N',
+    ),
+    535 => array(
+      'name' => 'Safeway Private Label',
+      'profile' => 'N',
+    ),
+    550 => array(
+      'name' => 'Whole Foods Market Private Label Only',
+      'profile' => 'N',
+    ),
+    555 => array(
+      'name' => 'Fresh/Frozen Protein, Net Restrict C, Markup 1.08, 1.10, 1.111 (ask when coding).  (David Chavez/Kiva Shogren) approval only!',
+      'profile' => 'C',
+    ),
+    565 => array(
+      'name' => 'New Seasons Market Only',
+      'profile' => 'N',
+    ),
+    575 => array(
+      'name' => 'Sprouts',
+      'profile' => 'N',
+    ),
+    585 => array(
+      'name' => 'Vitamin Cottage Only',
+      'profile' => 'N',
+    ),
+    599 => array(
+      'name' => 'Alcoholic Beverages, Vendor C-910000, Net Restrict X, Markup 1.21 (Cindy Adamson approval only)',
+      'profile' => 'N',
+    ),
+  );
+
+  $west_dept_vocab = taxonomy_vocabulary_machine_name_load('west_dept');
+  $vid = $west_dept_vocab->vid;
+  // Remove the existing testing term
+  taxonomy_term_delete(2954);
+
+  foreach ($departments as $dept => $info) {
+    $term = (object) array(
+      'vid' => $vid,
+      'name' => $info['name'],
+      'weight' => $dept,
+      'field_dept' => array(
+        'und' => array(
+          array(
+            'value' => $dept,
+          ),
+        ),
+      ),
+      'field_profile' => array(
+        'und' => array(
+          array(
+            'value' => $info['profile'],
+          ),
+        ),
+      ),
+    );
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Add West Subheader terms from spreadsheet.
+ */
+function unfi_taxonomy_update_7005() {
+  $subheader_codes = array(
+    'i' => 'AIR FRESHENERS',
+    '0' => 'ALOE VERA',
+    '[' => 'ARTHRITIS & JOINT HEALTH',
+    'j' => 'BABY PRODUCTS',
+    'g' => 'BAGS (PRODUCE, LAWN/LEAF)',
+    '@' => 'BAKING GOODS',
+    '*' => 'BATH PRODUCTS',
+    'A' => 'BEANS',
+    'a' => 'BEVERAGES',
+    'b' => 'BREADS/BAKERY',
+    'h' => 'BUTTER/SPREADS',
+    'B' => 'CANDY/SNACKS',
+    'T' => 'CANNED VEGETABLES/TOMATOES',
+    'C' => 'CEREAL/GRANOLA',
+    'c' => 'CHEESE/NON-DAIRY CHEESE',
+    'D' => 'CHIPS/CRACKERS',
+    'k' => 'CLEANING/LAUNDRY',
+    'E' => 'COFFEE/COFFEE SUBSTITUTES',
+    'F' => 'CONDIMENTS/MISC',
+    'o' => 'COOKIES/CAKES',
+    '$' => 'COUGH & COLD',
+    'n' => 'DAIRY',
+    ':' => 'DEODORANTS',
+    'd' => 'DESSERTS',
+    '!' => 'DIGESTION & COLON HEALTH',
+    'G' => 'DRIED FRUIT',
+    'e' => 'EGGS',
+    'X' => 'ENTREES/PREPARED FOODS',
+    '<' => 'ESSENTIAL & MASSAGE OILS',
+    'q' => 'ETHNIC FOODS – ASIAN',
+    '}' => 'ETHNIC FOODS – INDIAN',
+    '{' => 'ETHNIC FOODS – ITALIAN',
+    ']' => 'ETHNIC FOODS – MEXICAN',
+    'p' => 'ETHNIC FOODS – MIDDLE EAST',
+    '‘' => 'FACIAL CARE & COSMETICS',
+    'H' => 'FLOUR',
+    '#' => 'FLOWER ESSENCES',
+    'f' => 'FROZEN FRUIT/VEGETABLES',
+    'r' => 'FRUIT SPREADS/SYRUPS/CANN',
+    '+' => 'GARLIC SUPPLEMENTS',
+    'I' => 'GRAINS',
+    '%' => 'GREEN FOODS',
+    ')' => 'HAIR CARE',
+    ';' => 'HAND & BODY LOTION',
+    '8' => 'HERBAL PRODUCTS',
+    'J' => 'HERBS/SPICES',
+    '7' => 'HOMEOPATHY',
+    'u' => 'HOUSEHOLD SUPPLIES',
+    's' => 'ICE CREAM-DAIRY/NON-DAIRY',
+    't' => 'JUICE',
+    '>' => 'LIP BALMS',
+    'm' => 'MACROBIOTIC',
+    'v' => 'MEATS – ORGANIC, NATURAL',
+    'K' => 'MILK',
+    'L' => 'MIXES',
+    'N' => 'NUT BUTTERS',
+    'O' => 'NUT/TRAIL MIXES',
+    'P' => 'NUTRITIONAL FOOD SUPPLEMENT',
+    'z' => 'NUTRITIONAL OIL',
+    'M' => 'NUTS',
+    'Q' => 'OILS',
+    'w' => 'OLIVES',
+    '/' => 'ORAL CARE',
+    'x' => 'PAPER PRODUCTS',
+    'R' => 'PASTA',
+    'y' => 'PET PRODUCTS',
+    '&' => 'PROTEIN POWDER/MEAL REPLC',
+    'S' => 'RICE',
+    '1' => 'SALAD DRESSINGS/MARINADES (#1)',
+    '2' => 'SALSA/CHILI/DIP',
+    '3' => 'SAUCES',
+    '4' => 'SEAFOOD/FISH',
+    'U' => 'SEEDS',
+    '|' => 'SHAVING (Capital)',
+    '(' => 'SOAPS – BARS & LIQUID',
+    '5' => 'SODAS/CARBONATED BEVERAGE',
+    'W' => 'SOUPS/BROTHS',
+    '9' => 'SPORTS NUTRITION',
+    '=' => 'SUN CARE/INSECT PRODUCTS',
+    'V' => 'SWEETENERS',
+    'l' => 'TEA (BLACK, GREEN, HERBAL) (lower cs L)',
+    'Y' => 'VEGETARIAN MEAT SUBSTITUTE',
+    '6' => 'SUPPLEMENTS & MINERALS',
+    '^' => 'WEIGHT MANAGEMENT',
+    '?' => 'WOMEN’S PERSONAL CARE/HEA',
+    'Z' => 'YOGURT/NON-DAIRY YOGURT',
+  );
+
+  $vocabulary = taxonomy_vocabulary_machine_name_load('west_subheader_catalog');
+  $vid = $vocabulary->vid;
+  $weight = 0;
+  foreach ($subheader_codes as $code => $name) {
+    $term = (object) array(
+      'vid' => $vid,
+      'name' => $name,
+      'weight' => $weight++,
+      'field_code' => array(
+        'und' => array(
+          array(
+            'value' => $code,
+          ),
+        ),
+      ),
+    );
+    taxonomy_term_save($term);
+  }
+}
+
+/**
+ * Remove bad West Category terms.
+ */
+function unfi_taxonomy_update_7006() {
+  $vocabulary = taxonomy_vocabulary_machine_name_load('west_category');
+  $vid = $vocabulary->vid;
+
+  $parent_term = taxonomy_get_term_by_name('YOGURT & ALTERNATIVES', 'west_category');
+
+  $tids = db_query("SELECT tid FROM {taxonomy_term_data} WHERE vid=:vid AND name=''", array(
+    ':vid' => $vid,
+  ))->fetchCol();
+  // Find all children of these terms
+  if (!empty($tids)) {
+    $child_tids = db_query("SELECT tid FROM {taxonomy_term_hierarchy} WHERE parent IN (:tids)", array(
+      ':tids' => $tids,
+    ))->fetchCol();
+    if (!empty($child_tids)) {
+      // Set the parent for the child terms
+      $child_terms = taxonomy_term_load_multiple($child_tids);
+      foreach ($child_terms as $term) {
+        $term->parent = $parent_term->tid;
+        taxonomy_term_save($term);
+      }
+    }
+
+    // Delete the empty terms
+    foreach ($tids as $tid) {
+      taxonomy_term_delete($tid);
+    }
+  }
+}
+/**
+ * Move US to top of country list
+ */
+function unfi_taxonomy_update_7007() {
+    db_update('taxonomy_term_data')
+      ->fields(array(
+           'weight' => '-1',
+        ))
+      ->condition('tid', 229, '=')
+      ->execute();
+}

@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * (DEPRECIATED) Add viewing content permissions to the group member role.
+ */
+function og_pseudomember_update_7000(&$context) {
+}
+
+/**
+ * Deletes any entries made in og_pseudomember_update_7000.
+ */
+function og_pseudomember_update_7001(&$context) {
+  $query = db_delete('og_role_permission');
+  $query->condition('permission', 'view %published % content', 'LIKE');
+  $query->condition('module', 'og');
+  $query->execute();
+}
+
+/**
+ * Enable entityreference_autocomplete.
+ */
+function og_pseudomember_update_7002() {
+  if (!module_exists('entityreference_autocomplete')) {
+    module_enable(array('entityreference_autocomplete'));
+  }
+}

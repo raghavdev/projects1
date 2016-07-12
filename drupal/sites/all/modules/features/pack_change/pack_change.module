@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Pack change feature.
+ */
+
+include_once 'pack_change.features.inc';

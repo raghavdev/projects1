@@ -1,0 +1,469 @@
+<?php
+
+/**
+ * Implements hook_permission().
+ */
+function unfi_node_export_permission() {
+  $items['admin unfi node export settings'] = array(
+    'title' => 'Administer UNFI Node Export Settings',
+  );
+  $items['access unfi node export'] = array(
+    'title' => 'Export Nodes',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_node_export_menu() {
+  $items['admin/config/unfi_settings/unfi_node_export'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'UNFI Node Export Settings',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_node_export_settings'),
+    'access arguments' => array('admin unfi node export settings'),
+  );
+  $items['node/%node/unfi-node-export'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'Export Request',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_node_export_form', 1),
+    'access callback'  => 'unfi_node_export_access',
+    'access arguments' => array('view', 1),
+    'weight'           => 5,
+  );
+  return $items;
+}
+
+function unfi_node_export_extensions() {
+  return array(
+    'doc' => 'MS Document (*.doc)',
+  );
+}
+
+function unfi_node_export_access($op, $node, $account = NULL) {
+  if ($op != 'view' || !is_object($node)) {
+    return FALSE;
+  }
+  if (!user_access('access unfi node export', $account)) {
+    return FALSE;
+  }
+  if (!node_access('view', $node, $account)) {
+    return FALSE;
+  }
+  if (!in_array($node->type, variable_get('unfi_node_export_allowed_content_types', array()))) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+function unfi_node_export_settings($form, &$form_state) {
+
+  $form['unfi_node_export_allowed_content_types'] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t('Allowed Content Type(s)'),
+    '#options'       => node_type_get_names(),
+    '#default_value' => variable_get('unfi_node_export_allowed_content_types', array()),
+    '#description'   => t(''),
+  );
+
+  $form['default_settings'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Default Settings'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => FALSE,
+  );
+
+  $form['default_settings']['unfi_node_export_include_links_default'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Include links to associated files stored on Supplier Portal (Default Setting)'),
+    '#default_value' => variable_get('unfi_node_export_include_links_default', TRUE),
+    '#description'   => t(''),
+  );
+
+  $form['default_settings']['unfi_node_export_include_files_default'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Include all associated files bundled in an archive (Default Setting)'),
+    '#default_value' => variable_get('unfi_node_export_include_files_default', TRUE),
+    '#description'   => t(''),
+  );
+
+  $form['unfi_node_export_storage_stream'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Storage Type'),
+    '#options'       => array('public://' => 'public://', 'private://' => 'private://'),
+    '#default_value' => variable_get('unfi_node_export_storage_stream', 'public://'),
+    '#description'   => t(''),
+  );
+
+  $form['unfi_node_export_storage_directory'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Directory'),
+    '#default_value' => variable_get('unfi_node_export_storage_directory', 'unfi_node_exports'),
+    '#description'   => t(''),
+  );
+
+  $form['unfi_node_export_allowed_extensions'] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t('Allowed Extensions'),
+    '#options'       => unfi_node_export_extensions(),
+    '#default_value' => variable_get('unfi_node_export_allowed_extensions', array('doc' => 'doc')),
+    '#description'   => t(''),
+  );
+
+  return system_settings_form($form);
+}
+
+function unfi_node_export_settings_validate($form, &$form_state) {
+  // Clean up allowed content types array
+  foreach ($form_state['values']['unfi_node_export_allowed_content_types'] as $type => $selected) {
+    if (empty($selected)) {
+      unset($form_state['values']['unfi_node_export_allowed_content_types'][$type]);
+    }
+  }
+  // Clean up allowed extensions array
+  foreach ($form_state['values']['unfi_node_export_allowed_extensions'] as $extension => $selected) {
+    if (empty($selected)) {
+      unset($form_state['values']['unfi_node_export_allowed_extensions'][$extension]);
+    }
+  }
+  // Clean up directory
+  $form_state['values']['unfi_node_export_storage_directory'] = trim($form_state['values']['unfi_node_export_storage_directory'], ' /\\');
+}
+
+function unfi_node_export_form($form, &$form_state, $node) {
+
+  $form['include_links'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Include links to associated files stored on Supplier Portal'),
+    '#default_value' => variable_get('unfi_node_export_include_links_default', TRUE),
+    '#description'   => t(''),
+  );
+
+  $form['include_files'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Include all associated files bundled in an archive'),
+    '#default_value' => variable_get('unfi_node_export_include_files_default', TRUE),
+    '#description'   => t(''),
+  );
+
+  $extensions = unfi_node_export_extensions();
+  $allowed_ex = variable_get('unfi_node_export_allowed_extensions', array('doc' => 'doc'));
+
+  $form['extension'] = array(
+    '#type'          => 'radios',
+    '#title'         => t('File Type (Extension)'),
+    '#options'       => array_intersect_key($extensions, $allowed_ex),
+    '#default_value' => current($allowed_ex),
+    '#description'   => t(''),
+  );
+
+  $form['actions'] = array('#type' => 'actions');
+
+  $form['actions']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => t('Export'),
+  );
+
+  return $form;
+}
+
+function unfi_node_export_form_submit($form, &$form_state) {
+
+  $node = $form_state['build_info']['args'][0];
+
+  $variables = array(
+    'links'     => (bool)$form_state['values']['include_links'],
+    'files'     => (bool)$form_state['values']['include_files'],
+    'stream'    => variable_get('unfi_node_export_storage_stream', 'public://'),
+    'directory' => variable_get('unfi_node_export_storage_directory', 'unfi_node_exports'),
+    'filename'  => 'node-' . $node->nid . '-' . date('Ymd-His', REQUEST_TIME),
+    'extension' => $form_state['values']['extension'],
+  );
+
+  batch_set(array(
+    'operations' => array(
+      array('unfi_node_export_build_node_file', array($node, $variables)),
+      array('unfi_node_export_compress', array($node, $variables)),
+    ),
+    'finished'         => 'unfi_node_export_finished',
+    'title'            => t('Exporting !v', array('!v' => $node->title)),
+    'init_message'     => t('!v export is starting.', array('!v' => $node->title)),
+    'progress_message' => t('Processed @current out of @total.'),
+    'error_message'    => t('!v import has encountered an error.', array('!v' => $node->title)),
+    'file'             => drupal_get_path('module', 'unfi_node_export') . '/unfi_node_export.module',
+  ));
+}
+
+/**
+ * Batch operation to convert the node to a file.
+ */
+function unfi_node_export_build_node_file($node, $variables, &$context) {
+  // Directory filepath
+  $directory = $variables['stream'] . $variables['directory'];
+  // Create/prepare directory
+  if (!file_prepare_directory($directory, FILE_CREATE_DIRECTORY)) {
+    // Failed, so build error message
+    $message = t('Failed preparing directory: @v', array('@v' => $directory));
+    // Build error array (for dying with JSON data)
+    $error = array('status' => FALSE, 'data' => $message);
+    // Unfortunately, background batch does not die,
+    // so errors will need to be handled differently
+    if (module_exists('background_batch')) {
+      // Dump error message into the results array
+      $context['results']['error'] = $error;
+      // Declare that the batch is finished
+      $context['finished'] = 1;
+      return; // Immediately
+    }
+    // Otherwise it can die properly
+    die(json_encode($error));
+  }
+  // Use the filepath to determine if the file was created
+  $filepath = FALSE;
+  // Perform file building based on the extension
+  switch ($variables['extension']) {
+    default:
+    case 'doc':
+      // Include the extensions file
+      module_load_include('inc', 'unfi_node_export', 'includes/unfi_node_export.doc');
+      // Execute file building function and capture the filepath
+      $filepath = unfi_node_export_build_doc_file($node, $variables);
+      break;
+  }
+  // If the filepath was not returned
+  if (!$filepath) {
+    // Build error message
+    $message = t('Failed writing file: @v', array(
+      '@v' => $directory . '/' . $variables['filename'] . '.' . $variables['extension'],
+    ));
+    // Build error array (for dying with JSON data)
+    $error = array('status' => FALSE, 'data' => $message);
+    // Unfortunately, background batch does not die,
+    // so errors will need to be handled differently
+    if (module_exists('background_batch')) {
+      // Dump error message into the results array
+      $context['results']['error'] = $error;
+      // Declare that the batch is finished
+      $context['finished'] = 1;
+      return; // Immediately
+    }
+    // Otherwise it can die properly
+    die(json_encode($error));
+  }
+  // Declare the operation as finished
+  $context['finished'] = 1;
+}
+
+/**
+ * Batch operation to gather files into a zipped folder.
+ */
+function unfi_node_export_compress($node, $variables, &$context) {
+  global $user;
+  // If the previous operation errored without dying (because of background_batch)
+  if (!empty($context['result']['error'])) {
+    // Return that this operation finshed
+    $context['finished'] = 1;
+    return;
+  }
+  // Initialize
+  if (!isset($context['sandbox']['total'])) {
+    // Prepare sandbox for progress tracking
+    $context['sandbox']['fids']      = $variables['files'] ? unfi_node_export_gather_fids($node) : array();
+    $context['sandbox']['limit']     = 10;
+    $context['sandbox']['progress']  = 0;
+    $context['sandbox']['total']     = count($context['sandbox']['fids']) + 1; // +1 for the node export
+    $context['results']['directory'] = $variables['stream'] . $variables['directory'];
+    $context['results']['filepath']  = $context['results']['directory'] . '/' . $variables['filename'] . '.zip';
+    // Create a file object so that file can be managed as a private file.
+    $zip_file           = new stdClass();
+    $zip_file->fid      = NULL;
+    $zip_file->uri      = $context['results']['filepath'];
+    $zip_file->filename = drupal_basename($context['results']['filepath']);
+    $zip_file->filemime = file_get_mimetype($zip_file->uri);
+    $zip_file->uid      = $user->uid;
+    $zip_file->status   = 0;
+    // By setting the status to 0, the files should get cleaned up by cron when older than DRUPAL_MAXIMUM_TEMP_FILE_AGE
+    $zip_file = file_save($zip_file);
+    // Store the zip archive's file ID
+    $context['results']['file_id'] = $zip_file->fid;
+  }
+  // Open zip archive
+  $zip_arch = new ZipArchive();
+  $zip_res = $zip_arch->open(drupal_realpath($context['results']['filepath']), ZipArchive::CREATE);
+  // Check if unable to open
+  if ($zip_res !== TRUE) {
+    // Build error message
+    $message = t('Failed writing zip file: @v', array(
+      '@v' => $context['results']['filepath'],
+    ));
+    // Build error array (for dying with JSON data)
+    $error = array('status' => FALSE, 'data' => $message);
+    // Unfortunately, background batch does not die,
+    // so errors will need to be handled differently
+    if (module_exists('background_batch')) {
+      // Dump error message into the results array
+      $context['results']['error'] = $error;
+      // Declare that the batch is finished
+      $context['finished'] = 1;
+      return; // Immediately
+    }
+    // Otherwise it can die properly
+    die(json_encode($error));
+  }
+  // Loop until the limit has been met
+  $i = 0;
+  while ($i < $context['sandbox']['limit']) {
+    // Increment limit counter
+    $i++;
+    // Increment progress
+    $context['sandbox']['progress']++;
+    // Pop off a file ID from the array and load the file
+    $fid  = array_shift($context['sandbox']['fids']);
+    $file = FALSE;
+    if ($fid) {
+      $file = file_load($fid);
+    }
+    // If the file was loaded
+    if ($file) {
+      // Add the file to the zip archive
+      // Prepend the zipped filename with the file ID to prevent overwrites
+      $zip_res = $zip_arch->addFile(drupal_realpath($file->uri), $fid . '-' . drupal_basename($file->uri));
+    }
+    elseif ($context['sandbox']['progress'] == $context['sandbox']['total']) {
+      // The last item will be export file itslef
+      // Build the filepath
+      $filepath = $context['results']['directory'] . '/' . $variables['filename'] . '.' . $variables['extension'];
+      // Add the file to the zip archive
+      $zip_arch->addFile(drupal_realpath($filepath), drupal_basename($filepath));
+      break; // Out of the while loop
+    }
+  }
+  // CLose zip archive
+  $zip_arch->close();
+  // Update the file size
+  $zip_file = file_load($context['results']['file_id']);
+  $zip_file->filesize = filesize(drupal_realpath($zip_file->uri));
+  file_save($zip_file);
+  // Notify user of progess
+  $context['message'] = t('Processed @c out of @t files', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+  // Calculate if finished
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['total'];
+  }
+  // If this is the last run and a filepath was built to the export
+  if ($context['finished'] >= 1 && !empty($filepath)) {
+    // Delete the export file
+    file_unmanaged_delete($filepath);
+  }
+}
+
+function unfi_node_export_finished($success, $results, $operations) {
+  // If successfully processed
+  if ($success) {
+    // If error was returned (background_batch)
+    if (!empty($results['error']['data'])) {
+      $message = t('@m', array('@m' => $results['error']['data']));
+      $status  = 'error';
+    }
+    elseif (empty($results['file_id'])) {
+      $message = t('Export failed, filepath missing');
+      $status  = 'error';
+    }
+    else {
+      // Load the zip archive file
+      $zip_file = file_load($results['file_id']);
+      // Provide link to user
+      $message = t('Export finished: ') . l($zip_file->filename, file_create_url($zip_file->uri));
+      $status  = 'status';
+    }
+    // Display message
+    drupal_set_message($message, $status);
+  }
+  // An error occurred.
+  // $operations contains the operations that remained unprocessed.
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %op with arguments: <pre>@arg</pre>', array(
+      '%op'  => $error_operation[0],
+      '@arg' => print_r($error_operation[1], TRUE)
+    ));
+    drupal_set_message($message, 'error');
+  }
+}
+
+/**
+ * Implements hook_preprocess_node();
+ */
+function unfi_node_export_preprocess_node(&$variables) {
+  // Based on the theme_hook_suggestion,
+  // customize variables for rendering
+  if (!empty($variables['theme_hook_suggestion'])) {
+    switch ($variables['theme_hook_suggestion']) {
+      case 'node__unfi_export_node__doc':
+        unfi_node_export_preprocess_node_doc($variables);
+        break;
+    }
+  }
+}
+
+/**
+ * Gathers file IDs from node object.
+ */
+function unfi_node_export_gather_fids($node) {
+  // File IDs
+  $fids = array();
+  // Wrap entity for easier analysis
+  $wrapper = entity_metadata_wrapper('node', $node, array('bundle' => $node->type));
+  // Loop through the property information
+  foreach ($wrapper->getPropertyInfo() as $prop_name => $prop_info) {
+    // Check if the field uses the file entity
+    if (
+      strpos($prop_name, 'field_') === 0 // Is a field
+      && !empty($prop_info['property info']['file']['type']) // Has file info
+      && $prop_info['property info']['file']['type'] == 'file' // Double check
+    ) {
+      // Get the data for this node's field
+      $field_data = $wrapper->$prop_name->value();
+      // If the data is not a list of files
+      if (strpos($prop_info['type'], 'list') !== 0) {
+        // Force to be a list of one
+        $field_data = array($field_data);
+      }
+      // Loop through list of file data
+      foreach ($field_data as $file_info) {
+        // If there is a file ID
+        if (!empty($file_info['fid'])) {
+          $fid = (int)$file_info['fid']; // Sanitize
+          $fids[$fid] = $fid; // Store
+        }
+      }
+    }
+  }
+  // TODO: hook_possibility(): hook_node_export_gather_fids
+  // If this is a request_form, load any products and gather their files
+  if ($node->type == 'request_form') {
+    // Find all the products for this request form.
+    $query = db_select('node', 'n')
+      ->fields('n', array('nid'))
+      ->condition('n.type', 'product');
+    $query->innerJoin('field_data_field_request_form', 'rf', 'rf.entity_id = n.nid');
+    $product_nids = $query->condition('rf.field_request_form_target_id', $node->nid)
+      ->execute()
+      ->fetchCol();
+    if (!empty($product_nids)) {
+      $products = node_load_multiple($product_nids);
+      foreach ($products as $product) {
+        // Gather file IDs for the request item
+        $fids += unfi_node_export_gather_fids($product);
+      }
+    }
+  }
+  return $fids;
+}

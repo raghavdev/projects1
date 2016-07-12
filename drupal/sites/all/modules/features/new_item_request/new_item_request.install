@@ -1,0 +1,425 @@
+<?php
+
+/**
+ * Contains update scripts for UNFI New Item Request form
+ */
+
+function new_item_request_install() {
+
+  variable_set('new_item_request_blank_sales_agreement', 0);
+
+  cache_clear_all();
+
+  new_item_request_update_7000();
+  new_item_request_update_7001();
+  new_item_request_update_7002();
+  new_item_request_update_7003();
+  new_item_request_update_7004();
+}
+
+function new_item_request_uninstall() {
+  variable_del('new_item_request_blank_sales_agreement');
+  // Legacy
+  variable_del('new_item_request_blank_freight_form');
+}
+
+
+/**
+ * Implements hook_update_N().
+ * Removes organic boolean field
+ */
+
+function new_item_request_update_7000() {
+
+  field_delete_field('field_organic');
+
+}
+
+/**
+ * Implements hook_update_N().
+ * Removes FOB Case Cost, FOB Unit Cost
+ */
+
+function new_item_request_update_7001() {
+
+  field_delete_field('field_fob_unit_cost');
+  field_delete_field('field_fob_case_cost');
+
+}
+
+/**
+*  Removes Item costs fields
+*/
+
+function new_item_request_update_7002() {
+
+  field_delete_field('field_item_costs');
+  field_delete_field('group_item_costs');
+
+}
+
+/**
+  * Enable shs module used by RCM category
+  */
+
+function new_item_request_update_7003() {
+  module_enable(array('shs'));
+}
+
+/**
+*  Removes extra Non-GMO field and group
+*/
+
+function new_item_request_update_7004() {
+
+  field_delete_field('field_non_gmo_project');
+  field_delete_field('group_non_gmo_attribute');
+
+}
+
+/**
+ * Removes old national selling pack fields.
+ */
+function new_item_request_update_7005() {
+  field_delete_field('field_item_national_selling_pack');
+  field_delete_field('field_master_case_nsp');
+  field_delete_field('field_inner_pack_nsp');
+  field_delete_field('group_national_selling_pack');
+}
+
+/**
+ * Handover blank freight form to pick_up_location.
+ * Clean up minor bug mess.
+ */
+function new_item_request_update_7006(&$sandbox) {
+  // Perform a few operations on the first pass
+  if (!isset($sandbox['progress'])) {
+    // Get the current blank form file ID
+    $fid = variable_get('new_item_request_blank_freight_form', 0);
+    // Set the new variable for the blank form file ID
+    variable_set('pick_up_location_blank_freight_form', $fid);
+    // Remove the old blank form file ID variable
+    variable_del('new_item_request_blank_freight_form');
+    // Update the module name for the usage of the blank form file
+    // from 'new_item_request' to 'pick_up_location'
+    $query = db_update('file_usage');
+    $query->fields(array('module' => 'pick_up_location'));
+    $query->condition('module', 'new_item_request');
+    $query->condition('type', 'field_freight_form');
+    $query->condition('fid', $fid);
+    $query->execute();
+    // Query the number of other usages by this module (minor bug clean up)
+    $query = db_select('file_usage', 'fu');
+    $query->condition('fu.module', 'new_item_request');
+    $query->condition('fu.type', 'field_freight_form');
+    // Will return a single field of the row count
+    $result = $query->countQuery()->execute();
+    // Initialize progress tracking variables
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 1;
+    $sandbox['max']      = (int)$result->fetchField();
+  }
+  // Query limited number of file usages by this module
+  $query = db_select('file_usage', 'fu');
+  $query->fields('fu', array('fid'));
+  $query->condition('fu.module', 'new_item_request');
+  $query->condition('fu.type', 'field_freight_form');
+  $query->orderBy('fu.fid');
+  $query->range(0, $sandbox['limit']);
+  // Execute
+  $result = $query->execute();
+  // Loop through the returned file IDs
+  while (($fid = (int)$result->fetchField())) {
+    // Load the file
+    if (($file = file_load($fid))) {
+      // Delete this module's usage of the file
+      file_usage_delete($file, 'new_item_request', 'field_freight_form', 1);
+      // Attempt to delete the file
+      file_delete($file);
+    }
+    // Increment progress
+    $sandbox['progress']++;
+  }
+  // Calculated progress
+  if (empty($sandbox['max'])) {
+    // Don't divide by zero, so finish right away
+    $sandbox['#finished'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
+
+/**
+ * Remove freight form field.
+ */
+function new_item_request_update_7007(&$sandbox) {
+  // Perform a few operations on the first pass
+  if (!isset($sandbox['progress'])) {
+    // Query the number of freight forms used
+    $query = db_select('field_data_field_freight_form', 'ff');
+    // Will return a single field of the row count
+    $result = $query->countQuery()->execute();
+    // Initialize progress tracking variables
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 5;
+    $sandbox['max']      = (int)$result->fetchField();
+  }
+  // Query limited number of file usages by this module
+  $query = db_select('field_data_field_freight_form', 'ff');
+  $query->fields('ff', array('entity_type', 'entity_id', 'field_freight_form_fid'));
+  $query->orderBy('ff.entity_type');
+  $query->orderBy('ff.entity_id');
+  $query->range($sandbox['progress'], $sandbox['limit']);
+  // Execute
+  $result = $query->execute();
+  // Loop through the returned file IDs
+  while (($row = $result->fetchAssoc())) {
+    // Load the file
+    if (($file = file_load($row['field_freight_form_fid']))) {
+      // Delete the usage of the file
+      file_usage_delete($file, 'file', $row['entity_type'], $row['entity_id']);
+      // Attempt to delete the file
+      file_delete($file);
+    }
+    // Increment progress
+    $sandbox['progress']++;
+  }
+  // Calculated progress
+  if (empty($sandbox['max'])) {
+    // Don't divide by zero, so finish right away
+    $sandbox['#finished'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+
+  if ($sandbox['#finished'] >= 1) {
+    // Remove the freight form field
+    field_delete_field('field_freight_form');
+  }
+}
+
+/**
+ * Expand West Brand field to accept 27 characters.
+ */
+function new_item_request_update_7008(&$sandbox) {
+  // Perform a few operations on the first pass
+  if (!isset($sandbox['progress'])) {
+    // Create temporary table, going to assume that revision === data
+    db_create_table('temp_data_west_brand', array(
+      'fields' => array(
+        'entity_type' => array(
+          'type'     => 'varchar',
+          'length'   => 128,
+          'not null' => TRUE,
+          'default'  => '',
+        ),
+        'bundle' => array(
+          'type'     => 'varchar',
+          'length'   => 128,
+          'not null' => TRUE,
+          'default'  => '',
+        ),
+        'deleted' => array(
+          'type'     => 'int',
+          'size'     => 'tiny',
+          'not null' => TRUE,
+          'default'  => 0,
+        ),
+        'entity_id' => array(
+          'type'     => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'revision_id' => array(
+          'type'     => 'int',
+          'unsigned' => TRUE,
+          'not null' => FALSE,
+        ),
+        'language' => array(
+          'type'     => 'varchar',
+          'length'   => 32,
+          'not null' => TRUE,
+          'default'  => '',
+        ),
+        'delta' => array(
+          'type'     => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'field_west_brand_value' => array(
+          'type'     => 'varchar',
+          'length'   => 27,
+          'not null' => FALSE,
+        ),
+        'field_west_brand_format' => array(
+          'type'     => 'varchar',
+          'length'   => 255,
+          'not null' => FALSE,
+        ),
+      ),
+    ));
+    // Query the total number of values
+    $query = db_select('field_data_field_west_brand', 'wb');
+    // Will return a single field of the row count
+    $result = $query->countQuery()->execute();
+    // Initialize progress tracking variables
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 10;
+    $sandbox['max']      = (int)$result->fetchField();
+  }
+  // Query limited number of data
+  $query = db_select('field_data_field_west_brand', 'wb');
+  $query->fields('wb');
+  $query->orderBy('wb.entity_id');
+  $query->orderBy('wb.revision_id');
+  $query->range(0, $sandbox['limit']);
+  // Execute
+  $result = $query->execute();
+  // Loop through and gather the data
+  while (($row = $result->fetchAssoc())) {
+    // Store data
+    $values[] = $row;
+    // Take note of the last IDs encountered
+    $last_nid = $row['entity_id'];
+    $last_vid = $row['revision_id'];
+    // Increment progress
+    $sandbox['progress']++;
+  }
+  // If there are values to store
+  if (!empty($values)) {
+    // Insert into the temporary table
+    $query = db_insert('temp_data_west_brand');
+    $query->fields(array_keys($values[0]));
+    foreach ($values as $value) {
+      $query->values($value);
+    }
+    $query->execute();
+    // Delete entries already processed
+    $query = db_delete('field_data_field_west_brand');
+    $query->condition('entity_id', $last_nid, '<=');
+    $query->condition('revision_id', $last_vid, '<=');
+    $query->execute();
+  }
+  // Calculated progress
+  if (empty($sandbox['max'])) {
+    // Don't divide by zero, so finish right away
+    $sandbox['#finished'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+  // When the batch is finished
+  if ($sandbox['#finished'] >= 1) {
+    // Clear the revision table
+    $query = db_delete('field_revision_field_west_brand');
+    $query->execute();
+    // Now, we may change the fields without errors
+    db_change_field('field_data_field_west_brand', 'field_west_brand_value', 'field_west_brand_value', array(
+      'type'     => 'varchar',
+      'length'   => 27,
+      'not null' => FALSE,
+    ));
+    db_change_field('field_revision_field_west_brand', 'field_west_brand_value', 'field_west_brand_value', array(
+      'type'     => 'varchar',
+      'length'   => 27,
+      'not null' => FALSE,
+    ));
+  }
+}
+
+/**
+ * Re-populate West Brand data from temporary table.
+ */
+function new_item_request_update_7009(&$sandbox) {
+  // Perform a few operations on the first pass
+  if (!isset($sandbox['progress'])) {
+    // Query the total number of values
+    $query = db_select('temp_data_west_brand', 'temp');
+    // Will return a single field of the row count
+    $result = $query->countQuery()->execute();
+    // Initialize progress tracking variables
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 10;
+    $sandbox['max']      = (int)$result->fetchField();
+  }
+  // Query limited number of data
+  $query = db_select('temp_data_west_brand', 'temp');
+  $query->fields('temp');
+  $query->orderBy('temp.entity_id');
+  $query->orderBy('temp.revision_id');
+  $query->range(0, $sandbox['limit']);
+  // Execute
+  $result = $query->execute();
+  // Loop through and gather the data
+  while (($row = $result->fetchAssoc())) {
+    // Store data
+    $values[] = $row;
+    // Take note of the last IDs encountered
+    $last_nid = $row['entity_id'];
+    $last_vid = $row['revision_id'];
+    // Increment progress
+    $sandbox['progress']++;
+  }
+  // If there are values to store
+  if (!empty($values)) {
+    // Insert into the data table
+    $query = db_insert('field_data_field_west_brand');
+    $query->fields(array_keys($values[0]));
+    foreach ($values as $value) {
+      $query->values($value);
+    }
+    $query->execute();
+    // Insert into the revision table
+    $query = db_insert('field_revision_field_west_brand');
+    $query->fields(array_keys($values[0]));
+    foreach ($values as $value) {
+      $query->values($value);
+    }
+    $query->execute();
+    // Delete entries already processed
+    $query = db_delete('temp_data_west_brand');
+    $query->condition('entity_id', $last_nid, '<=');
+    $query->condition('revision_id', $last_vid, '<=');
+    $query->execute();
+  }
+  // Calculated progress
+  if (empty($sandbox['max'])) {
+    // Don't divide by zero, so finish right away
+    $sandbox['#finished'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+  // When the batch is finished
+  if ($sandbox['#finished'] >= 1) {
+    // Delete the temporary table
+    db_drop_table('temp_data_west_brand');
+    // Force alter configuration entry
+    // Query for the current data
+    $query = db_select('field_config', 'fc');
+    $query->fields('fc', array('data'));
+    $query->condition('fc.field_name', 'field_west_brand');
+    $result = $query->execute();
+    // Data will be returned as a serialized string
+    if (($data = unserialize($result->fetchField()))) {
+      // Set the max_length to 27
+      $data['settings']['max_length'] = 27;
+      // Update query to save
+      $query = db_update('field_config');
+      $query->fields(array('data' => serialize($data)));
+      $query->condition('field_name', 'field_west_brand');
+      $query->execute();
+    }
+  }
+}
+
+/*
+ * Rearrange allowed values for package type field
+*/
+function new_item_request_update_7010() {
+  module_load_include("inc", "features", "features.export");
+  $fields=features_get_default("field_base", "new_item_request");
+  field_update_field($fields["field_package_type"]);
+}

@@ -1,0 +1,25 @@
+<?php
+
+/*
+ * Implements hook_init()
+ */
+function main_menu_init() {
+  drupal_add_js(drupal_get_path('module', 'main_menu') . '/select_encode_fix.js');
+}
+
+/**
+ * Implements hook_menu_alter().
+ * change text on menu tabs for request_form for better UX
+ */
+function main_menu_menu_alter(&$items) {
+  unset($items['node/%node/edit']['title']);
+  $items['node/%node/edit']['title callback'] = 'main_menu_view_tab_title';
+  $items['node/%node/edit']['title arguments'] = array(1);
+}
+
+function main_menu_view_tab_title($node) {
+  if ($node->type == 'request_form') {
+    return t('Request Information');
+  }
+  return t('Edit');
+}

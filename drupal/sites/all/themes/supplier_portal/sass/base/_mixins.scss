@@ -1,0 +1,11 @@
+@mixin position-absolute($top,$left) {
+  position: absolute;
+  top: $top;
+  left: $left;
+}
+
+@mixin position-relative($top,$left) {
+  @extend %position-relative;
+  top: $top;
+  left: $left;
+}

@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the marketing dashboard products view feature.
+ */
+
+include_once 'marketing_dashboard_products_view.features.inc';

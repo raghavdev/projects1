@@ -1,0 +1,241 @@
+<?php
+/**
+ * @file
+ * Code for the Export CSV module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'wbs_export_csv') . '/wbs_export_csv.install';
+
+
+/**
+ * Primary function that generates the file, pushes it to UNFI, then archives requests.
+ */
+function wbs_export_csv_execute() {
+  $tables = wbs_export_csv_fetch_tables();
+
+  // Prep the tables for import.
+  unfi_export_prepare_tables($tables);
+
+  // Find all nodes that need to be exported.
+  $count = wbs_export_csv_load_staging_tables();
+
+  // If not records, no need to proceed.
+  if (!$count) {
+    return;
+  }
+
+  // Generate and transfer the .csv file(s).
+  $local_path = variable_get('wbs_export_csv_export_path');
+  foreach ($tables as $table_name => $table_info) {
+    $base_name = $table_name . '_export';
+    $local_file = unfi_export_generate_csv_file($table_name, $table_info, $local_path, $base_name);
+    if (!$local_file) {
+      // If file creation fails, abort further processing.
+      unfi_export_log('Error attempting to create export file: %local_file', $variables=array('%local_file' => $local_file));
+      return FALSE;
+    }
+    else {
+      $remote_path = variable_get('wbs_export_csv_export_path_remote', '');
+      if (!empty($remote_path)) {
+        $transfer_status = unfi_export_transfer_file($local_file, $remote_path);
+        if (!$transfer_status) {
+          // If file transfer fails, abort further processing.
+          unfi_export_log('Error attempting to transfer file: %local_file to %remote_path', $variables=array('%local_file' => $local_file, '%remote_path' => $remote_path));
+          return FALSE;
+        }
+      }
+    }
+  }
+
+  // Update the workflow state after processing.
+  $new_workflow_state = variable_get('wbs_export_csv_new_workflow_state', 0);
+  if ($new_workflow_state) {
+    foreach ($tables as $table_name => $table_info) {
+      unfi_export_alter_workflow_state_for_nodes_in_table($table_name, $new_workflow_state, 'Exported via: WBS Export CSV');
+    }
+  }
+
+  // Update the log tables.
+  unfi_export_push_to_log_tables($tables);
+}
+
+/**
+ * Check for new items and push to the staging tables.
+ */
+function wbs_export_csv_load_staging_tables() {
+
+  $tables = wbs_export_csv_fetch_tables();
+
+  $from_workflow_state = variable_get('wbs_export_csv_cur_workflow_state', 0);
+
+  // If no starting workflow state is set, the export will not run.
+  if (empty($from_workflow_state)) {
+    unfi_export_log('No workflow state set for WBS export, see WBS export configuration.');
+    return;
+  }
+
+  // Subquery for only requests of a certain workflow state.
+  $subquery = db_select('node', 'r');
+  $subquery->addField('r', 'nid', 'nid');
+  $subquery->join('workflow_node', 'w', 'w.nid = r.nid');
+  $subquery->condition('r.status', 0,'>');
+  $subquery->condition('w.sid', $from_workflow_state,'=');
+
+  $ignore_groups = variable_get('unfi_export_ignore_groups', array(20, 12));
+  if (!empty($ignore_groups) && is_array($ignore_groups)) {
+    $subquery->join('og_membership', 'ogm', 'ogm.entity_type=\'node\' and r.nid=ogm.etid');
+    $subquery->condition('ogm.gid', $ignore_groups, 'NOT IN');
+  }
+
+  // Query for only new items within requests of the configured workflow state.
+  $query = db_select('node', 'n');
+  $query->fields('n', array('nid'));
+  $query->join('field_data_field_request_form', 'p', 'n.nid = p.entity_id');
+  $query->join($subquery, 'r', 'r.nid = p.field_request_form_target_id');
+  $query->condition('n.type', 'product');
+  $query->condition('n.status', 0, '>');
+  $result = $query->execute();
+
+  // Loop through each node and add them to each table defined for this export.
+  while($node = $result->fetchAssoc()) {
+    $node = node_load($node['nid']);
+    foreach ($tables as $table_name => $table_info) {
+      unfi_export_insert_record($table_name, $table_info['fields'], $node);
+    }
+  }
+
+  $count = 0;
+  foreach ($tables as $table_name => $table_info) {
+    $count += unfi_export_table_count($table_name);
+  }
+
+  // Return the count so that the calling function can determine whether or not to execute further.
+  return $count;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function wbs_export_csv_menu() {
+
+  $items = array();
+
+  // Create the main settings page.
+  $items['admin/config/unfi_export/wbs'] = array(
+    'title' => t('WBS Export Settings'),
+    'description' => t('Configure the WBS export settings.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('wbs_export_csv_settings_form'),
+    'access arguments' => array('unfi export data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Settings form for Export CSV configuration.
+ */
+function wbs_export_csv_settings_form() {
+
+  $form['wbs_export_csv_export_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Path Local'),
+    '#description' => t('The path to where files will be saved (../private recommended).'),
+    '#default_value' => variable_get('wbs_export_csv_export_path', '../private'),
+    '#size' => 60,
+  );
+
+  $form['wbs_export_csv_export_path_remote'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Path Remote'),
+    '#description' => t('The path to where files will be transferred to after generation.'),
+    '#default_value' => variable_get('wbs_export_csv_export_path_remote', ''),
+    '#size' => 60,
+  );
+
+  $form['wbs_export_csv_transpose'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Transpose CSV'),
+    '#description' => t('Export CSV with Header as first Column.'),
+    '#default_value' => variable_get('wbs_export_csv_transpose'),
+  );
+
+  $form['wbs_export_csv_cron'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Run on Cron'),
+    '#description' => t('Export files on cron runs.'),
+    '#default_value' => variable_get('wbs_export_csv_cron', ''),
+  );
+
+  $form['wbs_export_csv_cron_minimum_lifetime'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export After X-Hours'),
+    '#description' => t('Export on cron if x-number of hours has past since the last export.'),
+    '#default_value' => variable_get('wbs_export_csv_cron_minimum_lifetime', ''),
+    '#size' => 60,
+  );
+
+  $query = db_select('workflows', 'w');
+  $query->fields('w', array('wid', 'label'));
+  $query->fields('s', array('sid', 'state'));
+  $query->join('workflow_states', 's', 'w.wid = s.wid');
+  $query->condition('w.status', 0,'>');
+  $query->condition('s.status', 0,'>');
+  $query->orderBy('w.name', 'DESC');
+  $query->orderBy('s.weight', 'ASC');
+  $result = $query->execute();
+
+  $state_options = array(0 => t('Do Not Export'),);
+
+  while($state = $result->fetchAssoc()) {
+    $state_options[$state['sid']] = $state['label'] . ' :: ' . $state['state'];
+  }
+
+  $form['wbs_export_csv_cur_workflow_state'] = array(
+    '#type' => 'select',
+    '#title' => t('Export Workflow State'),
+    '#description' => t('Export new items that are on requests in this workflow state.'),
+    '#default_value' => variable_get('wbs_export_csv_cur_workflow_state', 0),
+    '#options' => $state_options,
+  );
+
+  $state_options[0] = t('Do Not Change State');
+  $form['wbs_export_csv_new_workflow_state'] = array(
+    '#type' => 'select',
+    '#title' => t('Post-Export Workflow State'),
+    '#description' => t('Exported new items should be updated to this workflow state.'),
+    '#default_value' => variable_get('wbs_export_csv_new_workflow_state', 0),
+    '#options' => $state_options,
+  );
+
+  // Add system submit handler and submit button.
+  $form = system_settings_form($form);
+
+  return $form;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function wbs_export_csv_cron() {
+  if (variable_get('wbs_export_csv_cron', FALSE)) {
+    $min_lifespan = variable_get('wbs_export_csv_cron_minimum_lifetime', 1);
+    $last_run = variable_get('wbs_export_csv_cron_last_run', 0);
+
+    if (!empty($min_lifespan)) {
+      // By checking that the value is not empty, an admin could set the min lifespan to 0 and bypass the check.
+      $diff = REQUEST_TIME - $last_run;
+      // Convert hours to seconds for comparison to timestamp difference.
+      if ($diff < ($min_lifespan * 60 * 60)) {
+        // Not enough time has passed for cron to run again, abort.
+        return;
+      }
+    }
+
+    wbs_export_csv_execute();
+
+    variable_set('wbs_export_csv_cron_last_run', REQUEST_TIME);
+  }
+}

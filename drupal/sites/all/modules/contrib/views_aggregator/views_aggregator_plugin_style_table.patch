@@ -1,0 +1,15 @@
+diff --git a/drupal/sites/all/modules/contrib/views_aggregator/views/views_aggregator_plugin_style_table.inc b/drupal/sites/all/modules/contrib/views_aggregator/views/views_aggregator_plugin_style_table.inc
+index da58d1e..3e0ef83 100644
+--- a/drupal/sites/all/modules/contrib/views_aggregator/views/views_aggregator_plugin_style_table.inc
++++ b/drupal/sites/all/modules/contrib/views_aggregator/views/views_aggregator_plugin_style_table.inc
+@@ -1015,8 +1015,8 @@ class views_aggregator_plugin_style_table extends views_plugin_style_table {
+     $cell2 = strip_tags($this->get_cell($field_handler, $row2->num, $compare_rendered));
+ 
+     if ((double)$cell1 == (double)$cell2) {
+-      // If both cells cast to zero, then compare alphabetically.
+-      $compare = ($cell1 == $cell2) ? 0 : ($cell1 < $cell2 ? -1 : 1);
++      // If both cells cast to zero, then compare alphabetically. we should not compare $cell1 < $cell2 because it does compare Ascii values rather we should use strcasecmp, which is binary safe case-insensitive string comparison.
++      $compare = ($cell1 == $cell2) ? 0 : (strcasecmp($cell1 , $cell2));
+     }
+     else {
+       // Compare numerically, i.e. "20 km" comes after "9.5 km".

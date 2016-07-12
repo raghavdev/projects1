@@ -1,0 +1,26 @@
+<?php
+
+// todo: could possibly add it's own log table that could be used by IT to review polling cycles.
+
+/**
+ * Implements hook_install()
+ */
+function unfi_import_install() {
+  // Populate the default settings records.
+  variable_set('unfi_import_default_log_for_days', 30);
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_import_uninstall() {
+  // Remove the settings records.
+  variable_del('unfi_import_default_log_for_days');
+}
+
+/**
+ * Enable/install background_batch.
+ */
+function unfi_import_update_7000(&$sandbox) {
+  module_enable(array('background_batch'));
+}

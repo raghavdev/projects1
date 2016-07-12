@@ -1,0 +1,348 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Import module.
+ */
+
+// TODO: could be abstracted more to be like UNFI Reports... (says Marcus Bernal)
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'unfi_import') . '/unfi_import.cleanse.inc';
+
+/**
+ * Implements hook_permission()
+ *
+ * This provides a custom permissions level for using this module.
+ */
+function unfi_import_permission() {
+  return array(
+    'unfi import data' => array(
+      'title' => t('UNFI Import data'),
+      'description' => t('Import data from the other business systems.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Given a .csv row and a staging table, maps the fields and inserts into the table.
+ */
+function unfi_import_insert_record($table_name, $table_fields, $row) {
+  if (empty($table_name) || empty($table_fields) || empty($row)) {
+    return FALSE;
+  }
+
+  $fields = array();
+  foreach ($table_fields as $field_name => $field) {
+
+    // Check if a field has a 'map_to' assigned and if so, find it in the field.
+    if (!isset($field['map_to'])) {
+      continue;
+    }
+
+    if ((!empty($field['map_to']) || $field['map_to'] === 0 || $field['map_to'] === '0') && isset($row[$field['map_to']])) {
+      // Going out to a .csv we can only have one value per field, so using a function to flatten it out.
+      $row_value = $row[$field['map_to']];
+
+      // Check if a function is set to be used to clean up the data in the field.
+      if (!empty($field['clean_func']) && function_exists($field['clean_func'])) {
+
+        $args = array($row_value);
+        if (!empty($field['clean_func_args']) && is_array($field['clean_func_args'])) {
+          $args = array_merge($args, $field['clean_func_args']);
+        }
+        $row_value = call_user_func_array($field['clean_func'], $args);
+      }
+
+      $fields[$field_name] = $row_value;
+    }
+  }
+
+  $table_info = unfi_import_table_names($table_name);
+
+  // Insert into the table (save the copy into the log table until after all processing).
+  $query = db_insert($table_info['table']);
+  $query->fields($fields);
+  $query->execute();
+
+  return;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_import_menu() {
+
+  $items = array();
+
+  // Create an administration block.
+  $items['admin/config/unfi_import'] = array(
+    'title' => t('Import'),
+    'description' => t('Import data from core business systems.'),
+    'position' => 'right',
+    'weight' => 19,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('unfi import data'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  // Create the main settings page.
+  $items['admin/config/unfi_import/settings'] = array(
+    'title' => t('UNFI Import Settings'),
+    'description' => t('Configure the default import settings.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unfi_import_settings_form'),
+    'access arguments' => array('unfi import data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Settings form for Import configuration.
+ */
+function unfi_import_settings_form() {
+
+  $form['unfi_import_default_log_for_days'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Log for X Days'),
+    '#description' => t('Number of days to hold on to imported records in the database log tables.'),
+    '#default_value' => variable_get('unfi_import_default_log_for_days', ''),
+    '#size' => 4,
+  );
+
+  // Add system submit handler and submit button.
+  $form = system_settings_form($form);
+
+  return $form;
+}
+
+/**
+ * Prepare the staging tables and trim the log tables.
+ */
+function unfi_import_prepare_tables($tables) {
+  foreach ($tables as $table_name => $table) {
+    unfi_import_truncate_table($table_name);
+    unfi_import_trim_log($table_name);
+  }
+}
+
+/**
+ * Determine table and log table names.
+ */
+function unfi_import_table_names($name) {
+  $tables = array(
+    'table' => 'unfi_import_' . $name,
+    'log_table' => 'unfi_import_' . $name . '_log',
+  );
+
+  return $tables;
+}
+
+/**
+ * Clean up log table removing any outdated records.
+ */
+function unfi_import_trim_log($table_name) {
+  $tables = unfi_import_table_names($table_name);
+
+  $log_for_days = variable_get('unfi_import_default_log_for_days');
+
+  // If log range is not set, do not continue.
+  if (!$log_for_days) {
+    return;
+  }
+
+  // Convert the log range from days to seconds and subtract from current time.
+  $ts = time() - ($log_for_days * 24 * 60 * 60);
+
+  // Clear out all records older than the current datetime minus the log range.
+  db_delete($tables['log_table'])
+    ->condition('timestamp', $ts, '<')
+    ->execute();
+
+  return;
+}
+
+/**
+ * Truncate a staging table to prepare it for export.
+ */
+function unfi_import_truncate_table($table_name) {
+  $tables = unfi_import_table_names($table_name);
+
+  db_truncate($tables['table'])->execute();
+
+  return;
+}
+
+/**
+ * Take a list of table(s) and process them one at a time.
+ */
+function unfi_import_create_staging_tables($tables) {
+  if (empty($tables) || !is_array($tables)) {
+    return FALSE;
+  }
+
+  $return = TRUE;
+  foreach ($tables as $requested_name => $table_info) {
+    if (!unfi_import_create_table($requested_name, $table_info)) {
+      $return = FALSE;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Create the staging tables with log table for each.
+ */
+function unfi_import_create_table($requested_name, $table_info) {
+  // Generate names for the staging table and log table based on name provided.
+  $table_names = unfi_import_table_names($requested_name);
+
+  // Make sure the table and log table do not already exist, if so drop them in case fields changed.
+  unfi_import_drop_tables($table_names);
+
+  // Setup the new table and log table with the node nid for debug purposes.
+  $schema = array();
+  $schema[$table_names['table']] = $table_info;
+
+  $log_extra_fields = array(
+    'timestamp' => array(
+      'type' => 'int',
+    ),
+  );
+  $table_info['fields'] = array_merge($table_info['fields'], $log_extra_fields);
+  $schema[$table_names['log_table']] = $table_info;
+
+  db_create_table($table_names['table'], $schema[$table_names['table']]);
+  db_create_table($table_names['log_table'], $schema[$table_names['log_table']]);
+
+  return;
+}
+
+/**
+ * Clean up table and log table on uninstall.
+ */
+function unfi_import_drop_tables($table_names=array()) {
+  if (!is_array($table_names)) {
+    return FALSE;
+  }
+
+  // Do the actual drops.
+  foreach ($table_names as $table_name) {
+    if (db_table_exists($table_name)) {
+      db_drop_table($table_name);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Returns the number of records in a table.
+ */
+function unfi_import_table_count($table_name) {
+
+  $table_info = unfi_import_table_names($table_name);
+
+  $query = db_query("SELECT COUNT(*) AS count FROM {$table_info['table']}");
+
+  $result = $query->fetchAssoc();
+
+  return $result['count'];
+}
+
+/**
+ * Log error messages.
+ */
+function unfi_import_log($message, $variables=array(), $severity=WATCHDOG_ERROR) {
+  // todo: This abstraction could be reworked to write to a log specifically for this module as opposed to watchdog.
+  watchdog('unfi_import', $message, $variables, $severity);
+}
+
+/**
+ * Copy contents from staging tables into the applicable log tables.
+ */
+function unfi_import_push_to_log_tables($tables) {
+  foreach ($tables as $table_name => $table) {
+    $table_names = unfi_import_table_names($table_name);
+    $sql = "INSERT {$table_names['log_table']}
+            SELECT
+              {$table_names['table']}.*,
+              UNIX_TIMESTAMP(NOW())
+            FROM {$table_names['table']}";
+    db_query($sql);
+  }
+}
+
+/**
+ * Converts the delimiter selection option to the actual delimiter value.
+ */
+function unfi_import_convert_delimiter($delimiter) {
+  switch ($delimiter) {
+    case 'comma':
+      $delimiter = ',';
+      break;
+    case 'tab':
+      $delimiter = "\t";
+      break;
+    case 'pipe':
+      $delimiter = '|';
+      break;
+    case 'tilde':
+      $delimiter = '~';
+      break;
+  }
+
+  return $delimiter;
+}
+
+/**
+ * Generate an example of what the expected .csv file should look like based on a schema config.
+ */
+function unfi_import_generate_example($tables) {
+  $markup = '<br/><strong>Expected .csv file example</strong>';
+
+  foreach ($tables as $table_name => $table_info) {
+    $markup .= '<table>';
+
+    // Find them all first, we don't care about fields that are not mapped to the csv.
+    $mapped = array();
+    $max_ix = 0;
+    foreach ($table_info['fields'] as $field_name => $field_info) {
+      if (isset($field_info['map_to']) && (!empty($field_info['map_to']) || $field_info['map_to'] === 0 || $field_info['map_to'] === '0')) {
+        $mapped[$field_info['map_to']] = $field_info;
+        if ($field_info['map_to'] > $max_ix) {
+          $max_ix = $field_info['map_to'];
+        }
+      }
+    }
+    ksort($mapped);
+
+    $header = '<thead><tr>';
+    $row = '<tbody><tr>';
+    for ($i = 0; $i <= $max_ix; $i++) {
+      $column = 'not mapped';
+      $ex = '';
+      if (isset($mapped[$i]) && !empty($mapped[$i])) {
+        $column = $mapped[$i]['description'];
+        $ex = $mapped[$i]['type'];
+        if (!empty($mapped[$i]['length'])) {
+          $ex .= ' (' . $mapped[$i]['length'] . ')';
+        }
+      }
+      $header .= '<th>' . $column . '</th>';
+      $row .= '<td>' . $ex . '</td>';
+    }
+    $header .= '</tr></thead>';
+    $row .= '</tr></tbody>';
+
+    $markup .= $header . $row;
+
+    $markup .= '</table>';
+  }
+
+  return $markup;
+}

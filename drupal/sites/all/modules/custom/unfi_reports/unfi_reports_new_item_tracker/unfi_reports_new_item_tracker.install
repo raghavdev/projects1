@@ -1,0 +1,141 @@
+<?php
+
+/**
+ * Implements hook_install()
+ */
+function unfi_reports_new_item_tracker_install() {
+  variable_set('unfi_reports_new_item_tracker_cron_info', array(
+    'enabled'       => '0',
+    'recipient'     => '',
+    'filter_params' => '',
+    'download_type' => 'csv',
+    'interval'      => '',
+  ));
+  variable_set('unfi_reports_new_item_tracker_cron_start', 0);
+  variable_set('unfi_reports_new_item_tracker_cron_finish', 0);
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_reports_new_item_tracker_uninstall() {
+  variable_del('unfi_reports_new_item_tracker_cron_info');
+  variable_del('unfi_reports_new_item_tracker_cron_start');
+  variable_del('unfi_reports_new_item_tracker_cron_finish');
+}
+
+/**
+ * Add variables for cron-based reporting.
+ */
+function unfi_reports_new_item_tracker_update_7000(&$sandbox) {
+  variable_set('unfi_reports_new_item_tracker_cron_info', array(
+    'enabled'       => '0',
+    'recipient'     => '',
+    'filter_params' => '',
+    'download_type' => 'csv',
+    'interval'      => '',
+  ));
+  variable_set('unfi_reports_new_item_tracker_cron_start', 0);
+  variable_set('unfi_reports_new_item_tracker_cron_finish', 0);
+}
+
+
+/**
+ * Implements hook_schema()
+ */
+function unfi_reports_new_item_tracker_schema() {
+  // Create a customized clone of the workflow_node_history that we can cache transition durations for reporting.
+  $schema['workflow_node_history_unfi_log'] = array(
+    'fields' => array(
+      'hid' => array(
+        'description' => 'The unique ID for this record.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'entity_type' => array(
+        'description' => 'The type of entity this transition belongs to.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid this record is for.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'old_sid' => array(
+        'description' => 'The {workflow_states}.sid this transition started as.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'sid' => array(
+        'description' => 'The {workflow_states}.sid this transition transitioned to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid who made this transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'stamp' => array(
+        'description' => 'The unique stamp for this transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'end_stamp' => array(
+        'description' => 'When the node moved from this state.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'duration' => array(
+        'description' => 'Number of seconds that the node was in this state.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'duration_display' => array(
+        'description' => 'Day/hour display of the duration that the node was in this state.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+      ),
+      'next_hid' => array(
+        'description' => 'Transition that happened after this one.',
+        'type' => 'int',
+        'length' => 11,
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+        'disp-width' => '11',
+      ),
+    ),
+    'primary key' => array('hid'),
+    'indexes' => array(
+      'sid' => array('entity_type', 'nid', 'sid', 'old_sid'),
+      'stamp' => array('stamp', 'duration'),
+    ),
+  );
+  return $schema;
+}

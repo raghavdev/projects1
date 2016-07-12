@@ -1,0 +1,67 @@
+// Left secondary nav //
+.page-node-edit-products .tabs.secondary {
+  border-bottom: none;
+  display: block;
+  float: left;
+  margin: 0;
+  margin-right: 2%;
+  padding: 0;
+  width: 15%;
+  li {
+    border-right: none;
+    display: block;
+    padding: 10px;
+    &.active {
+      background: $orange;
+    }
+    a.active {
+      border-bottom: none;
+      color: $white;
+    }
+  }
+  + div {
+    float: left;
+    overflow: visible;
+    width: 80%;
+  }
+}
+.page-node .ui-tabs {
+  a {
+    font-size: 1em;
+    color: $orange;
+    &:hover {
+      color: $light-orange;
+    }
+  }
+  .item-list {
+    float: left;
+    width: 13%;
+    padding-right: 3%;
+    li {
+      margin-left: 0px;
+      display: block;
+      border-bottom: none;
+      padding: 10px;
+       &.ui-state-active {
+        background: $orange;
+        a {
+          color: $white;
+        }
+      }
+    }
+  }
+  .ui-tabs-panel {
+    width: 84%;
+    float: left;
+  }
+}
+.ui-tabs-nav a {
+  font-weight: bold;
+}
+.ui-tabs-hide {
+  display: none;
+}
+ul.ui-tabs-nav {
+  padding-right: 0;
+  padding-left: 0;
+}

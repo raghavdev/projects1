@@ -1,0 +1,6 @@
+behat/bin
+behat/composer-temp.phar
+behat/vendor
+config/behat.local.yml
+/results
+chromedriver.log

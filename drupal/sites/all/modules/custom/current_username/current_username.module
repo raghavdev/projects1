@@ -1,0 +1,47 @@
+<?php
+/**
+ * @file
+ * A block module that displays current username.
+ */
+
+/**
+ * Implements hook_help().
+ *
+ * Displays help and module information.
+ */
+function current_username_help($path, $arg) {
+  $value = '';
+  switch ($path) {
+    case "admin/help#current_username":
+      $value = '<p>' . t("Displays the current username") . '</p>';
+      break;
+  }
+  return $value;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function current_username_block_info() {
+  $blocks['current_username'] = array(
+    'info' => t('Current username'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * Prepares the contents of the block.
+ */
+function current_username_block_view($delta = '') {
+  global $user;
+  switch ($delta) {
+    case 'current_username':
+      $block['content'] = theme('username',
+        array(
+          'account' => $user,
+          'link_path' => "user/$user->uid"));
+      return $block;
+  }
+}

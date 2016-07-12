@@ -1,0 +1,9 @@
+name = Supplier Portal Metrics
+description = Reporting of the metrics of Supplier Portal processes (e.g. new item throughput).
+core = 7.x
+package = UNFI
+
+dependencies[] = metrics_agg
+dependencies[] = phpexcel
+
+files[] = includes/UNFIholiday.php

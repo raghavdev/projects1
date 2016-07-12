@@ -1,0 +1,631 @@
+<?php
+
+/**
+ * Implements hook_field_info().
+ */
+function product_details_selector_field_info() {
+  return array(
+    'product_details_selector' => array(
+      'label'             => t('Digital Core Product Details Selector'),
+      'description'       => t('This field stores basic data about a UNFI Digital Core product details.'),
+      'settings'          => array(),
+      'default_widget'    => 'product_details_selector',
+      'default_formatter' => 'product_details_selector',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function product_details_selector_field_is_empty($item, $field) {
+  return empty($item['nid']);
+}
+
+/**
+ * Implements hook_field_validate().
+ */
+function product_details_selector_field_validate($obj_type, $object, $field, $instance, $langcode, $items, &$errors) {
+  foreach ($items as $delta => $item) {
+    if ($instance['required'] && empty($item['nid'])) {
+      $errors[$field['field_name']][$langcode][$delta][] = array(
+        'error'   => 'product_details_selector_empty',
+        'message' => t('%l field is required.', array(
+          '%l' => $instance['label'],
+        )),
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_field_presave().
+ *
+ * @todo why doesn't the Field Type API schema db field key "serialize" automatically handle this?
+ */
+function product_details_selector_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  foreach ($items as $delta => &$item) {
+    $item['data'] = serialize($item['data']);
+  }
+}
+
+/**
+ * Implements hook_field_load().
+ *
+ * @todo why doesn't the Field Type API schema db field key "serialize" automatically handle this?
+ */
+function product_details_selector_field_load($entity_type, $entities, $field, $instances, $langcode, &$items, $age) {
+  foreach ($items as $entity_id => &$entity_items) {
+    foreach ($entity_items as $delta => &$item) {
+      $item['data'] = unserialize($item['data']);
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function product_details_selector_field_formatter_info() {
+  $formatters = array(
+    'product_details_selector' => array(
+      'label'       => t('Digital Core Product Details Selector'),
+      'field types' => array('product_details_selector'),
+    ),
+  );
+
+  return $formatters;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function product_details_selector_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  $settings = $display ['settings'];
+
+  foreach ($items as $delta => $item) {
+    $element[$delta] = product_details_selector_render_item($item);
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function product_details_selector_field_widget_info() {
+  return array(
+    'product_details_selector' => array(
+      'label'       => t('Digital Core Product Details Selector'),
+      'field types' => array('product_details_selector'),
+      'settings'    => array(),
+      'behaviors'   => array(
+        'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+        'default value'   => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function product_details_selector_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $css_file = drupal_get_path('module', 'product_details_selector') . '/css/product_details_selector.widget.css';
+  $element['#attached']['css'][$css_file] = array(
+    'type' => 'file',
+  );
+
+  $field_settings  = $instance['settings'];
+  $widget_settings = $instance['widget']['settings'];
+
+  $trigger_prefix = $field['field_name'] . '-' . $langcode . '-' . $delta;
+  // Short trigger names
+  $show_trigger   = drupal_html_class($trigger_prefix . '-show-list');
+  $next_trigger   = drupal_html_class($trigger_prefix . '-page-list-next');
+  $prev_trigger   = drupal_html_class($trigger_prefix . '-page-list-prev');
+  $search_trigger = drupal_html_class($trigger_prefix . '-product-search');
+  $add_trigger    = drupal_html_class($trigger_prefix . '-add-product');
+  $remove_trigger = drupal_html_class($trigger_prefix . '-remove-product');
+  $cancel_trigger = drupal_html_class($trigger_prefix . '-cancel-add');
+  // Trigger groups
+  $list_triggers = array( // Triggers that display the list of Solr data
+    $show_trigger,
+    $next_trigger,
+    $prev_trigger,
+    $search_trigger,
+  );
+  $flat_triggers  = array( // Triggers that show the data selected
+    FALSE,
+    $add_trigger,
+    $remove_trigger,
+    $cancel_trigger
+  );
+  $field_triggers = array( // All triggers specific for this field item
+    $show_trigger,
+    $next_trigger,
+    $prev_trigger,
+    $search_trigger,
+    $add_trigger,
+    $remove_trigger,
+    $cancel_trigger,
+  );
+
+  // For AJAX state logic
+  $trigger = FALSE;
+  if (!empty($form_state['triggering_element']['#name'])) {
+    $trigger = $form_state['triggering_element'];
+  }
+  $trigger_name = $trigger ? $trigger['#name'] : FALSE;
+
+  // For AJAX state logic, too
+  // Since submit buttons are used for AJAX trigger, there are two form builds performed to return
+  $temp_trigger = FALSE;
+  if (!$trigger_name && !empty($form_state['input']['_triggering_element_name'])) {
+    $temp_trigger = $form_state['input']['_triggering_element_name'];
+  }
+
+  // Determine if in a non-select state, just simply displaying selected/saved data
+  $flat_display = in_array($trigger_name, $flat_triggers) || !in_array($trigger_name, $field_triggers);
+
+  // Obtain saved data
+  $current_value = array(
+    'nid'        => 0,
+    'productsid' => '',
+    'upc'        => '',
+    'title'      => '',
+    'data'       => array(),
+  );
+  if (isset($items[$delta])) {
+    $current_value = $items[$delta];
+  }
+
+  $fsv_exists = NULL;
+  if (!empty($form_state['values'])) {
+    $parents = $element['#field_parents'];
+    $parents[] = $field['field_name'];
+    $parents[] = $langcode;
+    $parents[] = $delta;
+    $fs_values = drupal_array_get_nested_value($form_state['values'], $parents, $fsv_exists);
+  }
+  if (!$fsv_exists) {
+    $fs_values = FALSE;
+  }
+
+  // Determine new/changed data
+  if (
+    $fs_values
+    && $trigger_name != $cancel_trigger
+    && !empty($fs_values['container']['modal']['product_list'])
+  ) {
+    // tableselect key: opt_[0-9]+
+    list(, $solr_results_key) = explode('_', $fs_values['container']['modal']['product_list']);
+
+    // Get data from form state storage
+    if (isset($form_state['product_details_selector']['solr_results']['results'][$solr_results_key])) {
+      $solr_result = $form_state['product_details_selector']['solr_results']['results'][$solr_results_key];
+
+      // Standardize value structure
+      $current_value = array(
+        'nid'        => $solr_result['nid'], // DIGITAL CORE NODE! NOT LOCAL!
+        'productsid' => $solr_result['field_productsid'],
+        'upc'        => $solr_result['upc'],
+        'title'      => $solr_result['title'],
+        'data'       => array(),
+      );
+      unset($solr_result['nid']);
+      unset($solr_result['field_productsid']);
+      unset($solr_result['upc']);
+      unset($solr_result['title']);
+      $current_value['data'] += $solr_result;
+
+      $form_state['product_details_selector']['selected'][$field['field_name']][$langcode][$delta] = $current_value;
+    }
+  }
+  elseif (isset($form_state['product_details_selector']['selected'][$field['field_name']][$langcode][$delta])) {
+    $current_value = $form_state['product_details_selector']['selected'][$field['field_name']][$langcode][$delta];
+  }
+
+  // Unique container ID for AJAX
+  $ajax_container = drupal_html_class($field['field_name'] .
+    '-product-details-selector-container-' . '-' . $langcode . '-' . $delta);
+
+  // Because the buttons are basically the same
+  $ajax_button_template = array(
+    '#type'  => 'button',
+    '#value' => t('Button Template'), // Replace
+    '#name'  => 'product-details-selector-button-template', // Replace
+    '#ajax'  => array(
+      'callback' => 'product_details_selector_ajax_return',
+      'wrapper'  => $ajax_container,
+      'method'   => 'replace',
+      'effect'   => 'fade',
+    ),
+    '#validate'                => array(),
+    '#submit'                  => array(),
+    '#limit_validation_errors' => array(array()),
+    '#access'                  => TRUE,
+    '#weight'                  => 999, // Because 1000 was for the "Next" button, Sam :imp:
+    '#modal'                   => FALSE,
+  );
+
+  // Limit the validation errors down to the specific item's AJAX container
+  // Once again, the field could be nested in multiple entity forms
+  // and the errors array must be exact.
+  // TODO: is this 'array_parents' or 'parents' form element keys?
+  //       most of the time they are the same, but could be different.
+  //       what is needed to traverse the values array is the 'parents' key.
+  if (!empty($element['#field_parents'])) {
+    foreach ($element['#field_parents'] as $field_parent) {
+      $ajax_button_template['#limit_validation_errors'][0][] = $field_parent;
+    }
+  }
+  $ajax_button_template['#limit_validation_errors'][0][] = $field['field_name'];
+  $ajax_button_template['#limit_validation_errors'][0][] = $langcode;
+  $ajax_button_template['#limit_validation_errors'][0][] = $delta;
+  $ajax_button_template['#limit_validation_errors'][0][] = 'container';
+
+  // Zero out the data to be saved
+  if ($trigger_name == $remove_trigger) {
+    $current_value = array();
+    $form_state['product_details_selector']['selected'][$field['field_name']][$langcode][$delta] = $current_value;
+  }
+
+  $element['label'] = array(
+    '#type'     => 'item',
+    '#title'    => $instance['label'],
+    '#required' => $element['#required'],
+  );
+
+  // Build out hidden values
+  foreach ($current_value as $value_key => $value_value) {
+    $element[$value_key] = array(
+      '#type'  => 'hidden',
+      '#value' => $value_value,
+    );
+  }
+
+  // Div wrapper for AJAX replacing
+  $element['container'] = array(
+    '#theme_wrappers' => array('container'),
+    '#attributes'     => array(
+      'id' => $ajax_container,
+    ),
+  );
+
+  if (in_array($trigger_name, $list_triggers)) {
+    $element['container']['#attributes']['class'][] = 'product-details-selector-active-modal';
+  }
+
+  // Div inner-wrapper for modal styling
+  $element['container']['modal'] = array(
+    '#theme_wrappers' => array('container'),
+    '#attributes'     => array(
+      'class' => array('dialog-box'),
+    ),
+  );
+
+  $element['container']['product_details'] = array(
+    '#theme_wrappers' => array('container'),
+    '#attributes'     => array(
+      'class' => array('product-details'),
+    ),
+    '#access' => TRUE,
+  );
+
+  // Build all buttons
+  $element['container']['show_list'] = array(
+    '#value' => t('Search for Existing Product'),
+    '#name'  => $show_trigger,
+    '#page'  => 0, // For page navigation of Solr results
+  ) + $ajax_button_template;
+
+  $element['container']['modal']['search_button'] = array(
+    '#value'  => t('Search'),
+    '#name'   => $search_trigger,
+    '#page'   => 0, // For page navigation of Solr results
+    '#access' => FALSE,
+    '#weight' => -999,
+    '#modal'  => TRUE,
+  ) + $ajax_button_template;
+
+  $element['container']['modal']['page_list_prev'] = array(
+    '#value'  => t('Previous'),
+    '#name'   => $prev_trigger,
+    '#page'   => 0, // For page navigation of Solr results
+    '#access' => FALSE,
+    '#modal'  => TRUE,
+  ) + $ajax_button_template;
+
+  $element['container']['modal']['page_list_next'] = array(
+    '#value'  => t('Next'),
+    '#name'   => $next_trigger,
+    '#page'   => 1, // For page navigation of Solr results
+    '#access' => FALSE,
+    '#weight' => 1000,
+    '#modal'  => TRUE,
+  ) + $ajax_button_template;
+
+  $element['container']['modal']['add_product'] = array(
+    '#value'  => t('Add Selected Product'),
+    '#name'   => $add_trigger,
+    '#access' => FALSE,
+    '#weight' => 1001,
+    '#modal'  => TRUE,
+  ) + $ajax_button_template;
+
+  $element['container']['modal']['cancel_add'] = array(
+    '#value'  => t('Cancel'),
+    '#name'   => $cancel_trigger,
+    '#access' => FALSE,
+    '#weight' => 1002,
+    '#modal'  => TRUE,
+  ) + $ajax_button_template;
+
+  $element['container']['remove_product'] = array(
+    '#value'  => t('Remove Product'),
+    '#name'   => $remove_trigger,
+    '#access' => FALSE,
+    '#weight' => 1000,
+  ) + $ajax_button_template;
+
+  // Fade effect within the modal is disorienting
+  $element['container']['modal']['search_button']['#ajax']['effect']  = 'none';
+  $element['container']['modal']['page_list_prev']['#ajax']['effect'] = 'none';
+  $element['container']['modal']['page_list_next']['#ajax']['effect'] = 'none';
+
+  // Simple display of data
+  if ($flat_display) {
+    if (!empty($current_value['nid'])) {
+      $element['container']['remove_product']['#access'] = TRUE;
+    }
+    $element['container']['product_details'] += product_details_selector_render_item($current_value);
+  }
+
+  // In state of selecting a new product_details
+  if (!$flat_display && in_array($trigger_name, $list_triggers)) {
+    // Hide display
+    $element['container']['display_details']['#access'] = FALSE;
+
+    // Get Solr parameters and modify them if needed
+    $solr_parameters = product_details_selector_default_solr_parameters();
+    $solr_parameters['query_parameters']['page'] = $trigger['#page'];
+    // TODO: instance config 'perPage' override (range limit)
+
+    if (
+      isset($fs_values['container']['modal']['product_search'])
+      && $fs_values['container']['modal']['product_search'] != ''
+    ) {
+      $solr_parameters['query_parameters']['search'][] =
+        $form_state['values'][$field['field_name']][$langcode][$delta]['container']['modal']['product_search'];
+
+      $solr_parameters['searched_fields'][] = 'title';
+      $solr_parameters['searched_fields'][] = 'upc';
+    }
+
+    // Execute Solr search and store the data in form_state
+    $solr_results = simple_solr_search($solr_parameters);
+    $form_state['product_details_selector']['solr_results'] = $solr_results;
+    // Build table head from the fields returned
+    $header = array(
+      'title'        => t('Title'),
+      'upc'          => t('UPC'),
+      'item_size'    => t('Size'),
+      'vendoracctnm' => t('Brand'),
+    );
+    // Array gap filler
+    $blank_result = array_fill_keys($solr_parameters['return_fields'], '');
+
+    // Search field
+    $element['container']['modal']['product_search'] = array(
+      '#type'   => 'textfield',
+      '#title'  => t('Description or UPC Search'),
+      '#weight' => -1000,
+    );
+
+    // Build select table
+    $element['container']['modal']['product_list'] = array(
+      '#type'       => 'tableselect',
+      '#header'     => $header,
+      '#options'    => array(),
+      '#empty'      => t('No Product Details Found'),
+      '#multiple'   => FALSE,
+      '#attributes' => array(
+        'class' => array(
+          'tableheader-processed', // To prevent a sticky head
+        ),
+      ),
+    );
+    // Build rows
+    foreach ($solr_results['results'] as $key => $result) {
+      // Concatenating the options key, because NULL == 0, meaning the first result will also be selected
+      $element['container']['modal']['product_list']['#options']['opt_' . $key] = $result + $blank_result;
+    }
+
+    $element['container']['modal']['counts'] = array(
+      '#theme'      => 'html_tag',
+      '#tag'        => 'div',
+      '#value'      => t('Page @cp of @tp. Showing @cr of @tr.', array(
+        '@cp' => $solr_parameters['query_parameters']['page'] + 1,
+        '@tp' => ceil($solr_results['total'] / $solr_parameters['query_parameters']['perPage']),
+        '@cr' => $solr_results['count'],
+        '@tr' => $solr_results['total'],
+      )),
+      '#attributes' => array(
+        'class' => array('solr-counts'),
+      ),
+    );
+
+    // Calculate the previous page number, if it exists. Disable otherwise
+    if ($solr_parameters['query_parameters']['page'] > 0) {
+      $element['container']['modal']['page_list_prev']['#page'] = $solr_parameters['query_parameters']['page'] - 1;
+    }
+    else {
+      $element['container']['modal']['page_list_prev']['#disabled'] = TRUE;
+    }
+
+    // Calculate if next button is needed and the next page number
+    if ($solr_results['total'] > $solr_parameters['query_parameters']['perPage']) {
+      $element['container']['modal']['page_list_prev']['#access'] = TRUE;
+      $element['container']['modal']['page_list_next']['#access'] = TRUE;
+      $element['container']['modal']['page_list_next']['#page']   = $solr_parameters['query_parameters']['page'] + 1;
+    }
+
+    // Show button to select new data
+    $element['container']['modal']['add_product']['#access'] = TRUE;
+    $element['container']['modal']['search_button']['#access'] = TRUE;
+    $element['container']['modal']['cancel_add']['#access'] = TRUE;
+    // Hide other buttons
+    $element['container']['show_list']['#access'] = FALSE;
+    $element['container']['remove_product']['#access'] = FALSE;
+  }
+
+  // Display description if only one item (this is open for debate)
+  if ($field['cardinality'] == 1) {
+    $element['description'] = array(
+      '#type'        => 'item',
+      '#description' => $instance['description'],
+      '#required'    => $element['#required'],
+    );
+  }
+
+  // In this funky state, it is best to show *all* buttons
+  // so that Form API doesn't get confused and think the AJAX trigger
+  // was the actual submit button
+  if ($temp_trigger) {
+    $element['container']['show_list']['#access'] = TRUE;
+    $element['container']['modal']['search_button']['#access'] = TRUE;
+    $element['container']['modal']['page_list_prev']['#access'] = TRUE;
+    $element['container']['modal']['page_list_next']['#access'] = TRUE;
+    $element['container']['modal']['add_product']['#access'] = TRUE;
+    $element['container']['modal']['cancel_add']['#access'] = TRUE;
+    $element['container']['remove_product']['#access'] = TRUE;
+  }
+
+  return $element;
+}
+
+/**
+ * AJAX callback to replace the container of the product_details_selector.
+ */
+function product_details_selector_ajax_return($form, $form_state) {
+  // Drill down to the parent of the trigger, which is assumed to be the container
+  $return = $form;
+  $array_parents = $form_state['triggering_element']['#array_parents'];
+  array_pop($array_parents); // Remove this trigger
+  // Extra pop needed for modal
+  if (!empty($form_state['triggering_element']['#modal'])) {
+    array_pop($array_parents);
+  }
+  return drupal_array_get_nested_value($form, $array_parents);
+}
+
+/**
+ * Implements hook_field_widget_error().
+ */
+function product_details_selector_field_widget_error($element, $error, $form, &$form_state) {
+  form_error($element, $error['message']);
+}
+
+/**
+ * Simple function to contain default simple_solr parameters for this field widget.
+ */
+function product_details_selector_default_solr_parameters() {
+  return array(
+    'index_name'       => 'default_node_index',
+    'query_parameters' => array(
+      'type'     => 'product_details',
+      'page'     => 0,                                        // TODO: move: $trigger['#page'],
+      'perPage'  => 10,                                       // TODO: could go in field instance settings
+      // 'sort'     => NULL, // single(?) field to sort by
+      // 'sort_dir' => NULL, // ASC or DESC
+      // 'search'   => NULL, // array('11216'),
+      // 'available' => TRUE, // TODO: ??? (discover why this, need this)
+    ),
+    'searched_fields' => array(
+      // 'remitnum',                                          // TODO: focus on Remit Numbers (if avail.)
+    ),
+    'return_fields' => array(
+      'nid',
+      'field_productsid',
+      'upc',
+      'title',
+      // The following are stored in the `data` field
+      'remitnum',
+      'east_product_id',
+      'east_product_id_full',
+      'west_product_id',
+      'item_size',
+      'vendoracctnm',
+    ),
+    'non_wild_fields' => array(
+      'remitnum',
+      'upc',
+    ),
+    'context' => array(
+      'module'      => 'product_details_selector',
+      'caller'      => NULL, // TODO: this is useful?
+      'entity_type' => NULL, // TODO: this is useful?
+      'entity_id'   => NULL, // TODO: this is useful?
+      'entity'      => NULL, // TODO: this is useful?
+    ),
+  );
+}
+
+/**
+ * Build render array of product_details_selector field.
+ */
+function product_details_selector_render_item($item) {
+  // TODO: field formatter config: what is displayed, how, ordered
+  if (empty($item['nid'])) {
+    $empty_text = '<em>' . t('No product is selected') . '</em>';
+    $item['productsid'] = $empty_text;
+    $item['title'] = $empty_text;
+    $item['upc'] = $empty_text;
+    $item['data']['item_size'] = $empty_text;
+    $item['data']['vendoracctnm'] = $empty_text;
+  }
+  return array(
+    // ...leaving for now, could delete soon, could show to UNFI admins...
+    // 'productsid' => array(
+    //   '#theme'      => 'html_tag',
+    //   '#tag'        => 'div',
+    //   '#value'      => t('Product SID: ') . $item['productsid'],
+    //   '#attributes' => array(
+    //     'class' => array('productsid'),
+    //   ),
+    // ),
+    'title' => array(
+      '#theme'      => 'html_tag',
+      '#tag'        => 'div',
+      '#value'      => t('Title: ') . $item['title'],
+      '#attributes' => array(
+        'class' => array('title'),
+      ),
+    ),
+    'upc' => array(
+      '#theme'      => 'html_tag',
+      '#tag'        => 'div',
+      '#value'      => t('UPC: ') . $item['upc'],
+      '#attributes' => array(
+        'class' => array('upc'),
+      ),
+    ),
+    'item_size' => array(
+      '#theme'      => 'html_tag',
+      '#tag'        => 'div',
+      '#value'      => t('Size: ') . (isset($item['data']['item_size']) ? $item['data']['item_size'] : ''),
+      '#attributes' => array(
+        'class' => array('item_size'),
+      ),
+    ),
+    'vendoracctnm' => array(
+      '#theme'      => 'html_tag',
+      '#tag'        => 'div',
+      '#value'      => t('Brand: ') . (isset($item['data']['vendoracctnm']) ? $item['data']['vendoracctnm'] : ''),
+      '#attributes' => array(
+        'class' => array('vendoracctnm'),
+      ),
+    ),
+  );
+}

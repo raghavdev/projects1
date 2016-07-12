@@ -1,0 +1,27 @@
+<?php
+/**
+ * @file
+ * Code for the Supplier group feature.
+ */
+
+include_once 'supplier_group.features.inc';
+
+/**
+ * Implements hook_views_pre_render()
+ * hide 'add new' buttons from non-admin group members
+ */
+function supplier_group_views_pre_render(&$view) {
+  $group_type = arg(0);
+  $gid = arg(1);
+  $header = $view->header;
+
+  if ($view->name == 'supplier_contacts' || $view->name == 'pickup_locations') {
+    $role = og_get_user_roles($group_type, $gid);
+    if (in_array('administrator member', $role)) {
+      $view->header = $header;
+    }
+    else {
+      $view->header = '';
+    }
+  }
+}

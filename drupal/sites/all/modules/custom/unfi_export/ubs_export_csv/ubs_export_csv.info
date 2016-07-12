@@ -1,0 +1,6 @@
+name = UBS Export CSV
+description = Export new item data as a .csv for the UBS system.
+core = 7.x
+package = UNFI
+
+dependencies[] = unfi_export

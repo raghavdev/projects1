@@ -1,0 +1,412 @@
+<?php
+/**
+ * @file
+ * Code for the new_item_request feature.
+ */
+
+include_once 'new_item_request.features.inc';
+
+/**
+ * Implements hook_field_default_field_bases_alter().
+ */
+function new_item_request_field_default_field_bases_alter(&$field_bases) {
+  if (isset($field_bases['field_warehouses_select'])) {
+    // Sets the views argument for the Select Nutrition field.
+    // This is done in an alter because otherwise Features would report that it
+    // is overridden and overwrite the variable_get() part on feature-update.
+    // @see unfi_warehouses_update_7002()
+    $field_bases['field_warehouses_select']['settings']['handler_settings']['view']['args'][0] = variable_get('unfi_warehouses_region_select_nid', 0);
+  }
+}
+
+/*
+ * Implements hook_field_access()
+ */
+function new_item_request_field_access($op, $field, $entity_type, $entity = NULL, $account = NULL) {
+
+  // Early return TRUE if the $account->roles array does not contain either Supplier or Broker
+
+  if (!(in_array('Supplier', $account->roles) || in_array('Broker', $account->roles))) {
+    return TRUE;
+  }
+
+  // The following fields array contains names which should be excluded by the field level permissions
+  // for accounts with Supplier & Broker roles assigned.
+
+  $fields = array('field_exclusive',
+                  'field_flavor',
+                  'field_type',
+                  'field_form',
+                  'field_ethnic_cultural',
+                  'field_print_in_publications',
+                  'field_shelf_life_retail',
+                  'field_east_category',
+                  'field_west_category',
+                  'field_west_dept',
+                  'field_west_subheader_catalog',
+                  'field_unfi_contribution',
+                  'field_unfi_only_approved_mcb',
+                 );
+
+  if (in_array($field['field_name'], $fields)) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function new_item_request_node_access($node, $op, $account) {
+  // Provide additional access checks for already created request items
+  if ($op != 'create' && $node->type == 'request_item') {
+    // Query database for new item request that references this request item
+    $query = db_select('field_data_field_request_item', 'fri');
+    $query->fields('fri', array('entity_id'));
+    $query->condition('fri.bundle', 'new_item_request');
+    $query->condition('fri.field_request_item_target_id', $node->nid);
+    // Execute
+    $result = $query->execute();
+    // Attempt to load the new item request
+    $nir_node = node_load((int)$result->fetchField());
+    // If the new item request loaded and access is denied to it,
+    // deny access to this request item as well
+    if ($nir_node && !node_access($op, $nir_node)) {
+      return NODE_ACCESS_DENY;
+    }
+  }
+  // Otherwise, keep calm and carry on...
+  return NODE_ACCESS_IGNORE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * Automatically set the supplier to the first option in the list, and if only one options is available
+ * then hide the input area entirely.
+ **/
+function new_item_request_form_new_item_request_node_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  $lng = $form['language']['#value'];
+
+  // Only perform this if the user is a supplier or broker.
+  if (isset($form['og_group_ref']) && (isset($user->roles[9]) || isset($user->roles[3]))) {
+    // Never allow the value to be set to none.
+    unset($form['og_group_ref'][$lng][0]['default']['#options']['_none']);
+
+    $options = $form['og_group_ref'][$lng][0]['default']['#options'];
+    // Only do this if the user only belongs to one group.
+    if (count($options) == 1) {
+      $option = array_shift($options);
+      $form['og_group_ref']['#attributes']['class'][] = 'hidden';
+      $form['og_group_ref']['#prefix'] = 'Supplier: ' . $option;
+    }
+
+  }
+
+  // Special form states based on workflow
+  if (isset($form['#node']->workflow)) {
+    $pending_ubs_sid = variable_get('ubs_export_csv_new_workflow_state', 0);
+    $pending_wbs_sid = variable_get('wbs_export_csv_cur_workflow_state', 0);
+    $ubs_number_field =& $form['field_request_item'][$lng]['form']['field_ubs_number'];
+
+    switch ($form['#node']->workflow) {
+      case $pending_ubs_sid: // Pending UBS Systems Input
+        // Make UBS # (aka East Item Number) field required before going to WBS Systems Input
+        $ubs_number_field[$lng][0]['value']['#required'] = TRUE;
+
+        // Intentionally don't break
+      case 7: // Archived
+      case $pending_wbs_sid: // Pending WBS Systems Input
+        // Disable UBS # (aka East Item Number) field when it isn't empty
+        if (!empty($ubs_number_field[$lng][0]['value']['#default_value'])) {
+          $ubs_number_field[$lng][0]['value']['#disabled'] = TRUE;
+        }
+        break;
+
+      default:
+        // Hide the UBS # (aka East Item Number) field until it is known; after
+        // it has been input into UBS
+        $ubs_number_field['#access'] = FALSE;
+        break;
+    }
+  }
+
+  // Kill the preview buttons. They are without value.
+  unset($form['actions']['actions']['preview']);
+  unset($form['actions']['preview_changes']);
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function new_item_request_form_alter(&$form, &$form_state, $form_id) {
+  // The workflow module does not make it easy to tweak the workflow transition form. These are work-arounds.
+  if (!empty($form['workflow']) && substr($form_id, 0, 24) == 'workflow_transition_form') {
+    new_item_request_workflow_transition_form_alter($form, $form_state);
+  }
+}
+
+/**
+ * Modifies the workflow transition form for a cleaner look,
+ * specifically for Suppliers/Brokers.
+ */
+function new_item_request_workflow_transition_form_alter(&$form, &$form_state) {
+  global $user;
+  // These next two variables are to ease the transition from hard-coded settings to configurable ones
+  $roles = array(
+    'suppliers' => array( // and brokers
+      9 => 9, // Supplier
+      3 => 3, // Broker
+    ),
+  );
+  $states = array(
+    'item_specialist_review' => 16,
+  );
+  // Add a custom header for this section of the page.
+  $form['workflow']['form_title'] = array(
+    '#theme'      => 'html_tag',
+    '#tag'        => 'H2',
+    '#value'      => t('Change Workflow State'),
+    '#attributes' => array(),
+    '#weight'     => -1,
+  );
+  // Change the display for Suppliers/Brokers
+  if (array_intersect_key($user->roles, $roles['suppliers'])) {
+    // Change text for the 'Item Specialist Review' transition button
+    if (!empty($form['workflow']['submit_sid'][$states['item_specialist_review']]['#value'])) {
+      $form['workflow']['submit_sid'][$states['item_specialist_review']]['#value'] = 'Submit for Review';
+    }
+  }
+  else {
+    // Apply a class to the comment so that we can assign a height more easily.
+    $form['workflow']['workflow_comment']['#attributes']['class'][] = 'short-textarea';
+  }
+  // Sort workflow transition buttons
+  $weight = 0;
+  foreach ($form['workflow']['submit_sid'] as $sid => &$state) {
+    if (is_numeric($sid) && is_array($state)) {
+      $state['#weight'] = ++$weight;
+      // Prevent the button for the current state from showing
+      if ($sid == $form['#default_value']) {
+        $state['#access'] = FALSE;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_attach_view_alter().
+ */
+function new_item_request_field_attach_view_alter(&$output, $context) {
+  // Target the specific view of the workflow history of a new item request
+  if (
+    $context['entity_type'] == 'node'
+    && !empty($context['entity']->type)
+    && !empty($context['entity']->view->name)
+    && $context['entity']->type == 'new_item_request'
+    && $context['entity']->view->name == 'unfi_workflow_history_per_entity'
+  ) {
+    // Add a pre-rendering function to modify a few things
+    $output['#pre_render'][] = 'new_item_request_unfi_workflow_history_per_entity_alter';
+  }
+}
+
+/**
+ * Pre-render modifications for the current workflow state field in a history view.
+ * Note: Could be converted into a formatter?
+ */
+function new_item_request_unfi_workflow_history_per_entity_alter($elements) {
+  global $user;
+  // Make sure the field exists and there is enough information to alter it
+  if (
+    !empty($elements['workflow_current_state'])
+    && !empty($elements['#node']->workflow)
+    && ($state = workflow_get_workflow_states_by_sid($elements['#node']->workflow))
+  ) {
+    // These next two variables are to ease the transition from hard-coded settings to configurable ones
+    $roles = array(
+      'suppliers' => array( // and Brokers
+        9 => 9, // Supplier
+        3 => 3, // Broker
+      ),
+    );
+    $states = array(
+      'review'   => array(16, 3, 4, 5), // Item Specialist Review, SRM Review, RCM Review, Final Review
+      'approved' => array(6, 34, 35, 7), // Approved, Pending UBS, Pending WBS, Archived
+    );
+    // Defaults, because Suppliers/Brokers will be displayed to differently than other roles
+    $hide_class  = FALSE;
+    $state_label = $state->state;
+    // If the user is a Supplier or Broker
+    if (array_intersect_key($user->roles, $roles['suppliers'])) {
+      // Override the state label if in one of the _review_ states
+      if (in_array($state->sid, $states['review'])) {
+        $hide_class  = TRUE;
+        $state_label = 'Your request has been submitted. Please check back later for updates on the approval process.';
+      }
+      // Override the state label if in one of the _approved_ states
+      elseif(in_array($state->sid, $states['approved'])) {
+        $hide_class  = TRUE;
+        $state_label = 'Your request has been approved.'; // TODO: Marcus assumed this verbage, it could be replaced or appended.
+      }
+    }
+    // Build HTML attributes similar to how the workflow originally built it
+    $attr = array(
+      'class' => array(
+        'workflow-current-state',
+        'workflow-current-sid-' . $state->sid,
+      ),
+    );
+    // Add CSS class based on the workflow state's label, only if the user is able to view it
+    if (!$hide_class) {
+      $attr['class'][] = drupal_clean_css_identifier(drupal_strtolower($state->state));
+    }
+    // Rebuild the current state field "properly"
+    // #type = 'item' (see Form API)
+    $elements['workflow_current_state']['#prefix'] = '<div ' . drupal_attributes($attr) . '>';
+    $elements['workflow_current_state']['#title']  = 'Current State';
+    $elements['workflow_current_state']['#markup'] = '<span class="state">' . t('@l', array('@l' => $state_label)) . '</span>';
+    $elements['workflow_current_state']['#suffix'] = '</div>';
+  }
+  return $elements;
+}
+
+/*
+ * Units per Shipper is a computed field which is the sum of shipper component field collection items
+ */
+function computed_field_field_shipper_unit_total_compute(&$entity_field, $entity_type, $entity, $field, $instance, $langcode, $items) {
+  $total = 0;
+  if (isset($entity->field_shipper_components['und'])) {
+    $fcids = array();
+    foreach ($entity->field_shipper_components['und'] as $key => $value) {
+      $fcids[] = $value['value'];
+    }
+    $field_collections = entity_load('field_collection_item', $fcids, array(), TRUE);
+    foreach ($field_collections as $field_collection) {
+      if (isset($field_collection->field_quantity['und'][0]['value'])) {
+        $total += $field_collection->field_quantity['und'][0]['value'];
+      }
+    }
+  }
+  $entity_field[0]['value'] = $total;
+}
+
+/**
+ *
+ */
+function new_item_request_field_widget_form_alter(&$element, &$form_state, $context) {
+  global $user;
+
+  // Use Master Case Cost field
+  if (in_array($context['instance']['field_name'], array('field_use_mcc_east', 'field_use_mcc_west'))) {
+    // For certain roles, allow editing
+    // Perform a quick check against the user's roles
+    $rids_intrsct = array_intersect_key($user->roles, array_flip($context['instance']['allowed_rids']));
+    // If there are no roles intersected, then the user does not have any allowed roles
+    if (empty($rids_intrsct)) {
+      // Simply display the choice
+      $element['#type'] = 'item';
+      // If there is data saved
+      if (
+        !empty($element['#default_value'])
+        && $element['#default_value'] !== '_none'
+        && !empty($element['#options'][$element['#default_value']])
+      ) {
+        // Print the cooresponding label
+        $element['#markup'] = $element['#options'][$element['#default_value']];
+      }
+      else {
+        // Otherwise, hide
+        $element['#access'] = FALSE;
+      }
+    }
+  }
+
+  // Guaranteed Sales Agreement field
+  if ($context['instance']['field_name'] == 'field_sales_agreement') {
+    // If there is a "Blank Form" file ID
+    if (($file_id = variable_get('new_item_request_blank_sales_agreement', 0))) {
+      // Append the description text with a link to download
+      // (via download_file contrib module)
+      $element[0]['#description'] .= (empty($element[0]['#description']) ? '' : '<BR />').
+        l('(Download a blank copy of the guaranteed sales agreement.)', download_file_path($file_id));
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_edit_form.
+ */
+function new_item_request_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
+  // Focus on altering the Use Master Case Cost fields
+  if (
+    !empty($form['#instance']['field_name'])
+    && in_array($form['#instance']['field_name'], array('field_use_mcc_east', 'field_use_mcc_west'))
+  ) {
+    // Add options to restrict per role
+    $form['instance']['allowed_rids'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Roles Allowed to Edit'),
+      '#options'       => user_roles(TRUE),
+      '#default_value' => $form['#instance']['allowed_rids'],
+    );
+  }
+}
+
+/**
+ * Form alter the general, custom UNFI settings to add a blank form for the Guaranteed Sales Agreement field.
+ */
+function new_item_request_form_unfi_custom_settings_form_alter(&$form, &$form_state) {
+  // Add managed file field, it will handle most of the hard work
+  $form['new_item_request_blank_sales_agreement'] = array(
+    '#type'              => 'managed_file',
+    '#title'             => t('New Item Request - Blank Guaranteed Sales Agreement'),
+    '#default_value'     => variable_get('new_item_request_blank_sales_agreement', 0),
+    '#description'       => t('Allows users to download a blank copy of the form.'),
+    '#upload_location'   => 'private://sales_agreements/',
+    '#upload_validators' => array('file_validate_extensions' => array(
+      'xls xlsx xlsm',
+    )),
+  );
+  // Add a submit function to finish the hard work, i.e.: file usage and persistence
+  $form['#submit'][] = 'new_item_request_form_unfi_custom_settings_form_alter_submit';
+}
+
+/**
+ * Additional Form API submit function for "Blank Form" file handling.
+ */
+function new_item_request_form_unfi_custom_settings_form_alter_submit($form, &$form_state) {
+  // Clean up file IDs for simple testing fringe cases:
+  // not existing, being removed, being added, being changed
+  $old_fid = 0;
+  if (isset($form['new_item_request_blank_sales_agreement']['#default_value'])) {
+    $old_fid = (int)$form['new_item_request_blank_sales_agreement']['#default_value'];
+  }
+  $new_fid = 0;
+  if (isset($form_state['values']['new_item_request_blank_sales_agreement'])) {
+    $new_fid = (int)$form_state['values']['new_item_request_blank_sales_agreement'];
+  }
+  // Only make changes when changes are made
+  if ($old_fid != $new_fid) {
+    // If there is a new file, handle saving it permanently
+    if ($new_fid && ($new_file = file_load($new_fid))) {
+      // Increment usage for the instance to prevent file_delete() calls.
+      // Admittedly & purposefully using the entity type wrong,
+      // but the actual request_items will use the entity type 'node'.
+      file_usage_add($new_file, 'new_item_request', 'field_sales_agreement', 1);
+      // Tell Drupal to keep the file
+      $new_file->status = FILE_STATUS_PERMANENT;
+      // Save the file metadata
+      file_save($new_file);
+    }
+    // If there is an old file, handle removing it
+    if ($old_fid && ($old_file = file_load($old_fid))) {
+      // Decrement usage for the instance, hopefully it will be the only one
+      file_usage_delete($old_file, 'new_item_request', 'field_sales_agreement', 1);
+      // Delete the file (if there is no other usage)
+      file_delete($old_file);
+    }
+  }
+}

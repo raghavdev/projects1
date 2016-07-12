@@ -1,0 +1,20 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI UPC Search feature.
+ */
+
+include_once 'unfi_upc_search.features.inc';
+
+drupal_add_js(drupal_get_path('module', 'unfi_upc_search') . '/unfi_upc_search.js');
+
+function unfi_upc_search_form_alter(&$form, &$form_state, $form_id){
+  if( $form['#id'] == 'views-exposed-form-item-lookup-panel-pane-1' ){
+    $form['#validate'][] = 'upc_search_sanitize';
+  }
+}
+
+function upc_search_sanitize($form, &$form_state) {
+  $form_state['values']['field_unit_upc_value'] = str_replace('-', '', $form_state['values']['field_unit_upc_value']);
+}
+

@@ -1,0 +1,12 @@
+diff --git a/auto_nodetitle.module b/auto_nodetitle.module
+index 30e6e4f..e02651e 100644
+--- a/auto_nodetitle.module
++++ b/auto_nodetitle.module
+@@ -183,6 +183,7 @@ function auto_nodetitle_form_node_type_form_alter(&$form, &$form_state) {
+     $form['auto_nodetitle']['token_help'] = array(
+       '#theme' => 'token_tree',
+       '#token_types' => array('node'),
++      '#dialog' => TRUE,
+     );
+   }
+ 

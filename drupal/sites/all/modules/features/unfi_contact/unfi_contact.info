@@ -1,0 +1,11 @@
+name = UNFI Contact
+description = entity reference view filter used by vendor warehouse location content type
+core = 7.x
+package = Features
+dependencies[] = entityreference
+dependencies[] = unfi_custom
+dependencies[] = views
+features[ctools][] = views:views_default:3.0
+features[features_api][] = api:2
+features[views_view][] = contact_entity_reference_filter
+features_exclude[dependencies][ctools] = ctools

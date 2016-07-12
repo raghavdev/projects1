@@ -1,0 +1,20 @@
+.unfi-column-editing table.views-table th,
+.unfi-column-editing table.views-table td {
+  vertical-align: top;
+}
+
+.unfi-column-editing-disabled * {
+  display: none;
+}
+
+/* Disable tableDrag within column editing */
+.unfi-column-editing table.views-table .tabledrag-toggle-weight-wrapper,
+.unfi-column-editing table.views-table .tabledrag-handle {
+  display:none;
+}
+
+/* Disable the workflow comment select drop down */
+#edit-workflow-comment-format{
+  display: none;
+}
+

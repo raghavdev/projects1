@@ -1,0 +1,246 @@
+AD,AND,20,EU,Andorra
+AE,ARE,784,AS,United Arab Emirates
+AF,AFG,4,AS,Afghanistan
+AG,ATG,28,LA,Antigua and Barbuda
+AI,AIA,660,LA,Anguilla
+AL,ALB,8,EU,Albania
+AM,ARM,51,AS,Armenia
+AN,ANT,530,LA,Netherlands Antilles
+AO,AGO,24,AF,Angola
+AQ,ATA,10,AN,Antarctica
+AR,ARG,32,LA,Argentina
+AS,ASM,16,AU,American Samoa
+AT,AUT,40,EU,Austria
+AU,AUS,36,AU,Australia
+AW,ABW,533,LA,Aruba
+AX,ALA,248,EU,Aland Islands
+AZ,AZE,31,AS,Azerbaijan
+BA,BIH,70,EU,Bosnia and Herzegovina
+BB,BRB,52,LA,Barbados
+BD,BGD,50,AS,Bangladesh
+BE,BEL,56,EU,Belgium
+BF,BFA,854,AF,Burkina Faso
+BG,BGR,100,EU,Bulgaria
+BH,BHR,48,AS,Bahrain
+BI,BDI,108,AF,Burundi
+BJ,BEN,204,AF,Benin
+BL,BLM,652,NA,St. Barthelemy
+BM,BMU,60,LA,Bermuda
+BN,BRN,96,AS,Brunei Darussalam
+BO,BOL,68,LA,Bolivia
+BR,BRA,76,LA,Brazil
+BS,BHS,44,LA,Bahamas
+BT,BTN,64,AS,Bhutan
+BV,BVT,74,AN,Bouvet Island
+BW,BWA,72,AF,Botswana
+BY,BLR,112,EU,Belarus
+BZ,BLZ,84,LA,Belize
+CA,CAN,124,NA,Canada
+CC,CCK,166,AU,Cocos (Keeling) Islands
+CD,COD,180,AF,Democratic Republic of the Congo
+CF,CAF,140,AF,Central African Republic
+CG,COG,178,AF,Congo
+CH,CHE,756,EU,Switzerland
+CI,CIV,384,AF,Cote D'ivoire
+CK,COK,184,AU,Cook Islands
+CL,CHL,152,LA,Chile
+CM,CMR,120,AF,Cameroon
+CN,CHN,156,AS,China
+CO,COL,170,LA,Colombia
+CR,CRI,188,LA,Costa Rica
+CU,CUB,192,LA,Cuba
+CV,CPV,132,AF,Cape Verde
+CX,CXR,162,AU,Christmas Island
+CY,CYP,196,EU,Cyprus
+CZ,CZE,203,EU,Czech Republic
+DE,DEU,276,EU,Germany
+DJ,DJI,262,AF,Djibouti
+DK,DNK,208,EU,Denmark
+DM,DMA,212,LA,Dominica
+DO,DOM,214,LA,Dominican Republic
+DZ,DZA,12,AF,Algeria
+EC,ECU,218,LA,Ecuador
+EE,EST,233,EU,Estonia
+EG,EGY,818,AF,Egypt
+EH,ESH,732,AF,Western Sahara
+ER,ERI,232,AF,Eritrea
+ES,ESP,724,EU,Spain
+ET,ETH,231,AF,Ethiopia
+FI,FIN,246,EU,Finland
+FJ,FJI,242,AU,Fiji
+FK,FLK,238,LA,Falkland Islands (Malvinas)
+FM,FSM,583,AU,Micronesia
+FO,FRO,234,EU,Faroe Islands
+FR,FRA,250,EU,France
+GA,GAB,266,AF,Gabon
+GB,GBR,826,EU,United Kingdom (Great Britain)
+GD,GRD,308,LA,Grenada
+GE,GEO,268,AS,Georgia
+GF,GUF,254,LA,French Guiana
+GG,GGY,831,EU,Guernsey
+GH,GHA,288,AF,Ghana
+GI,GIB,292,EU,Gibraltar
+GL,GRL,304,NA,Greenland
+GM,GMB,270,AF,Gambia
+GN,GIN,324,AF,Guinea
+GP,GLP,312,LA,Guadeloupe
+GQ,GNQ,226,AF,Equatorial Guinea
+GR,GRC,300,EU,Greece
+GS,SGS,239,AN,South Georgia and the South Sandwich Islands
+GT,GTM,320,LA,Guatemala
+GU,GUM,316,AU,Guam
+GW,GNB,624,AF,Guinea-Bissau
+GY,GUY,328,LA,Guyana
+HK,HKG,344,AS,Hong Kong
+HM,HMD,334,AU,Heard and McDonald Islands
+HN,HND,340,LA,Honduras
+HR,HRV,191,EU,Croatia
+HT,HTI,332,LA,Haiti
+HU,HUN,348,EU,Hungary
+ID,IDN,360,AS,Indonesia
+IE,IRL,372,EU,Ireland
+IL,ISR,376,AS,Israel
+IM,IMN,833,EU,Isle of Man
+IN,IND,356,AS,India
+IO,IOT,86,AS,British Indian Ocean Territory
+IQ,IRQ,368,AS,Iraq
+IR,IRN,364,AS,Islamic Republic of Iran
+IS,ISL,352,EU,Iceland
+IT,ITA,380,EU,Italy
+JE,JEY,832,EU,Jersey
+JM,JAM,388,LA,Jamaica
+JO,JOR,400,AS,Jordan
+JP,JPN,392,AS,Japan
+KE,KEN,404,AF,Kenya
+KG,KGZ,417,AS,Kyrgyzstan
+KH,KHM,116,AS,Cambodia
+KI,KIR,296,AU,Kiribati
+KM,COM,174,AF,Comoros
+KN,KNA,659,LA,St. Kitts and Nevis
+KP,PRK,408,AS,Korea
+KR,KOR,410,AS,Korea, Republic of
+KW,KWT,414,AS,Kuwait
+KY,CYM,136,LA,Cayman Islands
+KZ,KAZ,398,AS,Kazakhstan
+LA,LAO,418,AS,Laos
+LB,LBN,422,AS,Lebanon
+LC,LCA,662,LA,St. Lucia
+LI,LIE,438,EU,Liechtenstein
+LK,LKA,144,AS,Sri Lanka
+LR,LBR,430,AF,Liberia
+LS,LSO,426,AF,Lesotho
+LT,LTU,440,EU,Lithuania
+LU,LUX,442,EU,Luxembourg
+LV,LVA,428,EU,Latvia
+LY,LBY,434,AF,Libyan Arab Jamahiriya
+MA,MAR,504,AF,Morocco
+MC,MCO,492,EU,Monaco
+MD,MDA,498,EU,Moldova, Republic of
+ME,MNE,499,EU,Montenegro
+MF,MAF,663,NA,St. Martin
+MG,MDG,450,AF,Madagascar
+MH,MHL,584,AU,Marshall Islands
+MK,MKD,807,EU,Macedonia
+ML,MLI,466,AF,Mali
+MM,MMR,104,AS,Myanmar
+MN,MNG,496,AS,Mongolia
+MO,MAC,446,AS,Macau
+MP,MNP,580,AU,Northern Mariana Islands
+MQ,MTQ,474,LA,Martinique
+MR,MRT,478,AF,Mauritania
+MS,MSR,500,LA,Montserrat
+MT,MLT,470,EU,Malta
+MU,MUS,480,AF,Mauritius
+MV,MDV,462,AS,Maldives
+MW,MWI,454,AF,Malawi
+MX,MEX,484,LA,Mexico
+MY,MYS,458,AS,Malaysia
+MZ,MOZ,508,AF,Mozambique
+NA,NAM,516,AF,Namibia
+NC,NCL,540,AU,New Caledonia
+NE,NER,562,AF,Niger
+NF,NFK,574,AU,Norfolk Island
+NG,NGA,566,AF,Nigeria
+NI,NIC,558,LA,Nicaragua
+NL,NLD,528,EU,Netherlands
+NO,NOR,578,EU,Norway
+NP,NPL,524,AS,Nepal
+NR,NRU,520,AU,Nauru
+NU,NIU,570,AU,Niue
+NZ,NZL,554,AU,New Zealand
+OM,OMN,512,AS,Oman
+PA,PAN,591,LA,Panama
+PE,PER,604,LA,Peru
+PF,PYF,258,AU,French Polynesia
+PG,PNG,598,AS,Papua New Guinea
+PH,PHL,608,AS,Philippines
+PK,PAK,586,AS,Pakistan
+PL,POL,616,EU,Poland
+PM,SPM,666,NA,St. Pierre and Miquelon
+PN,PCN,612,AU,Pitcairn
+PR,PRI,630,LA,Puerto Rico
+PS,PSE,275,AS,Palestinian Territory
+PT,PRT,620,EU,Portugal
+PW,PLW,585,AU,Palau
+PY,PRY,600,LA,Paraguay
+QA,QAT,634,AS,Qatar
+RE,REU,638,AF,Reunion
+RO,ROU,642,EU,Romania
+RS,SRB,688,EU,Serbia
+RU,RUS,643,EU,Russian Federation
+RW,RWA,646,AF,Rwanda
+SA,SAU,682,AS,Saudi Arabia
+SB,SLB,90,AU,Solomon Islands
+SC,SYC,690,AF,Seychelles
+SD,SDN,736,AF,Sudan
+SE,SWE,752,EU,Sweden
+SG,SGP,702,AS,Singapore
+SH,SHN,654,AF,St. Helena
+SI,SVN,705,EU,Slovenia
+SJ,SJM,744,EU,Svalbard and Jan Mayen Islands
+SK,SVK,703,EU,Slovakia
+SL,SLE,694,AF,Sierra Leone
+SM,SMR,674,EU,San Marino
+SN,SEN,686,AF,Senegal
+SO,SOM,706,AF,Somalia
+SR,SUR,740,LA,Suriname
+ST,STP,678,AF,Sao Tome and Principe
+SV,SLV,222,LA,El Salvador
+SY,SYR,760,AS,Syrian Arab Republic
+SZ,SWZ,748,AF,Swaziland
+TC,TCA,796,LA,Turks and Caicos Islands
+TD,TCD,148,AF,Chad
+TF,ATF,260,AN,French Southern Territories
+TG,TGO,768,AF,Togo
+TH,THA,764,AS,Thailand
+TJ,TJK,762,AS,Tajikistan
+TK,TKL,772,AU,Tokelau
+TL,TLS,626,AS,Timor-Leste
+TM,TKM,795,AS,Turkmenistan
+TN,TUN,788,AF,Tunisia
+TO,TON,776,AU,Tonga
+TR,TUR,792,EU,Turkey
+TT,TTO,780,LA,Trinidad and Tobago
+TV,TUV,798,AU,Tuvalu
+TW,TWN,158,AS,Taiwan
+TZ,TZA,834,AF,Tanzania, United Republic of
+UA,UKR,804,EU,Ukraine
+UG,UGA,800,AF,Uganda
+UM,UMI,581,AU,United States Minor Outlying Islands
+US,USA,840,NA,United States
+UY,URY,858,LA,Uruguay
+UZ,UZB,860,AS,Uzbekistan
+VA,VAT,336,EU,Vatican City State
+VC,VCT,670,LA,St. Vincent and the Grenadines
+VE,VEN,862,LA,Venezuela
+VG,VGB,92,LA,British Virgin Islands
+VI,VIR,850,LA,United States Virgin Islands
+VN,VNM,704,AS,Vietnam
+VU,VUT,548,AU,Vanuatu
+WF,WLF,876,AU,Wallis And Futuna Islands
+WS,WSM,882,AU,Samoa
+YE,YEM,887,AS,Yemen
+YT,MYT,175,AF,Mayotte
+ZA,ZAF,710,AF,South Africa
+ZM,ZMB,894,AF,Zambia
+ZW,ZWE,716,AF,Zimbabwe

@@ -1,0 +1,118 @@
+<?php
+/**
+ * @file
+ * UNFI Product installation and update functions.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function unfi_product_install() {
+  unfi_product_update_7000();
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function unfi_product_update_7000() {
+  db_update('system')
+    ->fields(array('weight' => 11))
+    ->condition('name', 'unfi_product', '=')
+    ->execute();
+
+  db_update('menu_links')
+    ->fields(array(
+      'link_path' => 'node/add/request-form',
+      'router_path' => 'node/add/request-form',
+    ))
+    ->condition('menu_name', 'menu-unfi-main-menu')
+    ->condition('link_path', 'node/add/new-item-request')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_N().
+ * Enable Clientside Hierarchical Select module.
+ */
+function unfi_product_update_7001() {
+  if (!module_exists('cshs')) {
+    module_enable(array('cshs'));
+  }
+}
+
+// Increase size of manufacturers part number text to 15.
+function unfi_product_update_7002() {
+  db_query("ALTER TABLE `field_data_field_part_number` CHANGE `field_part_number_value` `field_part_number_value` VARCHAR(15)");
+  db_query("ALTER TABLE `field_revision_field_part_number` CHANGE `field_part_number_value` `field_part_number_value` VARCHAR(15)");
+  db_update('field_config')
+    ->fields(array('data' => 'a:8:{s:12:"entity_types";a:0:{}s:17:"field_permissions";a:1:{s:4:"type";i:0;}s:12:"foreign keys";a:1:{s:6:"format";a:2:{s:5:"table";s:13:"filter_format";s:7:"columns";a:1:{s:6:"format";s:6:"format";}}}s:7:"indexes";a:1:{s:6:"format";a:1:{i:0;s:6:"format";}}s:8:"settings";a:1:{s:10:"max_length";i:15;}s:12:"translatable";i:0;s:7:"storage";a:5:{s:4:"type";s:17:"field_sql_storage";s:8:"settings";a:0:{}s:6:"module";s:17:"field_sql_storage";s:6:"active";s:1:"1";s:7:"details";a:1:{s:3:"sql";a:2:{s:18:"FIELD_LOAD_CURRENT";a:1:{s:28:"field_data_field_part_number";a:2:{s:5:"value";s:23:"field_part_number_value";s:6:"format";s:24:"field_part_number_format";}}s:19:"FIELD_LOAD_REVISION";a:1:{s:32:"field_revision_field_part_number";a:2:{s:5:"value";s:23:"field_part_number_value";s:6:"format";s:24:"field_part_number_format";}}}}}s:2:"id";s:2:"51";}'))
+    ->condition('field_name', 'field_part_number')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_N().
+ * remove 'no protection needed' entries from db
+ */
+function unfi_product_update_7003() {
+  db_update('field_data_field_freight_protection_from')
+    ->fields(array('field_freight_protection_from_value' => NULL ))
+    ->condition('field_freight_protection_from_value', 'No Protection Needed')
+    ->execute();
+
+  db_update('field_data_field_freight_protection_level')
+    ->fields(array('field_freight_protection_level_value' => NULL ))
+    ->condition('field_freight_protection_level_value', 'No Protection Needed')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_N().
+ * Change maximum character limit of East Brand & West Brand to 30.
+ */
+function unfi_product_update_7004() {
+  unfi_custom_change_text_field_max_length('field_east_brand', 30);
+  unfi_custom_change_text_field_max_length('field_west_brand', 30);
+}
+
+/**
+ * Change UBS (East) Number to varchar.
+ */
+function unfi_product_update_7006() {
+  db_query("ALTER TABLE `field_data_field_ubs_number` CHANGE `field_ubs_number_value` `field_ubs_number_value` VARCHAR(10)");
+  db_query("ALTER TABLE `field_revision_field_ubs_number` CHANGE `field_ubs_number_value` `field_ubs_number_value` VARCHAR(10)");
+
+  db_add_field('field_data_field_ubs_number', 'field_ubs_number_format', array(
+    'type' => 'varchar',
+    'length' => 255,
+  ), array(
+    'indexes' => array('field_ubs_number_format' => array('field_ubs_number_format')),
+  ));
+
+  db_add_field('field_revision_field_ubs_number', 'field_ubs_number_format', array(
+    'type' => 'varchar',
+    'length' => 255,
+  ), array(
+    'indexes' => array('field_ubs_number_format' => array('field_ubs_number_format')),
+  ));
+
+  $data = 'a:8:{s:12:"translatable";s:1:"0";s:12:"entity_types";a:0:{}s:8:"settings";a:1:{s:10:"max_length";s:2:"10";}s:7:"storage";a:5:{s:4:"type";s:17:"field_sql_storage";s:8:"settings";a:0:{}s:6:"module";s:17:"field_sql_storage";s:6:"active";s:1:"1";s:7:"details";a:1:{s:3:"sql";a:2:{s:18:"FIELD_LOAD_CURRENT";a:1:{s:27:"field_data_field_ubs_number";a:2:{s:5:"value";s:22:"field_ubs_number_value";s:6:"format";s:23:"field_ubs_number_format";}}s:19:"FIELD_LOAD_REVISION";a:1:{s:31:"field_revision_field_ubs_number";a:2:{s:5:"value";s:22:"field_ubs_number_value";s:6:"format";s:23:"field_ubs_number_format";}}}}}s:12:"foreign keys";a:1:{s:6:"format";a:2:{s:5:"table";s:13:"filter_format";s:7:"columns";a:1:{s:6:"format";s:6:"format";}}}s:7:"indexes";a:1:{s:6:"format";a:1:{i:0;s:6:"format";}}s:2:"id";s:3:"314";s:17:"field_permissions";a:1:{s:4:"type";s:1:"0";}}';
+
+  db_update('field_config')
+    ->fields(array(
+      'type'    => 'text',
+      'module' => 'text',
+      'data'   => $data,
+    ))
+    ->condition('field_name', 'field_ubs_number')
+    ->execute();
+
+  $data = 'a:7:{s:5:"label";s:16:"East Item Number";s:6:"widget";a:5:{s:6:"weight";s:2:"61";s:4:"type";s:14:"text_textfield";s:6:"module";s:4:"text";s:6:"active";i:1;s:8:"settings";a:1:{s:4:"size";s:2:"11";}}s:8:"settings";a:3:{s:15:"text_processing";s:1:"0";s:16:"required_by_role";a:15:{i:1;i:0;i:9;i:0;i:3;i:0;i:8;i:0;i:4;i:0;i:7;i:0;i:5;i:0;i:12;i:0;i:15;i:0;i:16;i:0;i:13;i:0;i:14;i:0;i:6;i:0;i:10;i:0;i:11;i:0;}s:18:"user_register_form";b:0;}s:7:"display";a:1:{s:7:"default";a:5:{s:5:"label";s:5:"above";s:4:"type";s:12:"text_default";s:8:"settings";a:0:{}s:6:"module";s:4:"text";s:6:"weight";i:183;}}s:8:"required";i:0;s:11:"description";s:0:"";s:13:"default_value";N;}';
+
+  db_update('field_config_instance')
+    ->fields(array(
+      'data'   => $data,
+    ))
+    ->condition('field_name', 'field_ubs_number')
+    ->execute();
+}

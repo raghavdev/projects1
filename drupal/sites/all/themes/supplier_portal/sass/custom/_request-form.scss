@@ -1,0 +1,564 @@
+.help-text {
+  opacity: .9;
+  font-size: .875em;
+  white-space: normal;
+  word-spacing: 2px;
+  line-height: 1.25em;
+  margin: 5px;
+}
+// Hide current workflow state submit button
+input.current-sid {
+  display: none;
+}
+
+fieldset.form-wrapper {
+  padding-left: 0;
+}
+form {
+  margin-top: 0;
+  .form-item input, select, textarea {
+    &.disable-editing,
+    &.disable-editing:focus,
+    &.disable-editing:active {
+      border: 1px solid $lightest-gray;
+      background: $ghost-white;
+      color: $dark-gray;
+    }
+  }
+  .views-table {
+    label {
+      @extend %font-family-sans;
+      font-size: 16px;
+      &.option {
+        font-size: 13px;
+      }
+    }
+    .date-no-float label {
+      font-size: 13px;
+    }
+    table-layout: fixed;
+    fieldset {
+      margin-top: 0;
+      legend {
+        margin-bottom: 5px;
+      }
+      .fieldset-legend {
+        font-size: 16px;
+        @extend %font-family-sans;
+      }
+    }
+    .field-type-file .disable-editing {
+      display: block;
+    }
+    .fieldset-description {
+      @extend .help-text;
+    }
+    .description {
+      @extend .help-text;
+    }
+    .date-padding {
+      padding: 0;
+      white-space: normal;
+      label {
+        display: none;
+      }
+    }
+    //hide dragable table from shipper tab
+    .tabledrag-toggle-weight-wrapper {
+      @extend %display-none;
+    }
+    .field-multiple-drag {
+      @extend %display-none;
+    }
+    tr.draggable {
+      border-bottom: 0;
+      td {
+        border-bottom: 0;
+      }
+    }
+    .tabledrag-hide,
+    .tabledrag-show {
+      @extend %display-none;
+    }
+    .tabledrag-processed {
+      th {
+        @extend %display-none;
+      }
+      tbody {
+        border: 0;
+      }
+    }
+    margin-top: 0;
+    .views-row-edit-edit {
+      margin: 10px 0;
+    }
+    td {
+      padding: 10px;
+      padding-right: 25px;
+      min-width: 50px;
+      &.views-field-field-specialty-editable {
+        padding-right: 40px;
+        padding-left: 0px;
+      }
+    }
+    thead {
+      td {
+        background: #fff3e9;
+      }
+      td:first-child {
+        border: none;
+        font-size: smaller;
+        padding-bottom: 0;
+        text-align: center;
+      }
+      th {
+        border: none;
+        border-bottom: 1px solid $light-gray;
+      }
+    }
+    .column-editing-header th {
+      background: $white;
+      font-style: oblique;
+      padding: 10px 0 10px 15px;
+      text-align: left;
+      a {
+        display: block;
+      }
+    }
+    .body-header th {
+      border-bottom: 0;
+    }
+  }
+  table, table strong, table label {
+    font-weight: 400;
+  }
+}
+.form-managed-file {
+  margin-bottom: 5px;
+  .form-file {
+    display: block;
+    margin-right: 0;
+    margin-bottom: 10px;
+    padding: 0;
+  }
+  & + .description strong {
+    font-size: smaller;
+  }
+}
+.view-products input {
+  font-size: 11px;
+}
+.node-request_form-form {
+  h2 {
+    color: $green;
+  }
+  legend {
+    font-size: 17px;
+  }
+  .certificate-wrapper {
+    padding-top: 35px;
+    margin-top: 35px;
+    border-top: 1px solid $medium-gray;
+    .description {
+      font-size: 15px;
+      color: $dark;
+    }
+    .group-certificates-inner {
+      display: table;
+      width: 100%;
+    }
+    .form-item .description {
+      @extend .help-text;
+    }
+  }
+  .certificates {
+    width: 25%;
+    display: table-cell;
+    padding: 1em;
+    border-right: 1px solid #ddd;
+    &:nth-of-type(1) {
+      padding-left: 0;
+    }
+    &:nth-of-type(4) {
+      border-right: 0;
+    }
+    .field-type-file {
+      padding-right: 10px;
+    }
+  }
+  .vertical-tabs {
+    clear: both;
+  }
+  .tabledrag-toggle-weight-wrapper {
+    @extend %display-none;
+  }
+  .field-multiple-drag {
+    @extend %display-none;
+  }
+  tr.draggable {
+    border-bottom: 0;
+    td {
+      border-bottom: 0;
+    }
+  }
+  .tabledrag-hide,
+  .tabledrag-show {
+    @extend %display-none;
+  }
+  .tabledrag-handle {
+    display: none;
+  }
+  .tabledrag-processed {
+    th {
+      @extend %display-none;
+    }
+    tbody {
+      border: 0;
+    }
+  }
+}
+.workflow-form-container {
+  margin: 0 0 0 0;
+  .form-item {
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+}
+
+#edit-workflow .active-ws-state,
+#edit-workflow .active-ws-state:hover {
+  background: #004833;
+  color: #ffffff;
+  cursor: default;
+}
+
+.unfi-reports-page {
+  fieldset {
+    padding-left: 0;
+  }
+  #edit-filters {
+    width: 50%;
+  }
+  .unfi-reports-filters-area {
+    margin: 0 0 20px 0;
+    width: 50%;
+    float: left;
+  }
+  .unfi-reports-download-area {
+    margin: 0 0 20px 0;
+    width: 50%;
+    padding-top: 54px;
+    input {
+      margin-top: 9px;
+    }
+  }
+  .unfi-reports-pagination {
+    @extend %full-width;
+    border-top: 1px solid #aaaaaa;
+    padding-top: 20px;
+    .unfi-reports-page-btn {
+      margin-right: 20px;
+    }
+  }
+  .unfi-reports-results {
+    border: 1px solid #bbbbbb;
+    overflow: auto;
+    table {
+      @extend %margin-reset;
+    }
+    th {
+      color: #ffffff;
+      background: #666666;
+      border-right: 1px solid #878787;
+    }
+    tr:nth-child(3n) {
+      background: #F4FDFF;
+    }
+    td, th {
+      font-size: 10px;
+      line-height: 17px;
+    }
+    td {
+      border-right: 1px solid #eeeeee;
+    }
+  }
+}
+.views-field-field-fair-trade-editable {
+  width: 30%;
+}
+
+input[type=checkbox].disable-editing:checked + label,
+input[type=radio].disable-editing:checked + label {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Simpler Select (chsh module) */
+.simpler-select-root {
+  &.unfi-column-editing-target {
+    color: #808080;
+    cursor: not-allowed;
+    pointer-events: none;
+
+    &.disable-editing {
+      // This is actually !important.
+      // Please don't remove me!
+      display: block !important;
+
+      & ~ .select-wrapper {
+        // This is actually !important.
+        // Please don't remove me!
+        display: none !important;
+      }
+    }
+  }
+}
+
+.select-wrapper {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.node-request-form .content {
+  .file-icon {
+    margin: 0;
+    display: inline;
+    vertical-align: middle;
+  }
+  & > div {
+    float: left;
+    clear: left;
+    width: 50%;
+  }
+  & > a:link {
+    @extend .button;
+    background-color: $orange;
+    color: $pure-white;
+    float: left;
+    clear: left;
+    width: auto;
+    text-shadow: none;
+  }
+  form {
+    float: right;
+    width: 50%;
+  }
+  textarea {
+    height: 100px;
+  }
+}
+.field-type-datetime {
+  fieldset {
+    margin: 0px;
+    padding: 0px;
+  }
+  legend {
+    font-size: 1em;
+    font-weight: normal;
+    font-family: "helvetica";
+    padding-left: 0px;
+  }
+}
+// GRRR specifcity wars!!!
+.view-display-id-edit_promotions .field-type-datetime .fieldset-legend {
+  font-size: 1em;
+}
+//I know how weird this looks, but I'm overriding the class from the Date module
+.date-no-float {
+  clear: none;
+  float: left;
+  width: auto;
+}
+.unfi-column-editing div {
+  &.form-type-textfield,
+  &.form-type-checkboxes,
+  &.field-type-file,
+  &.field-type-list-text,
+  &.field-type-list-boolean,
+  &.form-type-select,
+  &.form-type-textarea,
+  &.field-type-image,
+  &.field-type-datetime,
+  &.form-type-cshs,
+  &.form-type-radios {
+    @extend %label-border;
+  }
+}
+.unfi-column-editing .enable-editing div,
+.unfi-column-editing thead div {
+  &.form-type-textfield,
+  &.form-type-checkboxes,
+  &.field-type-file,
+  &.field-type-list-text,
+  &.field-type-list-boolean,
+  &.form-type-select,
+  &.form-type-textarea,
+  &.field-type-image,
+  &.field-type-datetime,
+  &.form-type-cshs,
+  &.form-type-radios {
+    @extend %label-border-edit;
+  }
+}
+.unfi-column-editing div {
+  &.field-type-datetime {
+    .form-type-textfield {
+      border-left:0px solid transparent;
+      padding-left:0px;
+    }
+  }
+}
+.unfi-column-editing div {
+  &.field-type-list-text,
+  &.field-type-list-boolean {
+    .form-type-radios,
+    .form-type-checkboxes,
+    .form-type-select
+     {
+      border-left:0px solid transparent;
+      padding-left:0px;
+    }
+  }
+}
+th.views-field-field-unit-cost-fob-east-editable,
+th.views-field-field-unit-cost-del-east-editable,
+th.views-field-field-unit-cost-fob-west-editable,
+th.views-field-field-unit-cost-del-west-editable {
+  width: 180px;
+}
+.views-field-field-part-number > div {
+  @extend %label-border;
+}
+.views-field.views-field-field-part-number {
+  width: 100px;
+}
+input.form-file {
+  width: 200px;
+}
+label {
+  white-space: normal;
+}
+
+.view-display-id-edit_packaging_specs input[type="text"] {
+  width: 80px;
+}
+//GRRRRRR Someone used an ID in Ember, so now we do too
+#page {
+  .field-name-field-country-of-origin,
+  .view-display-id-edit_unfi_internal_info {
+    select {
+      max-width: 200px;
+      overflow: scroll;
+    }
+    .field-name-field-warehouse-group select {
+      max-width: 135px;
+    }
+  }
+}
+.field-name-field-state-providence-of-origin input {
+  width:50px;
+}
+.view-products .field-type-file .form-type-managed-file {
+  label {
+    font-size: 0;
+    line-height: 0;
+    // get required * back
+    span {
+      font-size: 16px;
+      position: relative;
+      top: -15px;
+      right: -109px;
+    }
+  }
+}
+// Pricing Sheet needs different positioning from other managed-file widgets
+.view-products .field-type-file.field-name-field-pricing-sheet .form-type-managed-file {
+  span {
+    right: -205px;
+  }
+}
+// Position 'remove' button above uploaded files
+.view-products .field-type-file input[value="Remove"] {
+  position: relative;
+  top: -20px;
+  left: -121px;
+}
+.view-display-id-edit_expiration textarea {
+  height: 70px;
+}
+.csv-export img {
+  float: left;
+  margin: 2px 5px 0 0;
+}
+.view-display-id-edit_promotions {
+  .date-no-float {
+    float: left;
+    width: 50%;
+  }
+  input[type="text"] {
+    width:79px;
+  }
+}
+.view-id-new_item_requests_form {
+  .view-filters {
+    float: left;
+    width: 25%;
+  }
+  .view-content {
+    float: right;
+    width: 75%;
+  }
+}
+.node-type-supplier .view-header a {
+  @extend .button;
+  background: $orange;
+}
+.node-type-supplier .view .view-header a {
+  color: $pure-white;
+  &:hover {
+    color: $dark;
+  }
+}
+.page-node-add-supplier-contact {
+  .group-contact-name,
+  div.field-group-div {
+    @extend %form-float-l;
+    @extend %form-input-half;
+    margin-right: 0px;
+  }
+  .field-name-field-contact-type {
+    @extend %form-float-l;
+  }
+  .field-name-field-region {
+    float: right;
+    width: 50%;
+  }
+  .field-name-field-primary-contact label {
+    font-weight: bold;
+  }
+}
+.field-name-field-special-instructions input {
+  width: 450px;
+}
+.field-name-field-freight-form {
+  float: right;
+  width: 50%;
+}
+.page-node-edit-products .ui-datepicker .ui-datepicker-prev span,
+.page-node-edit-products .ui-datepicker .ui-datepicker-next span {
+  text-indent: -9999px;
+}
+.page-node-edit-products .ui-datepicker .ui-datepicker-next {
+  background: url('../images/arrow-right.png') no-repeat center;
+  &.ui-state-hover {
+    right: 2px;
+    top: 2px;
+  }
+}
+.ui-datepicker .ui-datepicker-prev {
+  background: url('../images/arrow-left.png') no-repeat center;
+  &.ui-state-hover {
+    left: 2px;
+    top: 2px;
+  }
+}

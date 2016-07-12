@@ -1,0 +1,44 @@
+<?php
+
+/**
+ * Implements hook_field_schema().
+ */
+function product_details_selector_field_schema($field) {
+  $schema = array();
+
+  $schema['columns'] = array(
+    'nid' => array(
+      'type'         => 'int',
+      'not null'     => TRUE,
+      'descriptions' => 'WARNING: This is the node ID from the Digital Core site, which is separate installation.',
+    ),
+    'productsid' => array(
+      'type'     => 'varchar',
+      'length'   => 255,
+      'not null' => TRUE,
+    ),
+    'upc' => array(
+      'type'     => 'varchar',
+      'length'   => 255,
+      'not null' => TRUE,
+    ),
+    'title' => array(
+      'type'     => 'varchar',
+      'length'   => 255,
+      'not null' => TRUE,
+    ),
+    'data' => array(
+      'type'      => 'text',
+      'not null'  => TRUE,
+      'size'      => 'big',
+      'serialize' => TRUE,
+    ),
+  );
+
+  $schema['indexes'] = array(
+    'nid'        => array('nid'),
+    'productsid' => array('productsid'),
+  );
+
+  return $schema;
+}

@@ -1,0 +1,365 @@
+<?php
+
+/**
+ * Enables downloadFile.
+ */
+function unfi_custom_update_7000(&$sandbox) {
+  module_enable(array('download_file'));
+}
+
+/**
+ * Deletes unnecessary fields.
+ */
+function unfi_custom_update_7001(&$sandbox) {
+  field_delete_field('field_units_per_shipper');
+}
+
+/**
+ * Adds permission to programmers to administer UNFI settings.
+ */
+function unfi_custom_update_7002(&$sandbox) {
+  user_role_grant_permissions(11, array('admin unfi settings'));
+}
+
+/**
+ * Enables Auto Assign Role and the config feature for it.
+ */
+function unfi_custom_update_7003(&$sandbox) {
+  module_enable(array('autoassignrole', 'autoassignroleconfig'));
+}
+
+/**
+ * Adds permission to UNFI manager to administer UNFI settings.
+ */
+function unfi_custom_update_7004(&$sandbox) {
+  user_role_grant_permissions(6, array('admin unfi settings'));
+}
+
+/**
+ * Enables New Item Request Lock.
+ */
+function unfi_custom_update_7005(&$sandbox) {
+  module_enable(array('nir_lock'));
+}
+
+/**
+ * Enables UNIF Node Export.
+ */
+function unfi_custom_update_7006(&$sandbox) {
+  module_enable(array('unfi_node_export'));
+  variable_set('unfi_node_export_allowed_content_types', array('new_item_request'));
+  variable_set('unfi_node_export_include_links_default', FALSE);
+  variable_set('unfi_node_export_include_files_default', TRUE);
+  variable_set('unfi_node_export_storage_stream', 'private://');
+  variable_set('unfi_node_export_storage_directory', 'unfi_node_exports');
+  variable_set('unfi_node_export_allowed_extensions', array('doc' => 'doc'));
+  variable_set('unfi_export_node_doc_theme_func', 'node__unfi_export_node__doc');
+}
+
+/**
+ * Adds UNFI Node Export permissions.
+ */
+function unfi_custom_update_7007(&$sandbox) {
+  // Add settings permission to the Manager role
+  user_role_grant_permissions(6, array('admin unfi node export settings'));
+  // Add access permission to UNFI associate roles
+  user_role_grant_permissions(4, array('access unfi node export')); // IBL
+  user_role_grant_permissions(5, array('access unfi node export')); // Item Specialist
+  user_role_grant_permissions(6, array('access unfi node export')); // Manager
+  user_role_grant_permissions(7, array('access unfi node export')); // RCM
+  user_role_grant_permissions(8, array('access unfi node export')); // SRM
+  user_role_grant_permissions(12, array('access unfi node export')); // Gatekeeper
+}
+
+/**
+ * Adds UNFI Node Export permissions.
+ */
+function unfi_custom_update_7008(&$sandbox) {
+  // Add access permission to all other roles
+  user_role_grant_permissions(9, array('access unfi node export')); // Supplier
+  user_role_grant_permissions(3, array('access unfi node export')); // Broker
+  user_role_grant_permissions(13, array('access unfi node export')); // Pack Change East Coder
+  user_role_grant_permissions(14, array('access unfi node export')); // Pack Change West Coder
+}
+
+
+/**
+ * Removed. No longer needed and not desirable.
+ */
+function unfi_custom_update_7009(&$sandbox) {
+}
+
+/**
+ * Disable old New Item Request module and enable new multi-item module.
+ */
+function unfi_custom_update_7010(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    // Before doing anything else, let's revert all features, since many of
+    // them will probably have components in the database that depend on our
+    // new_item_request module, and we've removed that dependency.
+    features_rebuild();
+    features_revert();
+    // Now enable our new modules
+    module_enable(array('unfi_request_form', 'unfi_product'));
+    variable_set('unfi_node_export_allowed_content_types', array('request_form'));
+    module_disable(array('new_item_request', 'unfi_form_text'));
+    drupal_uninstall_modules(array('new_item_request', 'unfi_form_text'));
+
+    // Prepare to delete the new_item_request and request_item nodes.
+    // Note: I am not migrating this content, I'm just deleting it all because
+    // it is all test content anyway.
+    $sandbox['progress'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(*) FROM {node} WHERE type IN ('request_item', 'new_item_request')")->fetchField();
+  }
+
+  if ($sandbox['max'] > 0) {
+    $limit = 50;
+    $nids = db_query_range("SELECT nid FROM {node} WHERE type IN ('request_item', 'new_item_request')", 0, $limit)->fetchCol();
+    if (count($nids)) {
+      node_delete_multiple($nids);
+      $sandbox['progress'] += count($nids);
+      $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+    }
+    else {
+      $sandbox['#finished'] = 1;
+    }
+  }
+}
+
+/**
+ * Set Workflow for Request form content type.
+ */
+function unfi_custom_update_7011() {
+  module_load_include('inc', 'workflow', 'workflow.node.type_map');
+
+  // Map Request form content type to the New Item request workflow
+  $wid = 1; // New Item request workflow
+  workflow_insert_workflow_type_map('request_form', $wid);
+
+  // Enable new views
+  module_enable(array('item_request_form_views'));
+}
+
+/**
+ * Disables and uninstalls SMTP modules.
+ */
+function unfi_custom_update_7012() {
+  module_disable(array('smtp', 'smtp_settings'));
+  drupal_uninstall_modules(array('smtp', 'smtp_settings'));
+
+}
+/**
+ * Enable and configure the system_status module.
+ */
+function unfi_custom_update_7013() {
+  // Enable system_status module.
+  if (!module_exists('system_status')) {
+    array_push($modules, 'system_status');
+  }
+
+  // Run module enable scripts.
+  module_enable($modules);
+
+  variable_set('system_status_match_contrib_mode', 1);
+}
+
+/**
+ * Turn off error reporting.
+ */
+function unfi_custom_update_7014() {
+  variable_set('error_level', ERROR_REPORTING_HIDE);
+}
+
+/**
+ * Disables and uninstalls main_menu Feature.
+ */
+function unfi_custom_update_7015() {
+  $module = 'main_menu';
+
+  if (module_exists($module)) {
+    module_disable(array($module));
+    drupal_uninstall_modules(array($module));
+  }
+}
+
+/**
+ * Updates all product nodes to give them the Group membership of their containing Request.
+ */
+function unfi_custom_update_7016() {
+  $results = db_select('field_data_field_request_form', 'r')
+    ->fields('r', array('entity_id', 'field_request_form_target_id'))
+    ->execute()
+    ->fetchAllKeyed(0,1);
+
+  $request_nids = array();
+  foreach ($results as $request_nid) {
+    if (!in_array($request_nid, $request_nids)) {
+      $request_nids[] = $request_nid;
+    }
+  }
+
+  $requests = node_load_multiple($request_nids);
+  $products = node_load_multiple(array_keys($results));
+
+  foreach ($results as $product_nid => $request_nid) {
+    $products[$product_nid]->og_group_ref = $requests[$request_nid]->og_group_ref;
+    node_save($products[$product_nid]);
+  }
+}
+
+/**
+ * Enable the unfi_import_suppliers module.
+ */
+function unfi_custom_update_7017() {
+  if (!module_exists('unfi_import_suppliers')) {
+    module_enable(array('unfi_import_suppliers'));
+  }
+}
+
+/**
+ * Enable 403 login module
+ */
+function unfi_custom_update_7018() {
+  if (!module_exists('r4032login')) {
+    module_enable(array('r4032login'));
+  }
+  else {
+    return 'module already enabled';
+  }
+}
+
+/**
+ * Enable the required_by_role module.
+ */
+function unfi_custom_update_7019() {
+  if (!module_exists('required_by_role')) {
+    module_enable(array('required_by_role'));
+  }
+}
+
+/**
+ * Placeholder update.
+ */
+function unfi_custom_update_7020() {
+  // This update got skipped due to a merge conflict.
+  // Placeholder added by Kevin because he's compulsive.
+}
+
+/**
+ * Enable Supplier Portal Solr
+ */
+function unfi_custom_update_7021() {
+  module_enable(array('unfi_sp_solr'));
+}
+
+/**
+ * Implements hook_update_N().
+ * 
+ * Turns on and configures google analytics.
+ * Also adds habitat module settings to ensure google analytics is not turned on
+ * locally or on dev.
+ */
+function unfi_custom_update_7022() {
+  if (!module_exists('googleanalytics')) {
+    module_enable(array('googleanalytics'));
+  }
+
+  // Set up some settings for GA.
+  // Staging account number. This will be marked in local_settings.php and overriden on prod.
+  variable_set('googleanalytics_account', 'UA-4370112-27');
+
+  variable_set('googleanalytics_trackuserid', 1);
+  variable_set('googleanalytics_visibility_roles', 1);
+  variable_set('googleanalytics_roles', 
+    array(
+      10 => '10',
+      11 => '11',
+      1 => 0,
+      2 => 0,
+      9 => 0,
+      3 => 0,
+      8 => 0,
+      4 => 0,
+      7 => 0,
+      5 => 0,
+      12 => 0,
+      15 => 0,
+      16 => 0,
+      17 => 0,
+      13 => 0,
+      14 => 0,
+      6 => 0,
+    )
+  );
+
+  if (!module_exists('habitat')) {
+    module_enable(array('habitat', 'habitat_ui'));
+  }
+
+  variable_set('habitat_habitats', array('local', 'dev', 'staging', 'prod'));
+  variable_set('habitat_variable', 'environment');
+  variable_set('habitat_disable_local', array('googleanalytics'));
+  variable_set('habitat_disable_dev', array('googleanalytics'));
+}
+
+/**
+ * Change value type of the berkley beverage tax on the dev environment.
+ * 
+ * I'm just going to drop this right here. Needed a one-off update function to
+ * fix a "manually" created field on dev, that was made a little differently on
+ * the other environments via features.
+ *
+ * How to run: `drush eval "module_load_install('unfi_custom'); unfi_custom_update_dev_0001();"`
+ * When to run: On Deploy
+ * Ran on: 2015/08/21
+ * Ran by: Marcus Bernal
+ */
+function unfi_custom_update_dev_0001() {
+  $field_name     = 'field_berkeley_beverage_tax';
+  $new_length     = 11;
+  $new_type       = 'list_boolean';
+  $data_type      = 'INT';
+  $allowed_values = array(
+    0 => 'No',
+    1 => 'Yes',
+  );
+
+  $field_table          = 'field_data_' . $field_name;
+  $field_revision_table = 'field_revision_' . $field_name;
+  $field_column         = $field_name . '_value';
+
+  // Alter value field length in fields table
+  db_query("ALTER TABLE `{$field_table}` CHANGE `{$field_column}` `{$field_column}` {$data_type}( {$new_length} )");
+  // Alter value field length in fields revision table
+  db_query("ALTER TABLE `{$field_revision_table}` CHANGE `{$field_column}` `{$field_column}` {$data_type}( {$new_length} )");
+
+  // Update field config with new max length
+  $result = db_query("SELECT CAST(`data` AS CHAR(10000) CHARACTER SET utf8) FROM `field_config` WHERE field_name = '{$field_name}'")
+    ->fetchField();
+  $config = unserialize($result);
+
+  $config['settings']['allowed_values'] = $allowed_values;
+
+  db_update('field_config')
+    ->fields(array(
+      'data' => serialize($config),
+      'type' => $new_type,
+    ))
+    ->condition('field_name', $field_name)
+    ->execute();
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Enable filefield_paths module.
+ */
+function unfi_custom_update_7023() {
+  // Enable filefield_paths module.
+  if (!module_exists('filefield_paths')) {
+    module_enable(array('filefield_paths'));
+  }
+
+  // Set filefield_paths temp location.
+  variable_set('filefield_paths_temp_location', 'temporary://filefield_paths');
+}

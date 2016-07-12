@@ -1,0 +1,6 @@
+name = UNFI Export
+description = Export data for the core business systems and business divisions.
+core = 7.x
+package = UNFI
+
+files[] = unfi_export.cleanse.inc

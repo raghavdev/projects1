@@ -1,0 +1,513 @@
+<?php
+/**
+ * @file
+ * A module for handling miscellaneous Supplier Portal stuff
+ */
+
+/**
+ * Implements hook_views_api().
+ */
+function unfi_custom_views_api() {
+  return array(
+    'api' => 3,
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_custom_menu() {
+  $items['admin/config/unfi_settings'] = array(
+    'title'            => t('UNFI Settings'),
+    'description'      => t('Configure the default UNFI settings.'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_custom_settings_form'),
+    'access arguments' => array('admin unfi settings'),
+  );
+  $items['admin/config/unfi_settings/settings'] = array(
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'title' => 'Main',
+    'weight' => 0,
+  );
+  $items['unfi-market-zip'] = array(
+      'page callback' => 'unfi_custom_marketing_zip',
+      'type' => MENU_NORMAL_ITEM,
+      'access arguments' => array('access content'),
+  );
+  
+  $items['unfi-product-image-download/%/%'] = array(
+      'page callback' => 'unfi_product_image_download',
+      'type' => MENU_NORMAL_ITEM,
+      'page arguments' => array(1,2),
+      'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function unfi_custom_permission() {
+  return array(
+    'admin unfi settings' => array(
+      'title'           => t('Administer UNFI Settings'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_date_combo_process_alter().
+ */
+function unfi_custom_date_combo_process_alter(&$element, $form_state, $context) {
+  // When collecting an end date, show a "From" label on the first date.
+  if (isset($element['value2'])) {
+    $element['value']['#title'] = t('From:');
+    // When to date has #title_display set, use that.
+    if (isset($element['value2']['#title_display'])) {
+      $element['value']['#title_display'] = $element['value2']['#title_display'];
+    }
+    else {
+      unset($element['value']['#title_display']);
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * Filter out 'name' form *error* ("Sorry, ... is not recognized as a user name
+ * or an e-mail address.") replacing it a drupal_message() while preserving any
+ * other form errors and/or drupal messages.
+ */
+function unfi_custom_form_user_pass_alter (&$form, &$form_state, $form_id) {
+  $custom_submit   = 'unfi_custom_form_user_pass_submit';
+  $custom_validate = 'unfi_custom_form_user_pass_validate';
+
+  if ( ! in_array($custom_submit, $form['#submit'])) {
+    $form['#submit'][] = $custom_submit;
+  }
+
+  if ( ! in_array($custom_validate, $form['#validate'])) {
+    $form['#validate'][] = $custom_validate;
+  }
+}
+
+/**
+ * Form #submit callback.
+ *
+ * @see unfi_custom_form_user_pass_alter().
+ */
+function unfi_custom_form_user_pass_submit($form, &$form_state) {
+  $error_messages = drupal_get_messages();
+
+  foreach ($error_messages['error'] as $message) {
+    // drupal/includes/mail.inc::drupal_mail()
+    if (strpos($message, t('Unable to send e-mail. Contact the site administrator if the problem persists.')) === FALSE) {
+      drupal_set_message($message, 'error');
+    }
+  }
+
+  foreach ($error_messages['status'] as $message) {
+    // drupal/modules/user/user.pages.inc::user_pass_submit()
+    if (strpos($message, t('Further instructions have been sent to your e-mail address.')) === FALSE) {
+      drupal_set_message($message, 'status');
+    }
+  }
+
+  foreach ($error_messages['warning'] as $message) {
+    drupal_set_message($message, 'warning');
+  }
+
+  drupal_set_message(t('The password was sent to the email address associated with that account, if any.'));
+}
+
+/**
+ * Form #validate callback.
+ *
+ * @see unfi_custom_form_user_pass_alter().
+ */
+function unfi_custom_form_user_pass_validate($form, &$form_state) {
+  $name_error = FALSE;
+
+  // https://api.drupal.org/comment/28464#comment-28464
+  // Filter out specific errors during validation
+  $errors = form_get_errors();
+
+  if ($errors) {
+    // Clear errors.
+    form_clear_error();
+
+    // Clear error messages.
+    $error_messages = drupal_get_messages('error');
+
+    // Initialize an array where removed error messages are stored.
+    $removed_messages = array();
+
+    // Remove all errors originated by the 'name' element.
+    foreach ($errors as $name => $error_message) {
+      if ($name == 'name') {
+        $name_error = TRUE;
+        $removed_messages[] = $error_message;
+        unset($errors[$name]);
+      }
+    }
+
+    // Reinstate remaining errors.
+    foreach ($errors as $name => $error) {
+      form_set_error($name, $error);
+      // form_set_error() calls drupal_set_message(), so we have to filter out
+      // these from the error messages as well.
+      $removed_messages[] = $error;
+    }
+
+    // Reinstate remaining error messages (which, at this point, are messages that
+    // were originated outside of the validation process).
+    foreach (array_diff($error_messages['error'], $removed_messages) as $message) {
+      drupal_set_message($message, 'error');
+    }
+  }
+
+  if ($name_error === TRUE) {
+    $form_state['redirect'] = 'user';
+  }
+}
+
+/**
+ * Implements hook_form_alter()
+ */
+function unfi_custom_form_alter (&$form, &$form_state, $form_id) {
+  // Add help text to OG Add User form
+  if ($form_id == 'og_ui_add_users') {
+    $form['og_user']['roles']['#options'] = array(
+      'administrator member (can add and manage members)',
+      'editor',
+    );
+  }
+
+  // Per request by Depth Security
+  if (strpos(current_path(), 'user') === 0) {
+    $form['#attributes']['autocomplete'] = 'off';
+  }
+
+  // Legal administration settings
+  if ($form_id == 'legal_administration') {
+    $form['unfi_eula'] = array(
+      '#title' => t('EULA'),
+      '#field_name' => 'unfi_eula',
+      '#type' => 'managed_file',
+      '#description' => t('The uploaded file will be displayed on the user registration page.'),
+      '#default_value' => variable_get('unfi_custom_legal_eula_fid', ''),
+      '#upload_location' => 'public://legal/',
+      '#upload_validators' => array(
+        'file_validate_extensions' => array('pdf'),
+      ),
+      '#weight' => -5,
+    );
+    $form['#submit'][] = 'unfi_custom_legal_eula_submit';
+  }
+
+  $form_ids = array('user_register_form',
+                    'legal_login',
+                    'legal_administration');
+
+  if (in_array($form_id, $form_ids)) {
+    $fid = variable_get('unfi_custom_legal_eula_fid', '');
+    if ($fid) {
+      $file = file_load($fid);
+      $url = file_create_url($file->uri);
+      $label = l(t('Acknowledge receipt of UNFI Supplier Policies and Guidelines'), $url);
+
+      $form['legal']['eula'] = array(
+        '#type' => 'checkbox',
+        '#title' => $label,
+        '#default_value' => 0,
+        '#required' => TRUE,
+        '#weight' => 51,
+      );
+    }
+  }
+}
+
+/**
+ * Form #submit callback.
+ *
+ * @see unfi_custom_form_alter().
+ */
+function unfi_custom_legal_eula_submit($form, &$form_state) {
+  if ($form_state['values']['unfi_eula'] != 0) {
+    // Load the file via file.fid.
+    $file = file_load($form_state['values']['unfi_eula']);
+    // Change status to permanent.
+    $file->status = FILE_STATUS_PERMANENT;
+    // Save.
+    file_save($file);
+    // Record that the module (in this example, user module) is using the file.
+    file_usage_add($file, 'unfi_custom', 'legal', 1);
+    variable_set('unfi_custom_legal_eula_fid', $file->fid);
+  }
+  else if ($form_state['values']['unfi_eula'] == 0) {
+    $fid = variable_get('unfi_custom_legal_eula_fid', FALSE);
+    $file = $fid ? file_load($fid) : FALSE;
+    if ($file) {
+      // When a module is managing a file, it must manage the usage count.
+      // Here we decrement the usage count with file_usage_delete().
+      file_usage_delete($file, 'unfi_custom', 'legal', 1);
+
+      // The file_delete() function takes a file object and checks to see if
+      // the file is being used by any other modules. If it is the delete
+      // operation is cancelled, otherwise the file is deleted.
+      file_delete($file);
+    }
+
+    // Either way the module needs to update it's reference since even if the
+    // file is in use by another module and not deleted we no longer want to
+    // use it.
+    variable_set('unfi_custom_legal_eula_fid', FALSE);
+  }
+}
+
+/**
+ * Implements hook_html_head_alter().
+ */
+function unfi_custom_html_head_alter(&$head_elements) {
+  // Per request by Depth Security
+  unset($head_elements['system_meta_generator']);
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function unfi_custom_menu_alter(&$items) {
+  // Remove unused node list pages
+  unset($items['rss.xml']);
+  unset($items['node']);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function unfi_custom_field_formatter_info() {
+  return array(
+    'unfi_download_image' => array(
+      'label'        => t('Direct Download Image'),
+      'field types'  => array('image'),
+      'description'  => t('Download an image from a links preview.'),
+      'settings'     => array(
+        'img_style' => NULL,
+      ),
+      'description' => t('Display an image linked to a file field.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function unfi_custom_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = '';
+  $styles = image_style_options();
+
+  if (isset($settings['img_style'])) {
+    $file_field = field_info_instance($instance['entity_type'], $settings['img_style'], $instance['bundle']);
+    $file_field_label = $file_field['label'];
+  }
+  else {
+    $file_field_label = '';
+  }
+
+  if ($display['type'] == 'unfi_download_image') {
+    $summary = t('Image style: @style', array(
+      '@style' => isset($settings['img_style']) ? $styles[$settings['img_style']] : '',
+    ));
+  }
+
+  return $summary;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function unfi_custom_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $element = array();
+
+  if($display['type'] == 'unfi_download_image') {
+    $element['img_style'] = array(
+      '#title' => t('Image style'),
+      '#type' => 'select',
+      '#options' => image_style_options(),
+      '#default_value' => $settings['img_style'],
+      '#empty_option' => t('None (original image)'),
+      '#required' => FALSE,
+    );
+  }
+  return $element;
+}
+
+/*
+ * Implement hook_field_formatter_view().
+ */
+function unfi_custom_field_formatter_view($obj_type, $object, $field, $instance, $langcode, $items, $display) {
+
+  $settings = $display['settings'];
+
+  $element = array();
+  if ($display['type'] == 'unfi_download_image') {
+    foreach ($items as $delta => $item) {
+      $element[$delta] = array(
+        '#theme' => 'image_formatter',
+        '#item' => $item,
+        '#image_style' => $settings['img_style'],
+        '#path' => array(
+          'path' => download_file_path($item['fid']),
+          'options' => array(
+            'html' => TRUE,
+            'attributes' => array(),
+          ),
+        ),
+      );
+    }
+  }
+  return $element;
+}
+
+/**
+ * Form for general, custom configurations for UNFI.
+ */
+function unfi_custom_settings_form($form, &$form_state) {
+  // Acting as a placeholder for now...
+  return system_settings_form($form);
+}
+
+/**
+ * Utility to change the max length of a text field.
+ */
+function unfi_custom_change_text_field_max_length($field_name, $new_length) {
+  $field_table = 'field_data_' . $field_name;
+  $field_revision_table = 'field_revision_' . $field_name;
+  $field_column = $field_name . '_value';
+
+  // Alter value field length in fields table
+  db_query("ALTER TABLE `{$field_table}` CHANGE `{$field_column}` `{$field_column}` VARCHAR( {$new_length} )");
+  // Alter value field length in fields revision table
+  db_query("ALTER TABLE `{$field_revision_table}` CHANGE `{$field_column}` `{$field_column}` VARCHAR( {$new_length} )");
+
+  // Update field config with new max length
+  $result = db_query("SELECT CAST(`data` AS CHAR(10000) CHARACTER SET utf8) FROM `field_config` WHERE field_name = '{$field_name}'");
+  $config = $result->fetchField();
+  $config_array = unserialize($config);
+  $config_array['settings']['max_length'] = $new_length;
+  $config = serialize($config_array);
+  db_update('field_config')
+    ->fields(array('data' => $config))
+    ->condition('field_name', $field_name)
+    ->execute();
+}
+
+/**
+ * Callback function for 'unfi-market-zip' page.
+ */
+function unfi_custom_marketing_zip() {
+  $view_result = views_get_view_result('marketing_dashboard_products', 'page');
+  
+  foreach ($view_result as $result) {
+    $image_uri = $result->field_field_primary_image[0]['raw']['uri'];
+    $upc = str_replace('-', '', $result->field_field_unit_upc[0]['raw']['value']);
+    $image_url = drupal_realpath($image_uri);
+    
+    $ext = pathinfo($image_url, PATHINFO_EXTENSION);
+    $files_to_zip['00' . $upc . '.' . $ext] = $image_url;
+  }
+  
+  $destination = drupal_realpath('public://') . '/my-archive.zip';  
+  $overwrite = false;
+  if (file_exists($destination)) {
+      $overwrite = true;
+  } 
+  $result = unfi_custom_create_zip($files_to_zip, $destination, $overwrite);
+  $file_name = 'my-archive.zip';
+  $file_url = $destination;
+  header('Content-Type: application/octet-stream');
+  header("Content-Transfer-Encoding: Binary");
+  header("Content-disposition: attachment; filename=\"" . $file_name . "\""); 
+  readfile($file_url);
+  exit;
+}
+
+/**
+ * Implements functionality for creating a zip file with given array of file paths.
+ */
+function unfi_custom_create_zip($files = array(), $destination = '', $overwrite = false) {
+  //if the zip file already exists and overwrite is false, return false
+  if(file_exists($destination) && !$overwrite) { return false; }
+  //vars
+  $valid_files = array();
+  //if files were passed in...
+  if(is_array($files)) {
+    //cycle through each file
+    foreach($files as $key => $file) {
+      //make sure the file exists
+      if(file_exists($file)) {
+        $valid_files[$key] = $file;
+      }
+    }
+  }
+  
+  //if we have good files...
+  if(count($valid_files)) {
+    //create the archive
+    $zip = new ZipArchive();
+    if($zip->open($destination,$overwrite ? ZIPARCHIVE::OVERWRITE : ZIPARCHIVE::CREATE) !== true) {
+      return false;
+    }
+    //add the files
+    foreach($valid_files as $key => $file) {
+      $zip->addFile($file, $key);
+    }
+    $zip->close();
+    //debug
+    //echo 'The zip archive contains ',$zip->numFiles,' files with a status of ',$zip->status;  
+    //close the zip -- done!
+    //check to make sure the file exists
+    return file_exists($destination);
+  }
+  else {
+    return false;
+  }
+}
+
+/**
+ * Implments hook_views_pre_render().
+ */
+function unfi_custom_views_pre_render(&$view) {
+  if ($view->name == 'marketing_dashboard_products') {
+    $view->attachment_after = l('Download Images', 'unfi-market-zip');
+  }
+}
+
+
+
+/**
+ * Callback function for 'unfi-product-image-download' page.
+ */
+function unfi_product_image_download($upcItem, $productImageName) {  
+  $destination = drupal_realpath('public://') .'/primary_image/'. $productImageName;   
+  if(file_exists($destination)){
+  $pimageName = explode('.', $productImageName);
+  $pimageExtension = $pimageName[1]; 
+  $productDownloadImageName = '00'. $upcItem .'.'. $pimageExtension;
+  $productDownloadImageUrl = $destination;  
+  header('Content-type: image/'. $pimageExtension);
+  header('Content-Transfer-Encoding: Binary');  
+  header('Content-Disposition: attachment; filename="'. $productDownloadImageName .'"');
+  readfile($productDownloadImageUrl);
+  exit;
+} else  {
+  
+  drupal_set_message(t('The requested image does not exist.'), 'error');
+  drupal_goto('marketing-dashboard'); 
+ }
+}

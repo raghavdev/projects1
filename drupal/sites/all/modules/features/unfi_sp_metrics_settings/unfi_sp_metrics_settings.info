@@ -1,0 +1,11 @@
+name = UNFI Supplier Portal Metrics Settings
+core = 7.x
+package = UNFI
+dependencies[] = features
+dependencies[] = phpexcel
+dependencies[] = unfi_sp_metrics
+features[features_api][] = api:2
+features[user_permission][] = unfi sp admin metric reports
+features[user_permission][] = unfi sp delete metric reports
+features[user_permission][] = unfi sp run metric reports
+features[user_permission][] = unfi sp view metric reports

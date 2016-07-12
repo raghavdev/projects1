@@ -1,0 +1,6 @@
+name = UNFI Import
+description = Import data from the core business systems and business divisions.
+core = 7.x
+package = UNFI
+
+files[] = unfi_import.cleanse.inc

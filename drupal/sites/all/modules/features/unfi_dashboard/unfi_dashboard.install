@@ -1,0 +1,144 @@
+<?php
+
+function unfi_dashboard_update_7000(&$sandbox) {
+  variable_set('unfi_dashboard_inbox', array(
+    10 => array(
+      'states' => array(),
+    ),
+    11 => array(
+      'states' => array(),
+    ),
+    9 => array(
+      'states' => array(
+        1 => array(
+          2 => '2',
+          33 => '33',
+        ),
+      ),
+    ),
+    3 => array(
+      'states' => array(
+        1 => array(
+          2 => '2',
+          33 => '33',
+        ),
+      ),
+    ),
+    8 => array(
+      'states' => array(
+        1 => array(
+          3 => '3',
+        ),
+      ),
+    ),
+    4 => array(
+      'states' => array(),
+    ),
+    7 => array(
+      'states' => array(
+        1 => array(
+          4 => '4',
+        ),
+      ),
+    ),
+    5 => array(
+      'states' => array(
+        1 => array(
+          16 => '16',
+        ),
+      ),
+    ),
+    12 => array(
+      'states' => array(
+        1 => array(
+          5 => '5',
+          34 => '34',
+        ),
+      ),
+    ),
+    13 => array(
+      'states' => array(),
+    ),
+    14 => array(
+      'states' => array(),
+    ),
+    6 => array(
+      'states' => array(),
+    ),
+  ));
+}
+
+/**
+ * Fix Gatekeeper inbox settings to only show items in 'Final Review'
+ */
+function unfi_dashboard_update_7001(&$sandbox) {
+  // Query old variable
+  $old_var = variable_get('unfi_dashboard_inbox', array());
+  // Overwrite Gatekeeper permissions
+  $old_var[12] = array(
+    'states' => array(
+      1 => array(
+        5 => '5',
+      ),
+    ),
+  );
+  // Save
+  variable_set('unfi_dashboard_inbox', $old_var);
+}
+
+/**
+ * uninstall nir lock module
+ */
+function unfi_dashboard_update_7002() {
+  if (module_exists('nir_lock')) {
+    module_disable(array('nir_lock'));
+  }
+}
+
+/**
+ * Enable views_aggregator module.
+ */
+function unfi_dashboard_update_7003() {
+  if (!module_exists('views_aggregator')) {
+    module_enable(array('views_aggregator'));
+  }
+}
+
+/**
+ * Add UBS & WBS Coder inbox settings to only show items in their respective states.
+ */
+function unfi_dashboard_update_7004() {
+  $ubs_user = user_role_load_by_name('UBS Coder');
+  $wbs_user = user_role_load_by_name('WBS Coder');
+
+  if (empty($ubs_user->rid) || empty($wbs_user->rid)) {
+    throw new DrupalUpdateException('Missing UBS and/or WBS Coder roles. Please try again after a feature update.');
+  }
+
+  $nir_workflow = workflow_load_by_name('request_workflow');
+  $pending_ubs  = $nir_workflow->getState('Pending UBS Systems Input');
+  $pending_wbs  = $nir_workflow->getState('Pending WBS Systems Input');
+
+  // Query old variable
+  $var = variable_get('unfi_dashboard_inbox', array());
+  // Add UBS Coder permissions
+  $var[$ubs_user->rid] = array(
+    'limit_to_groups' => FALSE,
+    'states'          => array(
+      $nir_workflow->wid => array(
+        $pending_ubs->sid => (string) $pending_ubs->sid,
+      ),
+    ),
+  );
+  // Add WBS Coder permissions
+  $var[$wbs_user->rid] = array(
+    'limit_to_groups' => FALSE,
+    'states'          => array(
+      $nir_workflow->wid => array(
+        $pending_wbs->sid => (string) $pending_wbs->sid,
+      ),
+    ),
+  );
+  // Save
+  variable_set('unfi_dashboard_inbox', $var);
+}

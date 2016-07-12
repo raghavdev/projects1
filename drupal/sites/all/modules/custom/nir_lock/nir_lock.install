@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function nir_lock_install() {
+  variable_set('nir_lock_ignore_roles', array());
+  variable_set('nir_lock_timeout', 900); // 15 minutes
+  variable_set('nir_lock_pager_limit', 10);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nir_lock_uninstall() {
+  variable_del('nir_lock_ignore_roles');
+  variable_del('nir_lock_timeout');
+  variable_del('nir_lock_pager_limit');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function nir_lock_schema() {
+  $schema['nir_lock'] = array(
+    'description' => 'Store information of who is editing a New Item Request and when.',
+    'fields'      => array(
+      'nid' => array(
+        'type'        => 'int',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'description' => 'The ID of the node that is being edited.',
+      ),
+      'uid' => array(
+        'type'        => 'int',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'description' => 'The ID of the user that is editing the node.',
+      ),
+      'timestamp' => array(
+        'type'        => 'int',
+        'not null'    => TRUE,
+        'default'     => 0,
+        'unsigned'    => TRUE,
+        'description' => 'When the user started or resumed editing.',
+      ),
+    ),
+    'primary key' => array('nid', 'uid'),
+  );
+
+  return $schema;
+}

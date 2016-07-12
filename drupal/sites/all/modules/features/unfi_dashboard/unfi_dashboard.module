@@ -1,0 +1,140 @@
+<?php
+/**
+ * @file
+ * Code for the unfi_dashboard feature.
+ */
+
+include_once 'unfi_dashboard.features.inc';
+
+/**
+ * Implements hook_permission().
+ */
+function unfi_dashboard_permission() {
+  return array(
+    'administer unfi dashboard' => array(
+      'title'           => t('Administer UNFI Dashboard'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_dashboard_menu() {
+  // Create an administration block.
+  $items['admin/config/unfi_dashboard'] = array(
+    'title'            => 'UNFI Dashboard',
+    'description'      => 'Front page data for user.',
+    'page callback'    => 'system_admin_menu_block_page',
+    'access arguments' => array('administer unfi dashboard'),
+    'file'             => 'system.admin.inc',
+    'file path'        => drupal_get_path('module', 'system'),
+    'weight'           => 21,
+    'position'         => 'right',
+  );
+  // Create the main settings page.
+  $items['admin/config/unfi_dashboard/inbox'] = array(
+    'title'            => 'Inbox Settings',
+    'description'      => 'Configure the inbox settings.',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_dashboard_inbox_settings'),
+    'access arguments' => array('administer unfi dashboard'),
+    'weight'           => 0,
+  );
+  return $items;
+}
+
+/**
+ * Form API build for settings to alter the inbox display on the dashboard/front page.
+ */
+function unfi_dashboard_inbox_settings($form, &$form_state) {
+  // Get previous settings
+  $unfi_dashboard_inbox = variable_get('unfi_dashboard_inbox', array(
+    // (int)$rid = array(
+    //   'states' => array(
+    //     (int)$wid => array((int)$sid => $sid,...),
+    //     ...
+    //   ),
+    // )
+  ));
+  // Set up arrays to store workflow & state labels
+  $state_labels    = array();
+  $workflow_labels = array();
+  // Loop through all available workflows
+  foreach (workflow_get_workflows() as $wid => $workflow) {
+    // Skip others, this is left here so that if the item types expand, this can be adjusted.
+    // But for now 'pack_change_workflow' and 'supplier_group_data_update' are ignored.
+    if ($workflow->name != 'request_workflow') {
+      continue;
+    }
+    // If there are states in the workflow
+    if (!empty($workflow->states)) {
+      // Store the workflow human-readable label
+      $workflow_labels[$wid] = $workflow->label;
+      // Loop through all the states of the work flow
+      foreach ($workflow->states as $sid => $state) {
+        // Skip the creation state since it is instantaneous
+        if ($state->state != '(creation)' && !empty($state->state)) {
+          // Store the state name/label
+          $state_labels[$wid][$sid] = $state->state;
+        }
+      }
+    }
+  }
+  // Loop through all authenticated roles
+  foreach (user_roles(TRUE) as $rid => $role_name) {
+    // Skip the authenticated user role
+    if (in_array($role_name, array('authenticated user'))) {
+      continue;
+    }
+    // Fieldset to separate roles
+    $form['role_' . $rid] = array(
+      '#type'        => 'fieldset',
+      '#title'       => t('@r', array('@r' => $role_name)),
+      '#collapsible' => TRUE,
+      '#collapsed'   => TRUE,
+    );
+    // Build a checkbox set for each workflow available
+    foreach ($workflow_labels as $wid => $workflow_label) {
+      $form['role_' . $rid]['states']['workflow_' . $wid] = array(
+        '#type'          => 'checkboxes',
+        '#title'         => t('Show %l state(s)', array('%l' => $workflow_label)),
+        '#options'       => $state_labels[$wid],
+        '#default_value' => !empty($unfi_dashboard_inbox[$rid]['states'][$wid]) ? $unfi_dashboard_inbox[$rid]['states'][$wid] : array(),
+        '#description'   => t('Display items that are in the selected %l state(s).', array(
+          '%l' => $workflow_label,
+        )).t('<BR />Selecting none is the same as selecting all.'),
+        '#parents' => array('unfi_dashboard_inbox', $rid, 'states', $wid),
+      );
+    }
+  }
+  // Use default system settings wrapper
+  return system_settings_form($form);
+}
+
+/**
+ * Form API validation for dashboard inbox settings.
+ */
+function unfi_dashboard_inbox_settings_validate($form, &$form_state) {
+  if (!empty($form_state['values']['unfi_dashboard_inbox'])) {
+    foreach ($form_state['values']['unfi_dashboard_inbox'] as $rid => &$values) {
+      if (!empty($values['states'])) {
+        foreach ($values['states'] as $wid => $state_ids) {
+          if (!empty($state_ids)) {
+            foreach ($state_ids as $sid => $selected) {
+              // Remove unchecked items
+              if (empty($selected)) {
+                unset($values['states'][$wid][$sid]);
+              }
+            }
+            // Remove empty workflow items
+            if (empty($values['states'][$wid])) {
+              unset($values['states'][$wid]);
+            }
+          }
+        }
+      }
+    }
+  }
+}

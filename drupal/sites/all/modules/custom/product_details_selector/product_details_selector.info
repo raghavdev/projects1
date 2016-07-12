@@ -1,0 +1,6 @@
+name        = Digital Core Product Details Selector
+description = Provides product_details_selector field widget to select and store data from Solr.
+core        = 7.x
+package     = UNFI
+
+dependencies[] = unfi_sp_solr

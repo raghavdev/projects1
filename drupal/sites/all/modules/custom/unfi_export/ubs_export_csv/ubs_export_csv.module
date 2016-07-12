@@ -1,0 +1,406 @@
+<?php
+/**
+ * @file
+ * Code for the Export CSV module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'ubs_export_csv') . '/ubs_export_csv.install';
+
+
+/**
+ * Primary function that generates the file, pushes it to UNFI, then archives requests.
+ */
+function ubs_export_csv_execute() {
+  $tables = ubs_export_csv_fetch_tables();
+
+  // Prep the tables for import.
+  unfi_export_prepare_tables($tables);
+
+  // Find all nodes that need to be exported.
+  $count = ubs_export_csv_load_staging_tables();
+
+  // If not records, no need to proceed.
+  if (!$count) {
+    return;
+  }
+
+  // Generate and transfer the .csv file(s).
+  $local_path = variable_get('ubs_export_csv_export_path');
+  foreach ($tables as $table_name => $table_info) {
+    // Since one file is generated for products of a single request_form,
+    // we need to keep track of the progress through the export table
+    // where progress is the nth position within a list of unique request_ids
+    $progress = 0;
+    // Loop while this is a request_id to obtain
+    while (ubs_export_csv_get_nth_request_id($table_name, $progress) > 0) {
+      // Build filename from request_form info and export
+      $base_name = ubs_export_csv_generate_filename($table_name, $progress);
+      $local_file = unfi_export_generate_csv_file($table_name, $table_info, $local_path, $base_name, $progress);
+      if (!$local_file) {
+        unfi_export_log('Error attempting to create export file: %local_file', $variables = array('%local_file' => $local_file));
+        return FALSE;
+      }
+      else {
+        $remote_path = variable_get('ubs_export_csv_export_path_remote', '');
+        if (!empty($remote_path)) {
+          $transfer_status = unfi_export_transfer_file($local_file, $remote_path);
+          if (!$transfer_status) {
+            unfi_export_log('Error attempting to transfer file: %local_file to %remote_path', $variables = array(
+              '%local_file' => $local_file,
+              '%remote_path' => $remote_path
+            ));
+            return FALSE;
+          }
+        }
+      }
+      $progress++; // Increment to next request_form
+    }
+  }
+
+  // Update the workflow state after processing.
+  $new_workflow_state = variable_get('ubs_export_csv_new_workflow_state', 0);
+  if ($new_workflow_state) {
+    foreach ($tables as $table_name => $table_info) {
+      unfi_export_alter_workflow_state_for_nodes_in_table($table_name, $new_workflow_state, 'Exported via: UBS Export CSV');
+    }
+  }
+
+  // Update the log tables.
+  unfi_export_push_to_log_tables($tables);
+}
+
+/**
+ * Check for new items and push to the staging tables.
+ */
+function ubs_export_csv_load_staging_tables() {
+
+  $tables = ubs_export_csv_fetch_tables();
+
+  $from_workflow_state = variable_get('ubs_export_csv_cur_workflow_state', 0);
+
+  // If no starting workflow state is set, the export will not run.
+  if (empty($from_workflow_state)) {
+    unfi_export_log('No workflow state set for UBS export, see UBS export configuration.');
+    return;
+  }
+
+  // Subquery for only requests of a certain workflow state.
+  $subquery = db_select('node', 'r');
+  $subquery->addField('r', 'nid');
+  $subquery->join('workflow_node', 'w', 'w.nid = r.nid');
+  $subquery->condition('r.status', 1, '=');
+  $subquery->condition('w.sid', $from_workflow_state,'=');
+
+  $ignore_groups = variable_get('unfi_export_ignore_groups', array(20, 12));
+  if (!empty($ignore_groups) && is_array($ignore_groups)) {
+    $subquery->join('og_membership', 'ogm', 'ogm.entity_type=\'node\' and r.nid=ogm.etid');
+    $subquery->condition('ogm.gid', $ignore_groups, 'NOT IN');
+  }
+
+  // Query for only new items within requests of the configured workflow state.
+  $query = db_select('node', 'n');
+  $query->fields('n', array('nid'));
+  $query->join('field_data_field_request_form', 'p', 'n.nid = p.entity_id');
+  $query->join($subquery, 'r', 'r.nid = p.field_request_form_target_id');
+  $query->condition('n.type', 'product');
+  $query->condition('n.status', 1, '=');
+  $query->orderBy('r.nid');
+  $query->orderBy('n.nid');
+  $result = $query->execute();
+
+  // Loop through each node and add them to each table defined for this export.
+  while ($node = $result->fetchAssoc()) {
+    $node = node_load($node['nid']);
+    foreach ($tables as $table_name => $table_info) {
+      unfi_export_insert_record($table_name, $table_info['fields'], $node);
+    }
+  }
+
+  $count = 0;
+  foreach ($tables as $table_name => $table_info) {
+    $count += unfi_export_table_count($table_name);
+  }
+
+  // Return the count so that the calling function can determine whether or not to execute further.
+  return $count;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function ubs_export_csv_menu() {
+
+  $items = array();
+
+  // Create the main settings page.
+  $items['admin/config/unfi_export/ubs'] = array(
+    'title' => 'UBS Export Settings',
+    'description' => 'Configure the UBS export settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ubs_export_csv_settings_form'),
+    'access arguments' => array('unfi export data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function ubs_export_csv_node_insert($node) {
+  // If a new warehouse is being created
+  if ($node->type == 'warehouse') {
+    // @todo check if it is an East or Select warehouse. When that is done, will
+    // also need to check on node_update if region changes.
+
+    // Just in case cron is running, don't delete the tables, because it could
+    // ruin our export. Mark the tables as needing a rebuild.
+    variable_set('ubs_export_csv_rebuild_needed', TRUE);
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function ubs_export_csv_node_delete($node) {
+  // If a new warehouse is being created
+  if ($node->type == 'warehouse') {
+    // @todo check if it is an East or Select warehouse.
+
+    // Just in case cron is running, don't delete the tables, because it could
+    // ruin our export. Mark the tables as needing a rebuild.
+    variable_set('ubs_export_csv_rebuild_needed', TRUE);
+  }
+}
+
+/**
+ * Settings form for Export CSV configuration.
+ */
+function ubs_export_csv_settings_form() {
+
+  $form['ubs_export_csv_export_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Path'),
+    '#description' => t('The path to where files will be saved (../private recommended).'),
+    '#default_value' => variable_get('ubs_export_csv_export_path', '../private'),
+    '#size' => 60,
+  );
+
+  $form['ubs_export_csv_export_path_remote'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Path Remote'),
+    '#description' => t('The path to where files will be transferred to after generation.'),
+    '#default_value' => variable_get('ubs_export_csv_export_path_remote', ''),
+    '#size' => 60,
+  );
+
+  $form['ubs_export_csv_transpose'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Transpose CSV'),
+    '#description' => t('Export CSV with Header as first Column.'),
+    '#default_value' => variable_get('ubs_export_csv_transpose'),
+  );
+
+  $form['ubs_export_csv_cron'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Run on Cron'),
+    '#description' => t('Export files on cron runs.'),
+    '#default_value' => variable_get('ubs_export_csv_cron', ''),
+  );
+
+  $form['ubs_export_csv_cron_minimum_lifetime'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export After X-Hours'),
+    '#description' => t('Export on cron if x-number of hours has past since the last export.'),
+    '#default_value' => variable_get('ubs_export_csv_cron_minimum_lifetime', ''),
+    '#size' => 60,
+  );
+
+  $query = db_select('workflows', 'w');
+  $query->fields('w', array('wid', 'label'));
+  $query->fields('s', array('sid', 'state'));
+  $query->join('workflow_states', 's', 'w.wid = s.wid');
+  $query->condition('w.status', 0,'>');
+  $query->condition('s.status', 0,'>');
+  $query->orderBy('w.name', 'DESC');
+  $query->orderBy('s.weight', 'ASC');
+  $result = $query->execute();
+
+  $state_options = array(0 => t('Do Not Export'),);
+
+  while($state = $result->fetchAssoc()) {
+    $state_options[$state['sid']] = $state['label'] . ' :: ' . $state['state'];
+  }
+
+  $form['ubs_export_csv_cur_workflow_state'] = array(
+    '#type' => 'select',
+    '#title' => t('Export Workflow State'),
+    '#description' => t('Export new items that are on requests in this workflow state.'),
+    '#default_value' => variable_get('ubs_export_csv_cur_workflow_state', 0),
+    '#options' => $state_options,
+  );
+
+  $state_options[0] = t('Do Not Change State');
+  $form['ubs_export_csv_new_workflow_state'] = array(
+    '#type' => 'select',
+    '#title' => t('Post-Export Workflow State'),
+    '#description' => t('Exported new items should be updated to this workflow state.'),
+    '#default_value' => variable_get('ubs_export_csv_new_workflow_state', 0),
+    '#options' => $state_options,
+  );
+
+  // Add system submit handler and submit button.
+  $form = system_settings_form($form);
+
+  return $form;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function ubs_export_csv_cron() {
+  if (variable_get('ubs_export_csv_cron', FALSE)) {
+    $min_lifespan = variable_get('ubs_export_csv_cron_minimum_lifetime', 1);
+    $last_run = variable_get('ubs_export_csv_cron_last_run', 0);
+
+    if (!empty($min_lifespan)) {
+      // By checking that the value is not empty, an admin could set the min lifespan to 0 and bypass the check.
+      $diff = REQUEST_TIME - $last_run;
+      // Convert hours to seconds for comparison to timestamp difference.
+      if ($diff < ($min_lifespan * 60 * 60)) {
+        // Not enough time has passed for cron to run again, abort.
+        return;
+      }
+    }
+
+    // If the tables need rebuilt, then rebuild them before doing the export.
+    if (variable_get('ubs_export_csv_rebuild_needed', FALSE)) {
+      $tables = ubs_export_csv_fetch_tables();
+
+      foreach ($tables as $requested_name => $table_info) {
+        $table_names = unfi_export_table_names($requested_name);
+        // @todo don't remove the log table, but alter it to add the new fields.
+        unfi_export_drop_tables($table_names);
+        unfi_export_create_table($requested_name, $table_info);
+      }
+
+      // Mark that tables have been rebuilt
+      variable_set('ubs_export_csv_rebuild_needed', FALSE);
+    }
+
+    ubs_export_csv_execute();
+
+    variable_set('ubs_export_csv_cron_last_run', REQUEST_TIME);
+  }
+}
+
+/**
+ * Alters CSV export query for UBS.
+ * Limits query to the nth request_form.
+ *
+ * @param selectQuery $query
+ * @param array $args
+ *    Magic Numbers:
+ *      0 => table_name,
+ *      1 => table_info,
+ *      2 => local_path,
+ *      3 => base_name,
+ *      4 => progress,
+ */
+function ubs_export_csv_generate_csv_file_query_alter($query, $args = array()) {
+  // Obtain base table information from the query itself
+  $tables     = $query->getTables();
+  $table_data = reset($tables);
+  // Get request_id to be processed
+  $request_id = ubs_export_csv_get_nth_request_id($args[0], $args[4]);
+  // Limit to that request_form
+  $query->condition($table_data['alias'] . '.request_id', $request_id);
+}
+
+/**
+ * Quick query for the nth request_form node ID.
+ * Since the table is full of products.
+ *
+ * @param string $table_name
+ * @param int $nth
+ * @return int
+ */
+function ubs_export_csv_get_nth_request_id($table_name, $nth = 0) {
+  $table_info = unfi_export_table_names($table_name);
+
+  $query = db_select($table_info['table'], 't');
+  $query->fields('t', array('request_id'));
+  $query->groupBy('t.request_id');
+  $query->orderBy('t.request_id');
+  $query->range($nth,1);
+
+  $result = $query->execute();
+
+  return $result->fetchField();
+}
+
+/**
+ * Creates a UBS export file name based on the request_form's data.
+ *
+ * @param string $table_name
+ * @param int $nth
+ *
+ * @return string
+ */
+function ubs_export_csv_generate_filename($table_name, $nth = 0) {
+  // Get real table data
+  $table_info = unfi_export_table_names($table_name);
+  // Query for request_id and the product count of each
+  $query = db_select($table_info['table'], 't');
+  $query->fields('t', array('request_id'));
+  $query->addExpression('COUNT(*)', 'count');
+  $query->orderBy('t.request_id');
+  $query->groupBy('t.request_id');
+  $query->range($nth,1);
+  // Execute and fetch
+  $result = $query->execute();
+  $row = $result->fetchAssoc();
+  // Start building name
+  $filename = $table_name . '_export';
+  // Load the request_form node
+  if (
+    !empty($row['request_id'])
+    && ($node = node_load($row['request_id']))
+    && ($wrapper = entity_metadata_wrapper('node', $node))
+  ) {
+    // Store filename parts as array to concatenate easily
+    $parts = array();
+    // Supplier's name
+    if (
+      isset($wrapper->og_group_ref)
+      && ($supplier = $wrapper->og_group_ref->value())
+      && isset($supplier->title)
+    ) {
+      $part = $supplier->title;
+      $parts[] = preg_replace('/[^A-z0-9_-]+/', '_', $part);
+    }
+    // Brand name
+    if (
+      isset($wrapper->field_brand)
+      && $wrapper->field_brand->value()
+    ) {
+      $part = $wrapper->field_brand->value();
+      $parts[] = preg_replace('/[^A-z0-9_-]+/', '_', $part);
+    }
+    // Category
+    if (
+      isset($wrapper->field_product_category)
+      && $wrapper->field_product_category->value()
+    ) {
+      $part = $wrapper->field_product_category->value();
+      $parts[] = preg_replace('/[^A-z0-9_-]+/', '_', $part);
+    }
+    // Product/item count
+    $parts[] = $row['count'] . 'items';
+    // Build
+    $filename .= '-' . implode('-', $parts);
+  }
+  return $filename;
+}

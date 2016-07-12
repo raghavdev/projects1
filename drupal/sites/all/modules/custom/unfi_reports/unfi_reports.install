@@ -1,0 +1,40 @@
+<?php
+
+/**
+ * Implements hook_install()
+ */
+function unfi_reports_install() {
+  // Populate the default settings records.
+  variable_set('unfi_reports_results_per_page', 100);
+  variable_set('unfi_reports_send_emails_from', 'info@unfi.com');
+  variable_set('unfi_reports_default_range_start', '-6 months');
+  variable_set('unfi_reports_cron_user', 0);
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_reports_uninstall() {
+  // Remove the settings records.
+  variable_del('unfi_reports_results_per_page');
+  variable_del('unfi_reports_send_emails_from');
+  variable_del('unfi_reports_default_range_start');
+  variable_del('unfi_reports_cron_user');
+
+  // Legacy
+  variable_del('unfi_reports_csv_cron_last_run');
+  variable_del('unfi_reports_csv_cron_minimum_lifetime');
+}
+
+/**
+ * Enable/install progress and background_process.
+ * Remove depreciated variables and add one for user ID for cron runs.
+ * Delete rule rules_email_asset_report.
+ */
+function unfi_reports_update_7000(&$sandbox) {
+  module_enable(array('progress', 'background_process'));
+  variable_del('unfi_reports_csv_cron_last_run');
+  variable_del('unfi_reports_csv_cron_minimum_lifetime');
+  variable_set('unfi_reports_cron_user', 0);
+  rules_config_delete(array('rules_email_asset_report'));
+}

@@ -1,0 +1,185 @@
+<?php
+
+// Need this in order to ensure we can reference the some functions in the .module.
+include_once drupal_get_path('module', 'unfi_export') . '/unfi_export.module';
+
+/**
+ * Defines the staging table fields and mapping to drupal nodes for export.
+ *
+ * EDIT THIS ARRAY TO ALTER STRUCTURE
+ *
+ * Follows Drupal Schema API, but adds a few array keys used only by the UNFI Export:
+ *
+ * description : (part of schema api) will double as .csv file column headers
+ * Ex: 'description' => 'UBS_Brand',
+ *
+ * map_to : can be used to map a field to a field in a drupal node
+ * Ex: 'map_to' => 'field_brand',
+ *
+ * clean_func : will tell the export to process the values using a named function found in unfi_export.cleanse.inc
+ * Ex: 'clean_func' => 'unfi_export_csv_clean_upc_for_export',
+ *
+ * clean_func_args : will pass an array of arguments to the function defined in clean_func.
+ * EX: 'clean_func_args' => array(32, TRUE),
+ *
+ * SETTING UP A DEFAULT FIELD EX:
+ *
+ * 'some_field' => array(
+ *   'description' => 'Some Field Column Header',
+ *   'type' => 'varchar',
+ *   'length' => 255,  // need length or may error on table creation.
+ *   'default' => 'N',
+ * )
+ *
+ * REBUILD THE STAGING & LOG TABLES WITH DRUSH:
+ * drush ubs --rebuild
+ *
+ * @return array
+ */
+function promotion_export_csv_fetch_tables() {
+  $tables = array();
+
+  // ########## Promotion Fields ##########
+  $tables['promotion'] = array(
+    'fields' => array(
+      'field_brand' => array(
+        'description' => 'Brand',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => 'field_brand',
+      ),
+      'field_inner_pack' => array(
+        'description' => 'Inner Pack',
+        'type' => 'int',
+        'map_to' => 'field_inner_pack',
+      ),
+      'field_case_pack' => array(
+        'description' => 'Case Pack',
+        'type' => 'int',
+        'map_to' => 'field_case_pack',
+      ),
+      'field_mc_pack' => array(
+        'description' => 'Master Case Pack',
+        'type' => 'int',
+        'map_to' => 'field_mc_pack',
+      ),
+      'field_unit_length' => array(
+        'description' => 'Length',
+        'type' => 'float',
+        'map_to' => 'field_unit_length',
+      ),
+      'field_unit_width' => array(
+        'description' => 'Width',
+        'type' => 'float',
+        'map_to' => 'field_unit_width',
+      ),
+      'field_unit_height' => array(
+        'description' => 'Height',
+        'type' => 'float',
+        'map_to' => 'field_unit_height',
+      ),
+      'field_size' => array(
+        'description' => 'Size',
+        'type' => 'float',
+        'map_to' => 'field_size',
+      ),
+      'field_unit_of_measure' => array(
+        'description' => 'Unit of Measure',
+        'type' => 'varchar',
+        'length' => 8,
+        'map_to' => 'field_unit_of_measure',
+      ),
+      'field_product_category' => array(
+        'description' => 'Product Category',
+        'type' => 'varchar',
+        'length' => 256,
+        'map_to' => 'field_product_category',
+      ),
+      'field_part_number' => array(
+        'description' => 'Manufacturer Part Number',
+        'type' => 'varchar',
+        'length' => 10,
+        'map_to' => 'field_part_number',
+      ),
+      'field_unfi_only_approved_mcb' => array(
+        'description' => 'UNFI Only Approved MCB',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_unfi_only_approved_mcb',
+      ),
+      'field_new_product_discount' => array(
+        'description' => 'New Product Discount',
+        'type' => 'float',
+        'map_to' => 'field_new_product_discount',
+      ),
+      'field_unfi_contribution' => array(
+        'description' => 'UNFI Contribution',
+        'type' => 'float',
+        'map_to' => 'field_unfi_contribution',
+      ),
+      'field_pre_90_day_discount_' => array(
+        'description' => 'Pre-90 Day Discount?',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_pre_90_day_discount_',
+      ),
+      'field_unfi_buy_dates' => array(
+        'description' => 'UNFI Buy Dates',
+        'type' => 'varchar',
+        'length' => 20,
+        'map_to' => 'field_unfi_buy_dates',
+      ),
+      'field_intro_promo_months' => array(
+        'description' => 'Intro Promo Months',
+        'type' => 'varchar',
+        'length' => 20,
+        'map_to' => 'field_intro_promo_months',
+      ),      
+    ),
+  );
+
+  return $tables;
+
+}
+
+/**
+ * Implements hook_install()
+ */
+function promotion_export_csv_install() {
+  // Populate the default settings records.
+  variable_set('promotion_export_csv_export_path', '../private');
+  variable_set('promotion_export_csv_export_path_remote', '');
+  variable_set('promotion_export_csv_cron', FALSE);
+  variable_set('promotion_export_csv_cron_minimum_lifetime', 1);
+  variable_set('promotion_export_csv_cron_last_run', 0);
+  variable_set('promotion_export_csv_cur_workflow_state', 0);
+  variable_set('promotion_export_csv_new_workflow_state', 0);
+
+  // Initialize the staging tables used during export.
+  unfi_export_create_staging_tables(promotion_export_csv_fetch_tables());
+
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function promotion_export_csv_uninstall() {
+  // Remove the settings records.
+  variable_del('promotion_export_csv_export_path');
+  variable_del('promotion_export_csv_export_path_remote');
+  variable_del('promotion_export_csv_cron');
+  variable_del('promotion_export_csv_cron_minimum_lifetime');
+  variable_del('promotion_export_csv_cron_last_run');
+  variable_del('promotion_export_csv_cur_workflow_state');
+  variable_del('promotion_export_csv_new_workflow_state');
+
+  $to_drop = array();
+  $tables = promotion_export_csv_fetch_tables();
+  foreach ($tables as $requested_name => $table_info) {
+    $table_names = unfi_export_table_names($requested_name);
+    foreach ($table_names as $table) {
+      $to_drop[] = $table;
+    }
+  }
+  unfi_export_drop_tables($to_drop);
+}

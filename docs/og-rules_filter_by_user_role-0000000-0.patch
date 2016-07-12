@@ -1,0 +1,78 @@
+diff --git a/drupal/sites/all/modules/contrib/og/og.rules.inc b/drupal/sites/all/modules/contrib/og/og.rules.inc
+index 192911c..f4a4ffa 100644
+--- a/drupal/sites/all/modules/contrib/og/og.rules.inc
++++ b/drupal/sites/all/modules/contrib/og/og.rules.inc
+@@ -113,6 +113,22 @@ function og_rules_action_info() {
+         'description' => t('When checked only users not in the selected roles will be loaded.'),
+         'restriction' => 'input',
+       ),
++      'user_roles' => array(
++        'type' => 'list<text>',
++        'label' => t('User roles'),
++        'options list' => 'og_rules_user_roles_options_list',
++        'optional' => TRUE,
++        'allow null' => TRUE,
++        'restriction' => 'input',
++      ),
++      'not_user_roles' => array(
++        'type' => 'boolean',
++        'label' => t('Negate user roles'),
++        'optional' => TRUE,
++        'allow null' => FALSE,
++        'description' => t('When checked only users not in the selected roles will be loaded.'),
++        'restriction' => 'input',
++      ),
+     ),
+     'provides' => array(
+       'group_members' => array('type' => 'list<user>', 'label' => t('List of group members')),
+@@ -310,7 +326,7 @@ function og_rules_action_info() {
+ /**
+  * Action: Get group members from a group content.
+  */
+-function og_rules_get_members($group_content, $states = NULL, $not_states = FALSE, $roles = NULL, $not_roles = FALSE) {
++function og_rules_get_members($group_content, $states = NULL, $not_states = FALSE, $roles = NULL, $not_roles = FALSE, $user_roles = NULL, $not_user_roles = FALSE) {
+   if (!isset($group_content->og_membership)) {
+     // Not a group content.
+     return;
+@@ -357,6 +373,21 @@ function og_rules_get_members($group_content, $states = NULL, $not_states = FALS
+       }
+     }
+ 
++    if (!empty($user_roles)) {
++      if ($not_user_roles) {
++        // Use a subquery to find members with the roles we want to exclude,
++        // since members may have multiple roles or no roles at all.
++        $subquery_2 = db_select('users_roles', 'ur')
++          ->fields('ur', array('uid'))
++          ->condition('ur.rid', array_keys($user_roles));
++        $query->condition('om.etid', $subquery_2, 'NOT IN'); // MAB TODO: why not left join and look for NULL or something..?
++      }
++      else {
++        $query->innerJoin('users_roles', 'ur', 'om.etid=ur.uid');
++        $query->condition('ur.rid', array_keys($user_roles));
++      }
++    }
++
+     $current_members = $query
+       ->execute()
+       ->fetchCol();
+@@ -472,6 +503,19 @@ function og_rules_group_roles_options_list($element) {
+ }
+ 
+ /**
++ * Options list callback for user roles.
++ */
++function og_rules_user_roles_options_list($element) {
++  $roles = array();
++  foreach (user_roles(TRUE) as $rid => $role) {
++    if ($rid != DRUPAL_AUTHENTICATED_RID) {
++      $roles[$rid] = $role;
++    }
++  }
++  return $roles;
++}
++
++/**
+  * OG Rules integration access callback.
+  */
+ function og_rules_integration_access($type, $name) {

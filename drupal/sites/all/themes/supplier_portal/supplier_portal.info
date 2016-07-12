@@ -1,0 +1,35 @@
+name = Supplier Portal
+description = A responsive administration theme.
+package = Core
+version = VERSION
+core = 7.x
+
+; Stylesheets
+stylesheets[screen][] = styles/style.css
+
+; Scripts
+scripts[] = js/jquery.are-you-sure.js
+scripts[] = js/chosen.jquery.js
+scripts[] = js/main.js
+
+; Settings
+settings[shortcut_module_link] = 1
+
+; Regions
+regions[content] = Content
+regions[help] = Help
+regions[messages] = Messages
+regions[page_top] = Page top
+regions[page_bottom] = Page bottom
+regions[sidebar_first] = First sidebar
+regions_hidden[] = sidebar_first
+regions[header] = Header
+regions[footer] = Footer
+regions[top_nav] = Top Nav
+
+; Information added by Drupal.org packaging script on 2014-01-27
+version = "7.x-1.0"
+core = "7.x"
+project = "supplier_portal"
+datestamp = "1390860909"
+

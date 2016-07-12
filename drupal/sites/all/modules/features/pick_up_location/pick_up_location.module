@@ -1,0 +1,274 @@
+<?php
+/**
+ * @file
+ * Code for the Pick Up / Vendor Warehouse Location feature.
+ */
+
+include_once 'pick_up_location.features.inc';
+
+/**
+ * Implements hook_field_widget_form_alter().
+ */
+function pick_up_location_field_widget_form_alter(&$element, &$form_state, $context) {
+  // Freight Form field
+  if ($context['instance']['field_name'] == 'field_freight_form') {
+    // If there is a "Blank Form" file ID
+    if (($file_id = variable_get('pick_up_location_blank_freight_form', 0))) {
+      // Append the description text with a link to download
+      $file = file_load($file_id);
+      $uri = $file->uri;
+
+      $element[0]['#description'] .= (empty($element[0]['#description']) ? '' : '<BR />').
+        l('(Download a blank copy of the freight form.)', file_create_url($uri));
+    }
+  }
+
+  // Vendor Warehouse Locations field
+  if ($context['instance']['field_name'] == 'field_pick_up_locations') {
+    // If we don't have an entity, we can't determine the Supplier.
+    if (!isset($context['form']['#entity'])) {
+      return;
+    }
+    $entity = $context['form']['#entity'];
+    $nid = FALSE;
+    $gids = array();
+    if (isset($entity->og_group_ref[LANGUAGE_NONE][0]['target_id'])) {
+      $gids = array($entity->og_group_ref[LANGUAGE_NONE][0]['target_id']);
+    }
+    // Find the Request Form
+    elseif (isset($entity->field_request_form[LANGUAGE_NONE][0]['target_id'])) {
+      $nid = $entity->field_request_form[LANGUAGE_NONE][0]['target_id'];
+    }
+
+    if ($nid) {
+      $node = node_load($nid);
+      if (isset($node->og_group_ref[LANGUAGE_NONE][0]['target_id'])) {
+        $gids = array($node->og_group_ref[LANGUAGE_NONE][0]['target_id']);
+      }
+    }
+    // Otherwise get all groups for the user.
+    else {
+      $gids = og_get_groups_by_user(NULL, 'node');
+    }
+
+    // If no groups to limit by, do nothing
+    if (empty($gids)) {
+      return;
+    }
+    // @todo this isn't ideal because our entityreference view is getting ALL
+    // Vendor Warehouse Locations and then we are restricting them based on
+    // the active group. Perhaps something like https://www.drupal.org/node/2010898
+    // could help us.
+    // Query for Vendor Warehouse Location node IDs that of the list of group IDs
+    $query = db_select('node', 'n')
+      ->fields('n', array('nid'));
+    $query->innerJoin('og_membership', 'ogm', "n.nid=ogm.etid AND ogm.entity_type='node'");
+    $query->condition('ogm.gid', $gids)
+      ->condition('ogm.group_type', 'node');
+    // Execute and store results
+    $result = $query->execute();
+    // Store all IDs in a fashion to make array_intersect easier
+    while (($nid = (int)$result->fetchField())) {
+      $limit_nids[$nid] = $nid;
+    }
+    // Perform array intersection only with a non-empty array
+    if (!empty($limit_nids)) {
+      $element['#options'] = array_intersect_key($element['#options'], $limit_nids);
+    }
+  }
+
+  // SRM Assigned Vendor Warehouse Locations field
+  $srm_assigned_fields = array('field_assigned_pick_location', 'field_assigned_pick_location_w');
+  if (in_array($context['instance']['field_name'], $srm_assigned_fields)) {
+    // Determine the field's region
+    $region = '';
+    if ($context['instance']['field_name'] == 'field_assigned_pick_location') {
+      $region = 'east';
+    }
+    elseif ($context['instance']['field_name'] == 'field_assigned_pick_location_w') {
+      $region = 'west';
+    }
+    // Loop through the options left
+    foreach ($element['#options'] as $nid => &$option) {
+      // Load the node
+      if (($node = node_load($nid))) {
+        // Wrap the node entity for easier field usage
+        $wrapper = entity_metadata_wrapper('node', $node);
+        // If there is data for Vender Account Number - East, add it to the option text
+        if ($region == 'east'
+          && !empty($wrapper->field_supplier_id_east)
+          && $wrapper->field_supplier_id_east->value()
+        ) {
+          $option .= ', ' . t('East @v', array('@v' => $wrapper->field_supplier_id_east->value()));
+        }
+        elseif ($region == 'east') {
+          $option .= ', ' . t('East %v', array('%v' => ''));
+        }
+        // If there is data for Vender Account Number - West, add it to the option text
+        if (
+          $region == 'west'
+          && !empty($wrapper->field_supplier_id_west)
+          && $wrapper->field_supplier_id_west->value()
+        ) {
+          $option .= ', ' . t('West @v', array('@v' => $wrapper->field_supplier_id_west->value()));
+        }
+        elseif ($region == 'west') {
+          $option .= ', ' . t('West %v', array('%v' => ''));
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Form alter the general, custom UNFI settings to add a blank form for the Freight Form field.
+ */
+function pick_up_location_form_unfi_custom_settings_form_alter(&$form, &$form_state) {
+  // Add managed file field, it will handle most of the hard work
+  $form['pick_up_location_blank_freight_form'] = array(
+    '#type'              => 'managed_file',
+    '#title'             => t('Vendor Warehouse Location - Blank Freight Form'),
+    '#default_value'     => variable_get('pick_up_location_blank_freight_form', 0),
+    '#description'       => t('Allows users to download a blank copy of the form.'),
+    '#upload_location'   => 'private://freight_forms/',
+    '#upload_validators' => array('file_validate_extensions' => array(
+      'csv xls xlsx xlsm',
+    )),
+  );
+  // Add a submit function to finish the hard work, i.e.: file usage and persistence
+  $form['#submit'][] = 'pick_up_location_form_unfi_custom_settings_form_alter_submit';
+}
+
+/**
+ * Additional Form API submit function for "Blank Form" file handling.
+ */
+function pick_up_location_form_unfi_custom_settings_form_alter_submit($form, &$form_state) {
+  // Clean up file IDs for simple testing fringe cases:
+  // not existing, being removed, being added, being changed
+  $old_fid = 0;
+  if (isset($form['pick_up_location_blank_freight_form']['#default_value'])) {
+    $old_fid = (int)$form['pick_up_location_blank_freight_form']['#default_value'];
+  }
+  $new_fid = 0;
+  if (isset($form_state['values']['pick_up_location_blank_freight_form'])) {
+    $new_fid = (int)$form_state['values']['pick_up_location_blank_freight_form'];
+  }
+  // Only make changes when changes are made
+  if ($old_fid != $new_fid) {
+    // If there is a new file, handle saving it permanently
+    if ($new_fid && ($new_file = file_load($new_fid))) {
+      // Increment usage for the instance to prevent file_delete() calls.
+      // Admittedly & purposefully using the entity type wrong,
+      // but the actual products will use the entity type 'node'.
+      file_usage_add($new_file, 'pick_up_location', 'field_freight_form', 1);
+      // Tell Drupal to keep the file
+      $new_file->status = FILE_STATUS_PERMANENT;
+      // Save the file metadata
+      file_save($new_file);
+    }
+    // If there is an old file, handle removing it
+    if ($old_fid && ($old_file = file_load($old_fid))) {
+      // Decrement usage for the instance, hopefully it will be the only one
+      file_usage_delete($old_file, 'pick_up_location', 'field_freight_form', 1);
+      // Delete the file (if there is no other usage)
+      file_delete($old_file);
+    }
+  }
+}
+/**
+ * Implements hook_file_download().
+ */
+function pick_up_location_file_download($uri) {
+  // Get the file record based on the URI. If not in the database just return.
+  $files = file_load_multiple(array(), array('uri' => $uri));
+  if (count($files)) {
+    foreach ($files as $item) {
+      // Since some database servers sometimes use a case-insensitive comparison
+      // by default, double check that the filename is an exact match.
+      if ($item->uri === $uri) {
+        $file = $item;
+        break;
+      }
+    }
+  }
+
+  global $user;
+  if (user_access('access direct download file', $user)) {
+    // Access is granted.
+    $headers = file_get_content_headers($file);
+    return $headers;
+
+  }
+
+}
+/**
+ * Implements hook_node_view_alter.
+ */
+function pick_up_location_node_view_alter(&$build) {
+  global $user;
+  // @todo determine if/where this is needed in Request Form + Product pages
+  // Focus on altering the SRM Assigned Vendor Warehouse Location of the request_item
+  if (
+    $build['#bundle'] == 'request_item'
+    && $build['#view_mode'] == 'full'
+    && !empty($build['field_assigned_pick_location']['#items'])
+  ) {
+    // Loop through the targeted fields
+    $allowed_fields = array('field_assigned_pick_location', 'field_assigned_pick_location_w');
+    foreach ($allowed_fields as $field_name) {
+      // Skip if the field has no items to display
+      if (empty($build[$field_name]['#items'])) {
+        continue;
+      }
+      // Query field & instance information
+      $field = field_info_field($field_name);
+      $instance = field_info_instance('node', $field_name, 'request_item');
+      // Determine the field's region
+      $region = '';
+      if ($field_name == 'field_assigned_pick_location') {
+        $region = 'east';
+      }
+      elseif ($field_name == 'field_assigned_pick_location_w') {
+        $region = 'west';
+      }
+      // For certain roles allowed to edit, give a link to edit
+      $can_edit = field_permissions_field_access('edit', $field, 'node', $build['#node'], $user);
+      // Loop through the item data being displayed
+      foreach ($build[$field_name]['#items'] as $key => $item) {
+        // Create a shortcut to the item's render array
+        $shortcut = &$build[$field_name][$key];
+        // Wrap the item for easier field usage
+        $wrapper = entity_metadata_wrapper('node', $item['entity']);
+        // If there is data for Vender Account Number - East, add it to the markup text
+        if ($region == 'east'
+          && !empty($wrapper->field_supplier_id_east)
+          && $wrapper->field_supplier_id_east->value()
+        ) {
+          $shortcut['#markup'] .= ', ' . t('East: @v', array('@v' => $wrapper->field_supplier_id_east->value()));
+        }
+        elseif ($region == 'east') {
+          $shortcut['#markup'] .= ', ' . t('East: %v', array('%v' => 'empty'));
+        }
+        // If there is data for Vender Account Number - West, add it to the markup text
+        if (
+          $region == 'west'
+          && !empty($wrapper->field_supplier_id_west)
+          && $wrapper->field_supplier_id_west->value()
+        ) {
+          $shortcut['#markup'] .= ', ' . t('West: @v', array('@v' => $wrapper->field_supplier_id_west->value()));
+        }
+        elseif ($region == 'west') {
+          $shortcut['#markup'] .= ', ' . t('West: %v', array('%v' => 'empty'));
+        }
+        // If the user is allowed to edit the field and the item
+        if ($can_edit && node_access('update', $item['entity'], $user)) {
+          // Replace the markup as a link
+          $shortcut['#markup'] = l($shortcut['#markup'], 'node/'.$item['entity']->nid.'/edit', array(
+            'query' => array('destination' => current_path()), // To return to this view
+            'html'  => TRUE, // Since the data (should) was check_plain'd
+          ));
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,504 @@
+<?php
+
+/**
+ * Implements hook_permission().
+ */
+function og_pseudomember_permission() {
+  return array(
+    'view all group content' => array(
+      'title' => t('View all group content'),
+    ),
+    'manage all group content' => array(
+      'title' => t('manage all group content'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function og_pseudomember_menu() {
+  $items = array();
+
+  $items['user/%user/organic_groups'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => t('Organic Groups'),
+    'access callback'  => 'og_pseudomember_user_organic_groups_form_access',
+    'access arguments' => array(1),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('og_pseudomember_user_organic_groups_form', 1),
+  );
+
+  return $items;
+}
+
+/**
+ * Checks access for editing a user's group memberhsip.
+ *
+ * @param object $account the user to be edited, not the logged in user
+ *
+ * @return bool
+ */
+function og_pseudomember_user_organic_groups_form_access($account) {
+  return user_access('manage all group content') && user_edit_access($account);
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function og_pseudomember_node_access($node, $op, $account) {
+  // If checking view access for a group content node.
+  if (
+    $op == 'view'
+    && !empty($node->type)
+    && og_is_group_content_type('node', $node->type)
+  ) {
+    // If the user does not have view access per group rules, then deny access out right.
+    // Otherwise, continue on and allow other checks to determine viewing access.
+    if (!og_user_access_entity('view all group content', 'node', $node, $account)) {
+      return NODE_ACCESS_DENY;
+    }
+  }
+  return NODE_ACCESS_IGNORE;
+}
+
+/**
+ * Implements hook_og_user_access_alter().
+ */
+function og_pseudomember_og_user_access_alter(&$perm, $context) {
+  // If viewing, check if the user has site-wide permission to view group content.
+  if ($context['string'] == 'view all group content') {
+    // Allow if given the administrative permission to view
+    if (user_access('view all group content', $context['account'])) {
+      // TODO: could also check if unpublished and the user has view unpublished permissions
+      $perm[$context['string']] = TRUE;
+    }
+    // Allow if the user is a member
+    // TODO: this assumes that the group is a node (hence ->nid), could error otherwise
+    // so the group ID could be calculated prior to this check
+    elseif (og_is_member($context['group_type'], $context['group']->nid, 'user', $context['account'])) {
+      // TODO: could also check if unpublished and the user has view unpublished permissions
+      $perm[$context['string']] = TRUE;
+    }
+  }
+  // If editing...
+  if (strpos($context['string'], 'update ') === 0) {
+    // Build a list of matching permission strings for each allowed type.
+    $strings = array();
+    // Query all node types
+    foreach (node_permissions_get_configured_types() as $type) {
+      // Check if the type is group content.
+      if (og_is_group_content_type('node', $type)) {
+        $strings[] = 'update own ' . $type .' content';
+        $strings[] = 'update any ' . $type .' content';
+      }
+    }
+    // Allow access if the permission to be checked is within the list
+    // and the user has site-wide permission to manage group content
+    if (in_array($context['string'], $strings)
+    &&  user_access('manage all group content', $context['account'])) {
+      $perm[$context['string']] = TRUE;
+    }
+  }
+  // TODO: could expand and add: 'delete all group content', 'create group content'.
+}
+
+/**
+ * Implements hook_node_grants().
+ */
+function og_pseudomember_node_grants($account, $op) {
+  // Only handle viewing operations
+  if ($op != 'view') {
+    return;
+  }
+  $grants = array();
+  // Loop through the user account's role IDs
+  foreach (array_keys($account->roles) as $rid) {
+    // Add checking for if the role is considered a pseudomember
+    $grants['og_pseudomember'][] = $rid;
+  }
+  return $grants;
+}
+
+
+/**
+ * Implements hook_node_access_records().
+ */
+function og_pseudomember_node_access_records($node) {
+  // Grants to be recorded
+  $grants = array();
+  // Wrap the entity for easy field checking
+  $wrapper = entity_metadata_wrapper('node', $node);
+  // Verify that a group content with visibility field can't create when there
+  // isn't an OG access field attached to the group entity.
+  if (
+    !empty($wrapper->{OG_CONTENT_ACCESS_FIELD})
+    && $wrapper->{OG_CONTENT_ACCESS_FIELD}->value() == OG_CONTENT_ACCESS_DEFAULT
+  ) {
+    _og_access_verify_access_field_existence($node);
+  }
+  // Only apply pseudomember access if the node is part of a group
+  $group = FALSE;
+  // Determine if the node is a group and, if so, its visibility
+  if (
+    !empty($wrapper->{OG_ACCESS_FIELD})
+    && $wrapper->{OG_ACCESS_FIELD}->value()
+    && og_is_group('node', $node)
+  ) {
+    // Private group.
+    $group = TRUE;
+  }
+  // Otherwise, the node is not a group, but check if it is part of at least one private group
+  if (!$group && ($entity_groups = og_get_entity_groups('node', $node))) {
+    // Determine the access of the node
+    $content_access = !empty($wrapper->{OG_CONTENT_ACCESS_FIELD}) ? $wrapper->{OG_CONTENT_ACCESS_FIELD}->value() : OG_CONTENT_ACCESS_DEFAULT;
+    switch ($content_access) {
+      case OG_CONTENT_ACCESS_DEFAULT:
+        // Default is dependent on each of the groups' access
+        // So loop through the types of groups
+        foreach ($entity_groups as $group_type => $gids) {
+          // Load all the group entitiess of that type and loop through
+          foreach (entity_load($group_type, $gids) as $gid => $group_ent) {
+            // Wrap the group entity
+            $group_wrapper = entity_metadata_wrapper($group_type, $group_ent);
+            // Determine the group's visibility
+            if (!empty($group_wrapper->{OG_ACCESS_FIELD}) && $group_wrapper->{OG_ACCESS_FIELD}->value()) {
+              $group = TRUE;
+              // Break two foreach loops and the switch
+              // we just need on private group to determine this node is not public
+              break 3;
+            }
+          }
+        }
+        break;
+
+      case OG_CONTENT_ACCESS_PUBLIC:
+        // The node is public, so do nothing as pseudomember access is not needed
+        break;
+
+      case OG_CONTENT_ACCESS_PRIVATE:
+        // The node is private, so add pseudomember access grants
+        $group = TRUE;
+        break;
+    }
+  }
+  // The node has been determined to be private group access,
+  // so add pseudomember grants to those given the permission to view all group content
+  if ($group) {
+    foreach (og_pseudomember_get_rids_by_permission('view all group content') as $rid) {
+      $grants[] = array (
+        'realm'        => 'og_pseudomember',
+        'gid'          => $rid,
+        'grant_view'   => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+        'priority'     => 0,
+      );
+    }
+  }
+  // Return grants to be recorded/written.
+  return $grants;
+}
+
+/**
+ * Returns the role IDs that have the passed in permission string.
+ */
+function og_pseudomember_get_rids_by_permission($permission) {
+  // Perform the query once per permission per page call
+  $permissions = &drupal_static(__FUNCTION__);
+  // If the permission key is not set, it hasn't be queried
+  if (!isset($permissions[$permission])) {
+    $query = db_select('role_permission', 'rp');
+    $query->fields('rp', array('rid'));
+    $query->condition('rp.permission', $permission);
+    // Store the array of role IDs, if empty it will be an empty array
+    $permissions[$permission] = $query->execute()->fetchCol();
+  }
+  return $permissions[$permission];
+}
+
+/**
+ * Implements hook_form_alter()
+ *
+ * This form alter affects any form used to add group content.
+ * It revises the form logic to put the og_group_ref (group audience) value
+ * into the query string instead of on the form.
+ *
+ * When the user is a pseudomember (i.e., staff), this also replaces the
+ * default validation rule on Group Audience with an alternate version.
+ * This allows pseudomembers to add content to groups they don't belong to.
+ */
+function og_pseudomember_form_alter(&$form, &$form_state, $form_id) {
+  // currently, this only affects new item requests, vendor warehouse locations
+  // and supplier contacts.
+  if (
+    isset($form['og_group_ref'])
+    && in_array($form_id, array('request_form_node_form', 'pick_up_location_node_form', 'supplier_contact_node_form'))
+  ) {
+    // Determine the operation, either add/create/new or edit/updage/change
+    $op = empty($form['nid']['#value']) ? 'add': 'edit';
+    // Determine the group ID
+    // If possible, obtain from the node itself
+    if (
+      ($wrapper = entity_metadata_wrapper('node', $form['#node']))
+      && !empty($wrapper->{OG_AUDIENCE_FIELD})
+      && ($group = $wrapper->{OG_AUDIENCE_FIELD}->value())
+    ) {
+      $group_id = $group->nid;
+    }
+    elseif ($op == 'add' && isset($_GET['og_group_ref'])) {
+      // Otherwise, obtain from the URL
+      $group_id = (int) $_GET['og_group_ref'];
+      $form_state['og_group_ref'] = $group_id;
+    }
+    elseif ($form_state['og_group_ref']) {
+      $group_id = (int) $form_state['og_group_ref'];
+    }
+    // If still not found, just default to regular og field functionality
+    if (!isset($group_id)) {
+      return;
+    }
+    // If adding, make sure the user has access to create content for this group
+    // Since the ID is determined from the URL, it could spoofed so this is a double check
+    if ($op == 'add' && !og_user_access('node', $group_id, 'create ' . $form['type']['#value'] . ' content')) {
+      drupal_access_denied();
+      drupal_exit();
+    }
+    // Remove the existing options and replace them with the ID found above
+    if (isset($form['og_group_ref'][LANGUAGE_NONE][0]['default']['#options'])) {
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default']['#options'] = array($group_id => 'current group');
+    }
+    elseif (isset($form['og_group_ref'][LANGUAGE_NONE]['#options'])) {
+      $form['og_group_ref'][LANGUAGE_NONE]['#options'] = array($group_id => 'current group');
+    }
+    // Hide the field by setting it as a constant value
+    if (isset($form['og_group_ref'][LANGUAGE_NONE][0]['default']['#type'])) {
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default']['#type'] = 'value';
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default']['#value'][0] = $group_id;
+    }
+    elseif (isset($form['og_group_ref'][LANGUAGE_NONE]['#type'])) {
+      $form['og_group_ref'][LANGUAGE_NONE]['#type'] = 'value';
+      $form['og_group_ref'][LANGUAGE_NONE]['#value'] = $group_id;
+    }
+    // Replace the autocomplete textfield
+    if (
+      isset($form['og_group_ref'][LANGUAGE_NONE][0]['default'][0]['target_id']['#autocomplete_path'])
+      && !empty($group_id)
+    ) {
+      if (empty($group)) {
+        $group = entity_load_single('node', $group_id);
+      }
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default'][0]['target_id']['#type']  = 'value';
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default'][0]['target_id']['#value'] = 'anything (' . $group_id . ')';
+      // Simply display text of the Supplier group
+      $form['og_group_ref'][LANGUAGE_NONE][0]['default'][0]['display'] = array(
+        '#type'   => 'item',
+        '#title'  => $form['og_group_ref'][LANGUAGE_NONE][0]['default'][0]['target_id']['#title'],
+        '#markup' => check_plain($group->title),
+        '#value'  => NULL,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function og_pseudomember_field_widget_form_alter(&$element, &$form_state, $context) {
+  // Focus on altering the Supplier group field of group content,
+  // with the group already set and if the user is not a group member
+  if (
+    $context['instance']['field_name'] == 'og_group_ref'
+    && !empty($context['items'][0]['target_id'])
+    && (!($gids = og_get_groups_by_user(NULL, 'node')) || !in_array($context['items'][0]['target_id'], $gids))
+    && ($group = node_load($context['items'][0]['target_id']))
+  ) {
+    // Simply display text of the Supplier group
+    $element['default'] = array(
+      '#type' => 'item',
+      '#markup' => check_plain($group->title),
+      '#value' => NULL,
+    );
+  }
+}
+
+/**
+ * Implements hook_field_widget_info_alter().
+ */
+function og_pseudomember_field_widget_info_alter(&$info) {
+  $info['og_complex']['module'] = 'og_pseudomember';
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function og_pseudomember_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  if ($form_state['build_info']['form_id'] != 'user_profile_form') {
+    return og_field_widget_form($form, $form_state, $field, $instance, $langcode, $items, $delta, $element);
+  }
+  return array();
+}
+
+/**
+ * Form page to add/remove Organic Groups from a User.
+ *
+ * @see og_pseudomember_user_organic_groups_form_search()
+ * @see og_pseudomember_user_organic_groups_form_remove()
+ * @see og_pseudomember_user_organic_groups_form_add()
+ */
+function og_pseudomember_user_organic_groups_form($form, &$form_state, $account) {
+  $user_id     = $account->uid;
+  $get_params  = drupal_get_query_parameters();
+  $per_page    = 20;
+  $entity_type = 'node';
+  $bundles     = array('supplier');
+  $page        = 0;
+  $search      = '';
+
+  if (isset($get_params['page']) && $get_params['page'] > 0) {
+    $page = (int)$get_params['page'];
+  }
+
+  // Start building the query for the user's memberships
+  // This will be used for both showing a subset as a list of checkboxes
+  // and counting the total number for the pager
+  $query = db_select('og_membership', 'ogm');
+  $query->join('node', 'n', 'ogm.group_type=\'node\' AND ogm.gid=n.nid');
+  $query->fields('ogm');
+  $query->fields('n');
+  $query->condition('ogm.entity_type', 'user');
+  $query->condition('ogm.etid', $user_id);
+  $query->orderBy('n.title');
+
+  if (isset($get_params['search'])) {
+    $search = $get_params['search'];
+    $query->condition('n.title', '%' . db_like($get_params['search']) . '%', 'LIKE');
+  }
+
+  // Count totals for the pager
+  $count_query = $query->countQuery();
+  pager_default_initialize((int)$count_query->execute()->fetchField(), $per_page);
+
+  // Limit the number returned
+  $query->range($page * $per_page, $per_page);
+  // Obtain results
+  $result = $query->execute();
+
+  $form['search_text'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Search'),
+    '#title_display' => 'invisible',
+    '#default_value' => $search,
+  );
+
+  $form['search_button'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Search'),
+    '#name'   => 'search',
+    '#submit' => array('og_pseudomember_user_organic_groups_form_search'),
+  );
+
+  $form['search_clear'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Clear'),
+    '#name'   => 'search-clear',
+    '#submit' => array('og_pseudomember_user_organic_groups_form_search'),
+  );
+
+  $form['pager_top'] = array('#theme' => 'pager');
+
+  $form['groups'] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t('Groups'),
+    '#options'       => array(),
+    '#title_display' => 'invisible',
+  );
+
+  // Build out options from the database query
+  while (($row = $result->fetchAssoc())) {
+    $form['groups']['#options'][$row['gid']] = t('@t ', array('@t' => $row['title'])) . l(t('view'), 'node/' . $row['nid']);
+  }
+
+  $form['pager_bottom'] = array('#theme' => 'pager');
+
+  $form['remove'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Remove Selected Group(s)'),
+    '#name'   => 'remove',
+    '#submit' => array('og_pseudomember_user_organic_groups_form_remove'),
+    '#access' => !empty($form['groups']['#options']),
+  );
+
+  $form['empty'] = array(
+    '#theme'      => 'html_tag',
+    '#tag'        => 'p',
+    '#value'      => t('Unable to find memberships for this user.'),
+    '#attributes' => array(),
+    '#access'     => empty($form['groups']['#options']),
+  );
+
+  $form['new_group_ref'] = array(
+    '#type'            => 'entityreference',
+    '#title'           => t('Add Group'),
+    '#era_entity_type' => $entity_type,
+    '#era_bundles'     => $bundles,
+  );
+
+  $form['new_group_add'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Add'),
+    '#name'   => 'new-group-add',
+    '#submit' => array('og_pseudomember_user_organic_groups_form_add'),
+  );
+
+  return $form;
+}
+
+/**
+ * Search existing group memberships submission callback.
+ *
+ * @see og_pseudomember_user_organic_groups_form()
+ */
+function og_pseudomember_user_organic_groups_form_search($form, &$form_state) {
+  switch ($form_state['triggering_element']['#name']) {
+    case 'search':
+      $form_state['redirect'] = array(
+        current_path(),
+        array(
+          'query' => array('search' => $form_state['values']['search_text']),
+        ),
+      );
+      break;
+    case 'search-clear':
+      $form_state['redirect'] = current_path();
+      break;
+  }
+}
+
+/**
+ * Remove group membership submission callback.
+ *
+ * @see og_pseudomember_user_organic_groups_form()
+ */
+function og_pseudomember_user_organic_groups_form_remove($form, &$form_state) {
+  if (!empty($form_state['values']['groups'])) {
+    foreach ($form_state['values']['groups'] as $group_id => $selected) {
+      if (!empty($selected)) {
+        og_ungroup('node', $group_id, 'user', $form_state['build_info']['args'][0]);
+      }
+    }
+  }
+}
+
+/**
+ * Add group membership submission callback.
+ *
+ * @see og_pseudomember_user_organic_groups_form()
+ */
+function og_pseudomember_user_organic_groups_form_add($form, &$form_state) {
+  if (!empty($form_state['values']['new_group_ref'])) {
+    og_group('node', $form_state['values']['new_group_ref']['entity_id'], array(
+      'entity' => $form_state['build_info']['args'][0],
+    ));
+  }
+}

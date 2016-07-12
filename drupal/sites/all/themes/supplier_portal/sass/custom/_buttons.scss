@@ -1,0 +1,60 @@
+
+// Default Buttons
+input[type="submit"]  {
+  @extend %color-dark;
+  @extend %background-light-gray;
+  @extend %no-shadow;
+  &:hover {
+    @extend %background-off-white;
+    @extend %color-dark;
+    @extend %no-shadow;
+  }
+}
+
+// Action Buttons
+input[id^="edit-submit"]  {
+  color: $white;      // @extend isn't getting picked up for these
+  @extend %background-orange;
+  @extend %no-shadow;
+  &:hover {
+   background-color: $light-orange;
+   color: $white;
+   @extend %no-shadow;
+  }
+  &:active {
+    background-color: $light-orange;
+    color: $white;
+    @extend %no-shadow;
+  }
+  &:visited {
+    background-color: $light-orange;
+    color: $white;
+    @extend %no-shadow;
+  }
+    &:focus {
+    background-color: $light-orange;
+    color: $white;
+    @extend %no-shadow;
+  }
+}
+
+// Reset Button
+.approval-queue input[id^="edit-reset"] {
+    @extend %background-green;
+    @extend %color-white;
+    &:hover {
+      opacity: .75;
+      @extend %background-green;
+      @extend %color-white;
+    }
+  }
+
+// Internal buttons
+.approval-queue {
+  .views-exposed-form .views-exposed-widget {
+    @extend %display-inline;
+  }
+  .view-filters {
+    margin-bottom: 25px;
+  }
+}

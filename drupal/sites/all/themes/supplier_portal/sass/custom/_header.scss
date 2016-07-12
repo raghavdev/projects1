@@ -1,0 +1,78 @@
+.topnav {
+  width: 995px;
+  @extend %margin-auto;
+  ul {
+    @extend %padding-reset;
+    @extend %top-spacer;
+    li {
+      @extend %display-inline;
+    }
+  }
+}
+
+#branding {
+  @extend %background-white;
+  background-image: url(../img/Header02.png);
+  background-position: right;
+  background-repeat: no-repeat;
+  background-size: cover;
+  padding: 1em 0;
+
+  .branding-inner {
+    width: 995px;
+    @extend %margin-auto;
+
+    h1.page-title {
+      padding-top: 0.8em;
+      margin-top: 0px;
+      margin-bottom: 0px;
+      @extend %color-dark;
+    }
+    .logo {
+      float: left;
+      margin-right: 17px;
+      img {
+        @extend %margin-reset;
+      }
+    }
+  }
+}
+
+#tab-bar {
+  border-bottom: 1px solid $medium-light-gray;
+  margin-left: auto;
+  margin-right: auto;
+  > .tabs {
+    border-bottom: none;
+    margin: 10px auto 0 auto;
+    padding: 0;
+    width: 995px;
+    li {
+      display: inline-block;
+      float: left;
+      margin: 0 1px -1px 0;
+      margin-bottom: -1px;
+      a {
+        background: $medium-gray;
+        color: $pure-white;
+        display: inline-block;
+        margin: 0;
+        padding: 10px;
+        text-align: center;
+        min-width: 100px;
+      }
+      a:hover {
+        background: $light-gray;
+      }
+    }
+    .active a, .active a:hover {
+      background: $pure-white;
+      border-bottom: none;
+      color: $dark;
+    }
+  }
+}
+
+.contextual-links-region h2 {
+  @extend %color-dark;
+}

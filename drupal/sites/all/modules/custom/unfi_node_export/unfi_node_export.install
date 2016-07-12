@@ -1,0 +1,27 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function unfi_node_export_install() {
+  variable_set('unfi_node_export_allowed_content_types', array());
+  variable_set('unfi_node_export_include_links_default', TRUE);
+  variable_set('unfi_node_export_include_files_default', TRUE);
+  variable_set('unfi_node_export_storage_stream', 'public://');
+  variable_set('unfi_node_export_storage_directory', 'unfi_node_exports');
+  variable_set('unfi_node_export_allowed_extensions', array('doc' => 'doc'));
+  variable_set('unfi_export_node_doc_theme_func', '');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function unfi_node_export_uninstall() {
+  variable_del('unfi_node_export_allowed_content_types');
+  variable_del('unfi_node_export_include_links_default');
+  variable_del('unfi_node_export_include_files_default');
+  variable_del('unfi_node_export_storage_stream');
+  variable_del('unfi_node_export_storage_directory');
+  variable_del('unfi_node_export_allowed_extensions');
+  variable_del('unfi_export_node_doc_theme_func');
+}

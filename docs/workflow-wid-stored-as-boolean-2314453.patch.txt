@@ -1,0 +1,13 @@
+diff --git a/workflow_views_handler_filter_sid.inc b/workflow_views_handler_filter_sid.inc
+index 74869bf..59742d0 100644
+--- a/workflow_views_handler_filter_sid.inc
++++ b/workflow_views_handler_filter_sid.inc
+@@ -72,7 +72,7 @@ class workflow_views_handler_filter_sid extends views_handler_filter_in_operator
+   function option_definition() {
+     $options = parent::option_definition();
+ 
+-    $options['expose']['contains']['workflow_reduce_wid'] = array('default' => '', 'bool' => FALSE);
++    $options['expose']['contains']['workflow_reduce_wid'] = array('default' => '');
+     $options['expose']['contains']['workflow_include_all'] = array('default' => FALSE, 'bool' => TRUE);
+ 
+     return $options;

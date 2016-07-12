@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Supplier Portal FAQ feature.
+ */
+
+include_once 'supplier_portal_faq.features.inc';

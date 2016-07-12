@@ -1,0 +1,6 @@
+name        = Supplier Portal Solr
+description = Connect to the Solr index maintained by Digital Core.
+core        = 7.x
+package     = UNFI
+
+dependencies[] = simple_solr

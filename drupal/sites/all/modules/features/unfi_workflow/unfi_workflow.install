@@ -1,0 +1,693 @@
+<?php
+
+/**
+ * Implements HOOK_update_n which updates database and cleans transitions.
+ *
+ */
+
+function unfi_workflow_update_7000(&$sandbox) {
+  $transitions = array(
+    array("sid"=>1, "target_sid"=>2, "roles"=>'a:8:{i:-1;i:-1;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:5;i:5;i:6;i:6;}', "label"=>"", "name"=>"1_2"),
+    array("sid"=>3, "target_sid"=>4, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}', "label"=>"", "name"=>"3_4"),
+    array("sid"=>5, "target_sid"=>6, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:12;i:12;i:6;i:6;}', "label"=>"", "name"=>"5_6"),
+    array("sid"=>6, "target_sid"=>7, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}', "label"=>"", "name"=>"6_7"),
+    array("sid"=>4, "target_sid"=>3, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:7;i:7;i:6;i:6;}', "label"=>"", "name"=> "4_3"),
+    array("sid"=>4, "target_sid"=>5, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:7;i:7;i:6;i:6;}', "label"=>"", "name"=>"4_5"),
+    array("sid"=>5, "target_sid"=>4, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:12;i:12;i:6;i:6;}', "label"=>"", "name"=>"5_4"),
+    array("sid"=>2, "target_sid"=>16, "roles"=>'a:6:{i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:6;i:6;}', "label"=>"", "name"=>"2_16"),
+    array("sid"=>16, "target_sid"=>3, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}', "label"=>"", "name"=>"16_3"),
+    array("sid"=>3, "target_sid"=>16, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}', "label"=>"", "name"=>"3_16"),
+    array("sid"=>16, "target_sid"=>2, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}', "label"=>"", "name"=>"16_2"),
+    array("sid"=>2, "target_sid"=>2, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"2_2"),
+    array("sid"=>33, "target_sid"=>2, "roles"=>'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}', "label"=>"", "name"=>"33_2"),
+    array("sid"=>16, "target_sid"=>33, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}', "label"=>"", "name"=>"16_33"),
+    array("sid"=>16, "target_sid"=>16, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"16_16"),
+    array("sid"=>3, "target_sid"=>33, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}', "label"=>"", "name"=>"3_33"),
+    array("sid"=>3, "target_sid"=>3, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"3_3"),
+    array("sid"=>4, "target_sid"=>33, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:7;i:7;i:6;i:6;}', "label"=>"", "name"=>"4_33"),
+    array("sid"=>4, "target_sid"=>4, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"4_4"),
+    array("sid"=>5, "target_sid"=>33, "roles"=>'a:4:{i:10;i:10;i:11;i:11;i:12;i:12;i:6;i:6;}', "label"=>"", "name"=>"5_33"),
+    array("sid"=>5, "target_sid"=>5, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"5_5"),
+    array("sid"=>6, "target_sid"=>6, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"6_6"),
+    array("sid"=>7, "target_sid"=>7, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"7_7"),
+    array("sid"=>6, "target_sid"=>34, "roles"=>'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}', "label"=>"", "name"=>"6_34"),
+    array("sid"=>34, "target_sid"=>34, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"",  "name"=>"34_34"),
+    array("sid"=>35, "target_sid"=>35, "roles"=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', "label"=>"", "name"=>"35_35"),
+    array("sid"=>34, "target_sid"=>35, "roles"=>'a:5:{i:10;i:10;i:11;i:11;i:5;i:5;i:12;i:12;i:6;i:6;}', "label"=>"Ready for WBS", "name"=>"34_35"),
+    array("sid"=>35, "target_sid"=>7, "roles"=>'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}', "label"=>"", "name"=>"35_7"),
+    array("sid"=>7, "target_sid"=>35, "roles"=>'a:5:{i:10;i:10;i:11;i:11;i:8;i:8;i:12;i:12;i:6;i:6;}', "label"=>"", "name"=>"7_35"),
+  );
+
+  $state_ids = db_select('workflow_states', 'ws')
+    ->fields('ws', array('sid'))
+    ->condition('ws.wid', 1) // Hard-coded workflow ID (request_workflow = 1)
+    ->execute()
+    ->fetchCol();
+
+  if (!empty($state_ids)) {
+    $delete = db_delete('workflow_transitions')
+      ->condition(db_or()
+        ->condition('sid', $state_ids)
+        ->condition('target_sid', $state_ids)
+      )
+      ->execute();
+
+    watchdog('CESAR', 'deleted @c rows', array('@c' => $delete));
+  }
+
+  $query = db_insert('workflow_transitions');
+  // Database column names
+  $query->fields(array("sid", "target_sid", "roles", "label", "name"));
+
+  foreach ($transitions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+
+  $permissions = array(
+    array("sid"=>2, "rid"=>-1, "grant_view"=>0, "grant_update"=>0,  "grant_delete"=>0),
+    array("sid"=>2, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>2, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>2, "rid"=>3, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>2, "rid"=>5, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>7, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>2, "rid"=>8, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>9, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>1),
+    array("sid"=>2, "rid"=>12, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>2, "rid"=>13, "grant_view"=>0, "grant_update"=>0,  "grant_delete"=>0),
+    array("sid"=>2, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>8, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>3, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>7, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>4, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>12, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>5, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>6, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>6, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>10, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>11, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>7, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>5, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>16, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>33, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>5, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>6, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>10, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>11, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>12, "grant_view"=>1, "grant_update"=>1, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>34, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>-1, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>2, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>3, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>4, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>5, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>6, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>7, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>8, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>9, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>10, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>11, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>12, "grant_view"=>1, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>13, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+    array("sid"=>35, "rid"=>14, "grant_view"=>0, "grant_update"=>0, "grant_delete"=>0),
+  );
+
+  if (!empty($state_ids)) {
+    $delete_access = db_delete('workflow_access')
+      ->condition('sid', $state_ids)
+      ->execute();
+
+    watchdog('CESAR', 'deleted @c rows', array('@c' => $delete_access));
+  }
+
+  $query = db_insert('workflow_access');
+  // Database column names
+  $query->fields(array("sid", "rid", "grant_view", "grant_update", "grant_delete"));
+
+  foreach ($permissions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+}
+
+/**
+ * Add transitions from Declined state to resubmit.
+ */
+function unfi_workflow_update_7001(&$sandbox) {
+  $transitions = array(
+    array('sid'=>33, 'target_sid'=>33, 'roles'=>'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label'=>'', 'name'=>'33_33'),
+    array('sid'=>33, 'target_sid'=>16, 'roles'=>'a:5:{i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:6;i:6;}', 'label'=>'', 'name'=>'33_16'),
+  );
+
+  db_delete('workflow_transitions')
+    ->condition('sid', 33)
+    ->execute();
+
+  $query = db_insert('workflow_transitions');
+  // Database column names
+  $query->fields(array('sid', 'target_sid', 'roles', 'label', 'name'));
+
+  foreach ($transitions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+
+  $permissions = array(
+    array('sid'=>33, 'rid'=>-1, 'grant_view'=>0, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>2,  'grant_view'=>0, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>3,  'grant_view'=>1, 'grant_update'=>1, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>4,  'grant_view'=>0, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>5,  'grant_view'=>1, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>6,  'grant_view'=>1, 'grant_update'=>1, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>7,  'grant_view'=>1, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>8,  'grant_view'=>1, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>9,  'grant_view'=>1, 'grant_update'=>1, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>10, 'grant_view'=>1, 'grant_update'=>1, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>11, 'grant_view'=>1, 'grant_update'=>1, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>12, 'grant_view'=>1, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>13, 'grant_view'=>0, 'grant_update'=>0, 'grant_delete'=>0),
+    array('sid'=>33, 'rid'=>14, 'grant_view'=>0, 'grant_update'=>0, 'grant_delete'=>0),
+  );
+
+  db_delete('workflow_access')
+    ->condition('sid', 33)
+    ->execute();
+
+  $query = db_insert('workflow_access');
+  // Database column names
+  $query->fields(array('sid', 'rid', 'grant_view', 'grant_update', 'grant_delete'));
+
+  foreach ($permissions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+}
+
+/**
+ * Another update for NIR Workflow transitions and access.
+ */
+function unfi_workflow_update_7002(&$sandbox) {
+  $transitions = array(
+    array('sid' =>  1, 'target_sid' =>  2, 'roles' => 'a:8:{i:-1;i:-1;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:5;i:5;i:6;i:6;}'                                                       , 'label' =>              '', 'name' => '1_2'),
+    array('sid' =>  2, 'target_sid' => 16, 'roles' => 'a:6:{i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:6;i:6;}'                                                                         , 'label' =>              '', 'name' => '2_16'),
+    array('sid' =>  2, 'target_sid' =>  2, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '2_2'),
+    array('sid' =>  3, 'target_sid' =>  4, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '3_4'),
+    array('sid' =>  3, 'target_sid' => 16, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '3_16'),
+    array('sid' =>  3, 'target_sid' => 33, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:8;i:8;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '3_33'),
+    array('sid' =>  3, 'target_sid' =>  3, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '3_3'),
+    array('sid' =>  4, 'target_sid' =>  3, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:7;i:7;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '4_3'),
+    array('sid' =>  4, 'target_sid' =>  5, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:7;i:7;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '4_5'),
+    array('sid' =>  4, 'target_sid' =>  4, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '4_4'),
+    array('sid' =>  5, 'target_sid' =>  6, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:12;i:12;i:6;i:6;}'                                                                                       , 'label' =>              '', 'name' => '5_6'),
+    array('sid' =>  5, 'target_sid' =>  5, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '5_5'),
+    array('sid' =>  5, 'target_sid' =>  3, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:12;i:12;i:6;i:6;}'                                                                                       , 'label' =>              '', 'name' => '5_3'),
+    array('sid' =>  6, 'target_sid' =>  7, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '6_7'),
+    array('sid' =>  6, 'target_sid' =>  6, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '6_6'),
+    array('sid' =>  6, 'target_sid' => 34, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '6_34'),
+    array('sid' =>  7, 'target_sid' =>  7, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '7_7'),
+    array('sid' =>  7, 'target_sid' => 35, 'roles' => 'a:5:{i:10;i:10;i:11;i:11;i:8;i:8;i:12;i:12;i:6;i:6;}'                                                                               , 'label' =>              '', 'name' => '7_35'),
+    array('sid' => 16, 'target_sid' =>  3, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '16_3'),
+    array('sid' => 16, 'target_sid' => 33, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '16_33'),
+    array('sid' => 16, 'target_sid' => 16, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '16_16'),
+    array('sid' => 33, 'target_sid' => 33, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '33_33'),
+    array('sid' => 33, 'target_sid' => 16, 'roles' => 'a:5:{i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:6;i:6;}'                                                                                 , 'label' =>              '', 'name' => '33_16'),
+    array('sid' => 34, 'target_sid' => 34, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '34_34'),
+    array('sid' => 34, 'target_sid' => 35, 'roles' => 'a:5:{i:10;i:10;i:11;i:11;i:5;i:5;i:12;i:12;i:6;i:6;}'                                                                               , 'label' => 'Ready for WBS', 'name' => '34_35'),
+    array('sid' => 35, 'target_sid' => 35, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '35_35'),
+    array('sid' => 35, 'target_sid' =>  7, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '35_7'),
+  );
+
+  $state_ids = db_select('workflow_states', 'ws')
+    ->fields('ws', array('sid'))
+    ->condition('ws.wid', 1) // Hard-coded workflow ID (request_workflow = 1)
+    ->execute()
+    ->fetchCol();
+
+  if (!empty($state_ids)) {
+    db_delete('workflow_transitions')
+      ->condition(db_or()
+        ->condition('sid', $state_ids)
+        ->condition('target_sid', $state_ids)
+      )
+      ->execute();
+  }
+
+  $query = db_insert('workflow_transitions');
+  // Database column names
+  $query->fields(array('sid', 'target_sid', 'roles', 'label', 'name'));
+
+  foreach ($transitions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+
+  $permissions = array(
+    array('sid' =>  2, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' =>  7, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' =>  2, 'rid' => 12, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  2, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  3, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  4, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  5, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  6, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' =>  7, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 16, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' => 33, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' => 33, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' => 33, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' => 33, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 1),
+    array('sid' => 33, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 33, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 1, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 34, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => -1, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  2, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  3, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  4, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  5, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  6, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  7, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  8, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' =>  9, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => 10, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => 11, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => 12, 'grant_view' => 1, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => 13, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+    array('sid' => 35, 'rid' => 14, 'grant_view' => 0, 'grant_update' => 0, 'grant_delete' => 0),
+  );
+
+  if (!empty($state_ids)) {
+    db_delete('workflow_access')
+      ->condition('sid', $state_ids)
+      ->execute();
+  }
+
+  $query = db_insert('workflow_access');
+  // Database column names
+  $query->fields(array('sid', 'rid', 'grant_view', 'grant_update', 'grant_delete'));
+
+  foreach ($permissions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+}
+
+/**
+ * Another update for NIR Workflow transitions and access.
+ */
+function unfi_workflow_update_7003(&$sandbox) {
+  $transitions = array(
+    array('sid' =>  6, 'target_sid' =>  7, 'roles' => 'a:4:{i:10;i:10;i:11;i:11;i:5;i:5;i:6;i:6;}'                                                                                         , 'label' =>              '', 'name' => '6_7'),
+    array('sid' =>  6, 'target_sid' =>  6, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '6_6'),
+    array('sid' =>  6, 'target_sid' => 34, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '6_34'),
+    array('sid' =>  7, 'target_sid' =>  7, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '7_7'),
+    array('sid' =>  7, 'target_sid' => 35, 'roles' => 'a:5:{i:10;i:10;i:11;i:11;i:8;i:8;i:12;i:12;i:6;i:6;}'                                                                               , 'label' =>              '', 'name' => '7_35'),
+    array('sid' => 34, 'target_sid' => 34, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '34_34'),
+    array('sid' => 34, 'target_sid' => 35, 'roles' => 'a:5:{i:10;i:10;i:11;i:11;i:5;i:5;i:12;i:12;i:6;i:6;}'                                                                               , 'label' => 'Ready for WBS', 'name' => '34_35'),
+    array('sid' => 35, 'target_sid' => 35, 'roles' => 'a:14:{i:-1;i:-1;i:2;i:2;i:10;i:10;i:11;i:11;i:9;i:9;i:3;i:3;i:8;i:8;i:4;i:4;i:7;i:7;i:5;i:5;i:12;i:12;i:13;i:13;i:14;i:14;i:6;i:6;}', 'label' =>              '', 'name' => '35_35'),
+    array('sid' => 35, 'target_sid' =>  7, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '35_7'),
+    array('sid' => 34, 'target_sid' =>  6, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '34_6'),
+    array('sid' => 35, 'target_sid' => 34, 'roles' => 'a:3:{i:10;i:10;i:11;i:11;i:6;i:6;}'                                                                                                 , 'label' =>              '', 'name' => '35_34'),
+  );
+
+  $state_ids = array(6,34,35,7);
+
+  db_delete('workflow_transitions')
+    ->condition('sid', $state_ids)
+    ->condition('target_sid', $state_ids)
+    ->execute();
+
+  $query = db_insert('workflow_transitions');
+  // Database column names
+  $query->fields(array('sid', 'target_sid', 'roles', 'label', 'name'));
+
+  foreach ($transitions as $line) {
+    $query->values($line);
+  }
+
+  $query->execute();
+}
+
+/**
+ * Implements hook_update
+ * change label for workflow transition draft->item specialist
+ */
+function unfi_workflow_update_7004() {
+    db_update('workflow_transitions')
+      ->fields(array(
+         'label' => 'Submit for review',
+        ))
+      ->condition('tid', 264)
+      ->execute();
+}
+
+/**
+ * Adjust Workflow permissions for UBS & WBS coders.
+ */
+function unfi_workflow_update_7005() {
+  $manager    = user_role_load_by_name('Manager');
+  $admin      = user_role_load_by_name('administrator');
+  $programmer = user_role_load_by_name('programmer');
+  $gatekeeper = user_role_load_by_name('Gatekeeper');
+  $ubs_user   = user_role_load_by_name('UBS Coder');
+  $wbs_user   = user_role_load_by_name('WBS Coder');
+
+  if (empty($ubs_user->rid) || empty($wbs_user->rid)) {
+    throw new DrupalUpdateException('Missing UBS and/or WBS Coder roles. Please try again after a feature update.');
+  }
+
+  $nir_workflow = workflow_load_by_name('request_workflow');
+  $pending_ubs  = $nir_workflow->getState('Pending UBS Systems Input');
+  $pending_wbs  = $nir_workflow->getState('Pending WBS Systems Input');
+  $archived     = $nir_workflow->getState('Archived');
+  $admins       = array($manager->rid, $admin->rid, $programmer->rid);
+
+  foreach ($nir_workflow->getStates() as $state) {
+    if (in_array($state->sid, array($pending_ubs->sid, $pending_wbs->sid))) {
+      $ubs_state = ($state->sid == $pending_ubs->sid);
+      // Clear original update permissions
+      db_update('workflow_access')
+        ->fields(array(
+          'grant_update' => 0,
+        ))
+        ->condition('sid', $state->sid)
+        ->condition('rid', $admins, 'NOT IN')
+        ->execute();
+
+      // New role permissions
+      db_merge('workflow_access')
+        ->key(array(
+          'sid' => $state->sid,
+          'rid' => $ubs_state ? $ubs_user->rid : $wbs_user->rid,
+        ))
+        ->fields(array(
+          'grant_view'   => 1,
+          'grant_update' => 1,
+          'grant_delete' => 0,
+        ))
+        ->execute();
+
+      db_merge('workflow_access')
+        ->key(array(
+          'sid' => $state->sid,
+          'rid' => $ubs_state ? $wbs_user->rid : $ubs_user->rid,
+        ))
+        ->fields(array(
+          'grant_view'   => 1,
+          'grant_update' => 0,
+          'grant_delete' => 0,
+        ))
+        ->execute();
+
+      // Preserve admins' permissions
+      foreach ($admins as $rid) {
+        db_merge('workflow_access')
+          ->key(array(
+            'sid' => $state->sid,
+            'rid' => $rid,
+          ))
+          ->fields(array(
+            'grant_view'   => 1,
+            'grant_update' => 1,
+            'grant_delete' => 0,
+          ))
+          ->execute();
+      }
+    }
+    elseif ($state->label() != 'Draft') {
+      // New role permissions
+      db_merge('workflow_access')
+        ->key(array(
+          'sid' => $state->sid,
+          'rid' => $ubs_user->rid,
+        ))
+        ->fields(array(
+          'grant_view'   => 1,
+          'grant_update' => 0,
+          'grant_delete' => 0,
+        ))
+        ->execute();
+
+      db_merge('workflow_access')
+        ->key(array(
+          'sid' => $state->sid,
+          'rid' => $wbs_user->rid,
+        ))
+        ->fields(array(
+          'grant_view'   => 1,
+          'grant_update' => 0,
+          'grant_delete' => 0,
+        ))
+        ->execute();
+    }
+  }
+
+  // ---- Transitions
+  // Transition: Pending UBS > Archived
+  $transitions = $nir_workflow->getTransitionsBySidTargetSid($pending_ubs->sid, $archived->sid);
+  $transition  = array_shift($transitions);
+  unset($transition->roles[$gatekeeper->rid]);
+  $transition->roles[(int) $ubs_user->rid] = (int) $ubs_user->rid;
+  $transition->save();
+
+  // Transition: Pending UBS > Pending WBS
+  // create new, as it was deleted on prod
+  $transition = $nir_workflow->createTransition($pending_ubs->sid, $pending_wbs->sid, array(
+    'roles' => array(
+      (int) $ubs_user->rid   => (int) $ubs_user->rid,
+      (int) $manager->rid    => (int) $manager->rid,
+      (int) $admin->rid      => (int) $admin->rid,
+      (int) $programmer->rid => (int) $programmer->rid,
+    ),
+  ));
+  $transition->save(); // Just in case it is not new
+
+  // Transition: Pending WBS > Archived
+  $transitions = $nir_workflow->getTransitionsBySidTargetSid($pending_wbs->sid, $archived->sid);
+  $transition  = array_shift($transitions);
+  $transition->roles[(int) $wbs_user->rid] = (int) $wbs_user->rid;
+  $transition->save();
+}

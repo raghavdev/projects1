@@ -1,0 +1,1300 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_reports_menu() {
+  // Create an administration block for the module and any submodules.
+  $items['reports'] = array(
+    'title'            => t('UNFI Reports'),
+    'description'      => t('Reports for tracking UNIF data.'),
+    'page callback'    => 'system_admin_menu_block_page',
+    'access arguments' => array('access unfi reports'),
+    'file'             => 'system.admin.inc',
+    'file path'        => drupal_get_path('module', 'system'),
+    'weight'           => 21,
+    'position'         => 'right',
+  );
+  // Create an administration block.
+  $items['admin/config/unfi_reports'] = array(
+    'title'            => t('UNFI Reports'),
+    'description'      => t('Reports for tracking UNIF data.'),
+    'page callback'    => 'system_admin_menu_block_page',
+    'access arguments' => array('access unfi reports'),
+    'file'             => 'system.admin.inc',
+    'file path'        => drupal_get_path('module', 'system'),
+    'weight'           => 21,
+    'position'         => 'right',
+  );
+  // Create the main settings page.
+  $items['admin/config/unfi_reports/settings'] = array(
+    'title'            => t('Default Report Settings'),
+    'description'      => t('Configure the default report settings.'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_reports_settings_form'),
+    'access arguments' => array('access unfi reports'),
+    'weight'           => -10,
+  );
+  return $items;
+}
+
+/**
+ * Settings page for default report settings.
+ */
+function unfi_reports_settings_form() {
+  $form['unfi_reports_results_per_page'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Results per Page'),
+    '#size'          => 4,
+    '#default_value' => variable_get('unfi_reports_results_per_page', 100),
+    '#description'   => t('Number of results to show per page when viewing in a browser.'),
+  );
+  $form['unfi_reports_send_emails_from'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Send Emails From'),
+    '#size'          => 30,
+    '#default_value' => variable_get('unfi_reports_send_emails_from', 'info@unfi.com'),
+    '#description'   => t('Email address that emails will be sent from.'),
+  );
+  $form['unfi_reports_default_range_start'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Default Range Start'),
+    '#size'          => 10,
+    '#default_value' => variable_get('unfi_reports_default_range_start', '-6 months'),
+    '#description'   => t('Default date for the start value of a date range. Use php
+    strtotime formats <a href="http://php.net/manual/en/function.strtotime.php">PHP strtotime</a>. Ex: -6 months'),
+  );
+  $form['unfi_reports_cron_user'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Background Report User'),
+    '#size'          => 4,
+    '#default_value' => variable_get('unfi_reports_cron_user', 0),
+    '#description'   => t('Number of results to show per page when viewing in a browser.'),
+  );
+
+  // TODO: some way to unlock/reset report building jobs that may be stuck
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form API validation of user input
+ */
+function unfi_reports_settings_form_validate($form, &$form_state) {
+  $values = $form_state['values'];
+  if (empty($values['unfi_reports_cron_user'])) {
+    form_set_error('unfi_reports_cron_user', t('Cron User cannot be anonymous.'));
+  }
+  elseif (!($account = user_load($values['unfi_reports_cron_user']))) {
+    form_set_error('unfi_reports_cron_user', t('Unable to find user'));
+  }
+  elseif (!unfi_reports_user_access(NULL, $account)) {
+    form_set_error('unfi_reports_cron_user', t('User does not have access to UNFI Reports'));
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function unfi_reports_permission() {
+  return array(
+    'access unfi reports' => array(
+      'title'           => t('Access UNFI Reports'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Enforces that the user has the 'access unfi reports' permissions in addition to submodule specific permissions.
+ */
+function unfi_reports_user_access($arg = NULL, $account = NULL) {
+  return user_access('access unfi reports', $account) && (!empty($arg) ? user_access($arg, $account) : TRUE);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function unfi_reports_theme($existing, $type, $theme, $path) {
+  return array(
+    'unfi_reports_table' => array(
+      'render element' => 'form',
+    )
+  );
+}
+
+/**
+ * Creates the form based on params set in the submodule.
+ */
+function unfi_reports_form($form, &$form_state, $params) {
+
+  // Hang on to the reports params for later use.
+  $form_state['unfi_report_params'] = $params; // TODO: this is not needed to be done, yes?
+
+  // Include some javascript specific to the new item form.
+  drupal_add_js(drupal_get_path('module', 'unfi_reports') . '/unfi_reports.js');
+
+  $form = array(
+    '#attributes' => array('class' => array('unfi-reports-page'),),
+  );
+
+  $form['filters'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('unfi-reports-filters-area'),),
+  );
+  // If using a singe date as a filter.
+  if (!empty($params['filter_params']['date'])) {
+    $form['filters']['date'] = array(
+      '#type' => 'date',
+      '#default_value' => array('year' => date('Y'), 'month' => date('n'), 'day' => date('j')),
+      '#required' => true
+    );
+    if (!empty($params['filter_params']['date']['title'])) {
+      $form['filters']['date']['#title'] = t($params['filter_params']['date']['title']);
+    }
+    if (!empty($params['filter_params']['date']['description'])) {
+      $form['filters']['date']['#description'] = t($params['filter_params']['date']['description']);
+    }
+  }
+
+  // If using a date range to filter results.
+  if (!empty($params['filter_params']['range'])) {
+    $form['filters']['range'] = array(
+      '#type' => 'fieldset',
+    );
+    if (!empty($params['filter_params']['range']['title'])) {
+      $form['filters']['range']['#title'] = t($params['filter_params']['range']['title']);
+    }
+    if (!empty($params['filter_params']['range']['description'])) {
+      $form['filters']['range']['#description'] = t($params['filter_params']['range']['description']);
+    }
+
+    // Display the presets selector.
+    $default_preset = !empty($params['filter_params']['range']['default_preset']) ? $params['filter_params']['range']['default_preset'] : 'last_6_months';
+    $form['filters']['range']['range_preset'] = array(
+      '#type' => 'select',
+      '#title' => 'Requests Created Within:',
+      '#options' => unfi_reports_range_preset_options(),
+      '#default_value' => $default_preset,
+      '#required' => TRUE,
+    );
+
+    $form['filters']['range']['custom'] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array('class' => array('hidden', 'unfi-reports-custom-range-area'),),
+    );
+    // Set the start date back a bit.
+    $start_date_param = !empty($params['filter_params']['range']['range_start']) ? $params['filter_params']['range']['range_start'] : variable_get('unfi_reports_default_range_start');
+    $start_date = date('U', strtotime($start_date_param));
+    $form['filters']['range']['custom']['range_start'] = array(
+      '#type' => 'date',
+      '#title' => 'Range Start Date',
+      '#default_value' => array('year' => date('Y', $start_date), 'month' => date('n', $start_date),
+        'day' => date('j', $start_date)),
+    );
+
+    $form['filters']['range']['custom']['range_end'] = array(
+      '#type' => 'date',
+      '#title' => 'Range End Date',
+      '#default_value' => array('year' => date('Y'), 'month' => date('n'), 'day' => date('j')),
+    );
+  }
+
+  $form['filters']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Generate Report'),
+    '#attributes' => array('class' => array('unfi-reports-generate-report'),),
+  );
+
+  // If the file is ready to be downloaded.
+  if (!empty($form_state['unfi_reports']) && !empty($form_state['unfi_reports']['data'])) {
+    if (!empty($form_state['unfi_reports']['data']['results'])) {
+      $form['download_set'] = array(
+        '#type' => 'fieldset',
+        '#attributes' => array('class' => array('unfi-reports-download-area'),),
+      );
+      $form['download_set']['download'] = array(
+        '#type' => 'select',
+        '#title' => t('Download As'),
+        '#options' => unfi_reports_download_options(),
+        '#attributes' => array('class' => array('unfi-reports-_download-options'),),
+      );
+
+      $form['download_set']['report_download'] = array(
+        '#type' => 'submit',
+        '#value' => 'Download Report',
+        '#attributes' => array('class' => array('unfi-reports-download-report'),),
+      );
+    }
+
+    $form['pagination'] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array('class' => array('unfi-reports-pagination'),),
+    );
+
+    $cur_page = $form_state['unfi_reports']['page'] + 1;
+    $num_pages = ceil($form_state['unfi_reports']['data']['total'] / variable_get('unfi_reports_results_per_page', 100));
+
+    if ($form_state['unfi_reports']['page'] > 0) {
+      $form['pagination']['prev_page'] = array(
+        '#type' => 'submit',
+        '#value' => t('Previous Page'),
+        '#attributes' => array('class' => array('unfi-reports-prev', 'unfi-reports-page-btn'),),
+      );
+    }
+
+    if ($form_state['unfi_reports']['page'] < ($num_pages - 1)) {
+      $form['pagination']['next_page'] = array(
+        '#type' => 'submit',
+        '#value' => t('Next Page'),
+        '#attributes' => array('class' => array('unfi-reports-next', 'unfi-reports-page-btn'),),
+      );
+    }
+    $form['pagination']['result_info'] = array(
+      '#markup' => '<span>Page: <strong>' . $cur_page . '</strong> of <strong>' . $num_pages . '</strong> Total Results: <strong>' . $form_state['unfi_reports']['data']['total'] . '</strong></span>',
+      '#attributes' => array('class' => array('unfi-reports-result-info'),),
+    );
+
+    $form['result_table'] = array(
+      '#type' => 'container',
+      '#title' => '',
+      '#theme' => 'unfi_reports_table',
+      '#tree' => TRUE,
+      '#attributes' => array('class' => array('unfi-reports-results'),),
+    );
+
+    if (!empty($form_state['unfi_reports']['data']['results'])) {
+      foreach ($form_state['unfi_reports']['data']['results'] as $ix => $result) {
+
+        if (is_object($result)) {
+          $result = (array)$result;
+        }
+
+        foreach ($params['columns'] as $record_field => $column) {
+
+          $value = $result[$record_field];
+
+          if (is_array($column)) {
+            if (function_exists($column['format'])) {
+              $value = call_user_func($column['format'], $value);
+            }
+
+            //set the formatted text to the data set for the report
+            $form_state['unfi_reports']['data']['results'][$ix][$record_field] = $value;
+            $column = $column['name'];
+          }
+
+          $form['result_table']['rows'][$ix][$column] = array('#markup' => $value,);
+        }
+      }
+    }
+  }
+
+  return $form;
+}
+
+/**
+ * Handles the submission of the form.
+ */
+function unfi_reports_form_submit(&$form, &$form_state) {
+  if ($form_state['clicked_button']['#value'] == t('Download Report')) {
+    $page_title = drupal_get_title();
+    $filter_args = unfi_reports_extract_filter_args($form_state);
+    batch_set(array(
+      'operations' => array(
+        array('unfi_reports_build_file_batch_wrapper', array($form_state['unfi_report_params'], $filter_args, $form_state['values']['download'])),
+      ),
+      'finished'         => 'unfi_reports_build_file_batch_finished',
+      'title'            => t('Building !v', array('!v' => $page_title)),
+      'init_message'     => t('!v build is starting.', array('!v' => $page_title)),
+      'progress_message' => '',
+      'error_message'    => t('!v build has encountered an error.', array('!v' => $page_title)),
+      'file'             => drupal_get_path('module', 'unfi_reports') . '/unfi_reports.module',
+    ));
+  }
+
+  $form_state['rebuild'] = TRUE;
+
+  if (empty($form_state['unfi_reports'])) {
+    $form_state['unfi_reports'] = array();
+  }
+
+  $page = 0;
+  if (!empty($form_state['unfi_reports']['page'])) {
+    $page = $form_state['unfi_reports']['page'];
+  }
+
+  if ($form_state['clicked_button']['#value'] == t('Next Page')) {
+    $page++;
+  }
+  else if ($form_state['clicked_button']['#value'] == t('Previous Page') && $page > 0) {
+    $page--;
+  }
+
+  $form_state['unfi_reports']['page'] = $page;
+
+  $filter_params = unfi_reports_extract_filter_args($form_state);
+
+  $form_state['unfi_reports']['data'] = call_user_func($form_state['unfi_report_params']['processor'], $filter_params, $page);
+}
+
+/**
+ * Extract the filter arguments from the form values.
+ */
+function unfi_reports_extract_filter_args($form_state) {
+  $filter_args = array();
+
+  if (empty($form_state['values'])) {
+    return $filter_args;
+  }
+
+  if (!empty($form_state['values']['date'])) {
+    $filter_args['date'] = $form_state['values']['date'];
+    $filter_args['date']['timestamp'] = date('U', mktime(0, 0, 0, $filter_args['date']['month'], $filter_args['date']['day'], $filter_args['date']['year']));
+  }
+
+  if (!empty($form_state['values']['range_preset'])) {
+    $filter_args['range_preset']['value'] = $form_state['values']['range_preset'];
+    if ($filter_args['range_preset']['value'] == 'custom') {
+      // Find the custom range.
+      $filter_args['range_preset']['range'] = array(
+        'start_timestamp' => date('U', mktime(0, 0, 0, $form_state['values']['range_preset']['month'], $form_state['values']['range_preset']['day'], $form_state['values']['range_preset']['year'])),
+        'end_timestamp' => date('U', mktime(0, 0, 0 - 1, $form_state['values']['range_preset']['month'], $form_state['values']['range_preset']['day'] + 1, $form_state['values']['range_preset']['year'])),
+      );
+      $filter_args['range_preset']['range']['start_display'] = date('n-j-Y G:i:s', $filter_args['range_preset']['range']['start_timestamp']);
+      $filter_args['range_preset']['range']['end_display'] = date('n-j-Y G:i:s', $filter_args['range_preset']['range']['end_timestamp']);
+    }
+    else {
+      // Parse the range preset into timestamps.
+      $filter_args['range_preset']['range'] = unfi_reports_parse_range_preset($filter_args['range_preset']['value']);
+    }
+  }
+
+  return $filter_args;
+}
+
+/**
+ * Generate a table of the results.
+ */
+function theme_unfi_reports_table($variables) {
+
+  $form = $variables['form'];
+
+  $header = array();
+  $rows = array();
+
+  if (!empty($form['rows'])) {
+    foreach (element_children($form['rows']) as $key) {
+
+      $record = array();
+      $header = array();
+      foreach ($form['rows'][$key] as $f => $v) {
+        if (substr($f, 0, 1) !== '#') {
+          $record[] = drupal_render($form['rows'][$key][$f]);
+          $header[] = $f;
+        }
+      }
+
+      $rows[] = $record;
+    }
+  }
+
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows
+  ));
+
+  return $output;
+}
+
+/**
+ * Define the standard image format for the module.
+ */
+function unfi_reports_image_format($value) {
+  //todo: may be able to have this utilize image styles.
+  return "<img src='{$value}'>";
+}
+
+/**
+ * Define the standard date format for the module.
+ */
+function unfi_reports_datetime_format($value) {
+  return format_date($value);
+}
+
+/**
+ * Build a path and filename based on module params for downloads.
+ */
+function unfi_reports_build_download_path($params, $download_type = 'csv') {
+  $info = array();
+
+  $info['export_path'] = 'private://unfi_reports/';
+  if (!empty($params['destination_path'])) {
+    $info['export_path'] .= $params['destination_path'];
+  }
+  if (!file_prepare_directory($info['export_path'], FILE_CREATE_DIRECTORY)) {
+    drupal_set_message(t('Unable to generate file: destination directory could not be created.'), 'error');
+    return FALSE;
+  }
+
+  $file_prefix = !empty($params['filename_prefix']) ? $params['filename_prefix'] : $params['module_name'];
+  $info['filename'] = $file_prefix . '_' . date('Ymd-His', REQUEST_TIME) . '.' . $download_type;
+  $info['full_path'] = $info['export_path'] . '/' . $info['filename'];
+
+  return $info;
+}
+
+/**
+ * Build a header based on the columns defined in a module's params.
+ */
+function unfi_reports_build_header($params) {
+  $header = array();
+  if (empty($params['columns'])) {
+    return $header;
+  }
+
+  foreach ($params['columns'] as $ix => $col) {
+    if (is_array($col)) {
+      if (isset($col['name'])) {
+        $header[] = $col['name'];
+      }
+      else {
+        $header[] = $ix;
+      }
+    }
+    else {
+      $header[] = $col;
+    }
+  }
+
+  return $header;
+}
+
+/**
+ * Generate a file in limited chunks.
+ */
+function unfi_reports_build_file($params, $filter_args, $download_type, $page) {
+  // UID required for storing the private file.
+  global $user;
+
+  if (empty($params['path_info'])) {
+    $path_info = unfi_reports_build_download_path($params, $download_type);
+  } else {
+    $path_info = $params['path_info'];
+  }
+
+  $data = call_user_func($params['processor'], $filter_args, $page);
+
+  if (!empty($data['results'])) {
+    // Handle formatters.
+    $has_formatters = array();
+    if (!empty($params['columns'])) {
+      foreach ($params['columns'] as $ix => $col) {
+        if (is_array($col) && !empty($col['format'])) {
+          $has_formatters[$ix] = $col;
+        }
+      }
+    }
+    if (!empty($has_formatters)) {
+      foreach ($data['results'] as $ix => $row) {
+        foreach ($has_formatters as $formatter => $info) {
+          $data['results'][$ix][$formatter] = call_user_func($info['format'], $row[$formatter]);
+        }
+      }
+    }
+
+    // If first pass, build headers, otherwise leave empty
+    $header = $page == 0 ? unfi_reports_build_header($params) : array();
+
+    if ($download_type == 'csv') {
+      unfi_reports_build_file_csv($data['results'], $path_info['full_path'], $params['columns'], $header);
+    }
+    elseif (strncmp($download_type, 'xls', 3) == 0) {
+      unfi_reports_build_file_excel($download_type, $data['results'], $path_info['full_path'], $params['columns'], $header);
+    }
+  }
+
+  return $data;
+}
+
+/**
+ * Build a simple CSV file given results and a filepath
+ */
+function unfi_reports_build_file_csv($results, $full_path, $columns = array(), $header = array()) {
+  // Open a simple CSV file in append mode (if the file does not exist it will create it anyway)
+  $fp = fopen($full_path, 'a');
+  // If this is the first pass at building the file, write the header information
+  if (!empty($header)) {
+    fputcsv($fp, $header);
+  }
+  foreach ($results as $row) {
+    if (empty($columns)) {
+      fputcsv($fp, $row);
+    } else {
+      $new_row = array();
+      foreach (array_keys($columns) as $col_key ) {
+        if (isset($row[$col_key])) {
+          $new_row[] = $row[$col_key];
+        } else {
+          $new_row[] = '';
+        }
+      }
+      fputcsv($fp, $new_row);
+    }
+  }
+  fclose($fp);
+}
+
+/**
+ * Build an Excel file given type (xlsx or xls), results and a filepath
+ */
+function unfi_reports_build_file_excel($download_type, $results, $full_path, $columns = array(), $header = array()) {
+
+  $new_data = array();
+
+  foreach ($results as $row) {
+    if (empty($columns)) {
+      $new_data[] = array_values($row);
+    } else {
+      $new_row = array();
+      foreach (array_keys($columns) as $col_key ) {
+        if (isset($row[$col_key])) {
+          $new_row[] = $row[$col_key];
+        } else {
+          $new_row[] = '';
+        }
+      }
+      $new_data[] = $new_row;
+    }
+  }
+
+  $options = array(
+    'format' => $download_type,
+  );
+
+  if (empty($header) || !is_array($header)) {
+    $header = NULL;
+    $options['ignore_headers'] = TRUE;
+  }
+
+  if (!empty($new_data)) {
+    module_load_include('inc', 'phpexcel');
+    phpexcel_export($header, $new_data, drupal_realpath($full_path), $options);
+  }
+}
+
+/**
+ * Generate a spreadsheet file in limited chunks.
+ */
+function unfi_reports_build_file_batch_wrapper($params, $filter_args, $download_type, &$context) {
+  // UID required for storing the private file.
+  global $user;
+
+  if (!isset($context['sandbox']['page'])) {
+    $context['sandbox']['progress']  = 0;
+    $context['sandbox']['total']     = 0;
+    $context['sandbox']['page']      = 0;
+    $context['sandbox']['path_info'] = unfi_reports_build_download_path($params, $download_type);
+  }
+
+  $params['path_info'] = $context['sandbox']['path_info'];
+
+  $data = unfi_reports_build_file($params, $filter_args, $download_type, $context['sandbox']['page']);
+
+  if (!empty($data['results']) && !file_exists($context['sandbox']['path_info']['full_path'])) {
+    die(json_encode(array(
+      'status' => FALSE,
+      'data'   => t('Failure creating file.'),
+    )));
+  }
+
+  if (!empty($data['total']) && empty($context['sandbox']['total'])) {
+    $context['sandbox']['total'] = $data['total'];
+  }
+
+  $context['sandbox']['progress'] += count($data['results']);
+  $context['sandbox']['page']++;
+
+  $context['message'] = t('Processed @c out of @t', array(
+    '@c' => $context['sandbox']['progress'],
+    '@t' => $context['sandbox']['total'],
+  ));
+
+  if (empty($context['sandbox']['total'])) {
+    $context['finished'] = 1;
+  } else {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['total'];
+  }
+
+  if (!empty($data['results']) && empty($context['results']['file_id'])) {
+    // Create a file object so that file can be managed as a private file.
+    $file           = new stdClass();
+    $file->fid      = NULL;
+    $file->uri      = $context['sandbox']['path_info']['full_path'];
+    $file->filename = drupal_basename($context['sandbox']['path_info']['full_path']);
+    $file->filemime = file_get_mimetype($file->uri);
+    $file->uid      = $user->uid;
+    $file->status   = 0; // By setting the status to 0, the files should get cleaned up by cron when older than DRUPAL_MAXIMUM_TEMP_FILE_AGE
+
+    $file = file_save($file);
+
+    $context['results']['file_id'] = $file->fid;
+  }
+}
+
+/**
+ * Display a link for the user to download the generated report, or alert for errors.
+ */
+function unfi_reports_build_file_batch_finished($success, $results, $operations) {
+  if ($success) {
+    // Given an empty file ID, assume that no data was available to build the file
+    if (empty($results['file_id'])) {
+      drupal_set_message(t('No results to export.'));
+    }
+    // If the file object is able to load, then provide a link to the user,
+    // either display in Drupal message or email
+    elseif (($file = file_load($results['file_id']))) {
+      // Set the final size of the file created to guarantee the download of the whole file
+      // rather than just the first chunk
+      $file->filesize = filesize(drupal_realpath($file->uri));
+      $file           = file_save($file);
+      // Display a message with the link
+      drupal_set_message(t('Report is ready to download. Click here to download: ') . l($file->filename, file_create_url($file->uri)));
+    }
+    // There was an error loading the file object, so alert the user
+    else {
+      drupal_set_message(t('Error generating the report for download even though results were successfully processed.'), 'error');
+    }
+  }
+  // An error occurred.
+  // $operations contains the operations that remained unprocessed.
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %op with arguments: <pre>@arg</pre>', array(
+      '%op'  => $error_operation[0],
+      '@arg' => print_r($error_operation[1], TRUE)
+    ));
+    drupal_set_message($message, 'error');
+  }
+}
+
+/**
+ * Starts a background process to build generate a report during a cron job.
+ */
+function unfi_reports_set_background_process($report, $recipient, $filter_params, $download_type) {
+  // First, check if the user set to generate cron-triggered reports has permissions to do so
+  if (
+    !($user_id = variable_get('unfi_reports_cron_user', 0))
+    || !($account = user_load($user_id))
+    || !unfi_reports_user_access(NULL, $account) // todo: pass the report access key? eg: 'access unfi stale assets report'
+  ) {
+    // Build warning message
+    $message = 'Cron user cannot access @lbl.'.
+      '<BR />User ID: @uid'.
+      '<BR />Recipient(s): @recip'.
+      '<BR />Filter Parameter(s): @fparam'.
+      '<BR />Download Type: @dltype'.
+      '<BR />Results Count: @rcnt'.
+      '<BR />Total Count: @tcnt';
+    $m_vars = array(
+      '@lbl'    => empty($params['label']) ? $report : $params['label'],
+      '@uid'    => $user_id,
+      '@recip'  => $recipient,
+      '@fparam' => $filter_params,
+      '@dltype' => $download_type,
+      '@rcnt'   => count($data['results']),
+      '@tcnt'   => $data['total'],
+    );
+    watchdog('UNFI Reports', $message, $m_vars, WATCHDOG_CRITICAL);
+    return;
+  }
+  // Start at the beginning
+  $page = 0;
+  // Get the given report parameters
+  $params = call_user_func($report . '_params');
+  // Parse the simple text params into something usable
+  $filter_args = call_user_func($report . '_parse_filters', $filter_params);
+  // Store the file path info for use throughout the background process
+  $params['path_info'] = unfi_reports_build_download_path($params, $download_type);
+  // Perform a first pass to query the total number of items to be processed
+  $data = unfi_reports_build_file($params, $filter_args, $download_type, $page);
+  // If results were processed, but no file was created, then there is error that should be addressed
+  if (!empty($data['results']) && !file_exists($params['path_info']['full_path'])) {
+    // Build warning message
+    $message = 'Results for @lbl were returned, but the file was unable to be created.'.
+      '<BR />Recipient(s): @recip'.
+      '<BR />Filter Parameter(s): @fparam'.
+      '<BR />Download Type: @dltype'.
+      '<BR />Results Count: @rcnt'.
+      '<BR />Total Count: @tcnt'.
+      '<BR />File URI: @furi';
+    $m_vars = array(
+      '@lbl'    => empty($params['label']) ? $report : $params['label'],
+      '@recip'  => $recipient,
+      '@fparam' => $filter_params,
+      '@dltype' => $download_type,
+      '@rcnt'   => count($data['results']),
+      '@tcnt'   => $data['total'],
+      '@furi'   => $params['path_info']['full_path'],
+    );
+    watchdog('UNFI Reports', $message, $m_vars, WATCHDOG_CRITICAL);
+    return;
+  }
+  // Timestamp the start of this report process
+  variable_set($report . '_cron_start', REQUEST_TIME);
+  // If the first pass returned valid data
+  if (!empty($data['total']) && !empty($data['results'])) {
+    // Lock the report process
+    variable_set($report . '_cron_finish', FALSE);
+    // Create a file object so that file can be managed as a private file.
+    $file           = new stdClass();
+    $file->fid      = NULL;
+    $file->uri      = $params['path_info']['full_path'];
+    $file->filename = drupal_basename($params['path_info']['full_path']);
+    $file->filemime = file_get_mimetype($file->uri);
+    $file->uid      = $user_id;
+    $file->status   = 0;
+    // By setting the status to 0, the file should get cleaned up by cron when older than DRUPAL_MAXIMUM_TEMP_FILE_AGE
+    $file = file_save($file);
+    // Increment even if there is no more to be processed
+    // The next pass will be handle sending the email or processing more
+    $page++;
+    // Calculate how many more items should be processed
+    $left_over = $data['total'] - count($data['results']);
+    // Should happen: # total >= # processed, warn otherwise
+    if ($left_over < 0) {
+      // Build warning message
+      $message = '@lbl processed more results than the total count.'.
+        '<BR />Recipient(s): @recip'.
+        '<BR />Filter Parameter(s): @fparam'.
+        '<BR />Download Type: @dltype'.
+        '<BR />Results Count: @rcnt'.
+        '<BR />Total Count: @tcnt';
+      $m_vars = array(
+        '@lbl'    => empty($params['label']) ? $report : $params['label'],
+        '@recip'  => $recipient,
+        '@fparam' => $filter_params,
+        '@dltype' => $download_type,
+        '@rcnt'   => count($data['results']),
+        '@tcnt'   => $data['total'],
+      );
+      watchdog('UNFI Reports', $message, $m_vars, WATCHDOG_ERROR);
+    }
+    // Calculate the number of pages required to process the rest of the items
+    $total_pages = ceil($left_over / variable_get('unfi_reports_results_per_page', 100));
+    // Start a background process so that cron can finish while the report is being built
+    $handle = background_process_start('unfi_reports_build_file_background_process_wrapper', array(
+      'params'        => $params, // This must be passed in order to build the same file rather than creating a new one every second
+      'filter_args'   => $filter_args,
+      'download_type' => $download_type,
+      'page'          => $page,
+      'total_pages'   => $total_pages,
+      'from_email'    => variable_get('unfi_reports_send_emails_from', 'info@unfi.com'),
+      'recipient'     => $recipient,
+      'file_id'       => $file->fid,
+    ));
+  }
+  // Nothing was processed
+  else {
+    // Signal the report finished (unlocked)
+    variable_set($report . '_cron_finish', REQUEST_TIME);
+    // Log so that admins can know
+    watchdog('UNFI Reports', '@lbl was ran but nothing was able to be processed.', array(
+      '@lbl' => empty($params['label']) ? $report : $params['label'],
+    ));
+  }
+}
+
+/**
+ * Callback to perform more passes in creating a report and, at the final pass, email a link to the recipient(s).
+ * TODO: note that all translation will be done with the anonymous user account, since no other accounts are loaded
+ */
+function unfi_reports_build_file_background_process_wrapper($data) {
+  // Extract variables passed in, this is done to prevent long function heads and eliminate the need to preserve ording
+  // Variables are: $params, $filter_args, $download_type, $page, $total_pages, $from_email $recipient, $file_id
+  extract($data);
+  // If more items are to be processed
+  if ($total_pages > 0) {
+    // Process this chunk/page
+    $data = unfi_reports_build_file($params, $filter_args, $download_type, $page);
+    // This is not the last page, so restart the background process
+    if ($page != $total_pages) {
+      // Increment
+      $page++;
+      // Restart with updated page number
+      $handle = background_process_restart(array(
+        'params'        => $params,
+        'filter_args'   => $filter_args,
+        'download_type' => $download_type,
+        'page'          => $page,
+        'total_pages'   => $total_pages,
+        'from_email'    => $from_email,
+        'recipient'     => $recipient,
+        'file_id'       => $file_id,
+      ));
+      // Stop at this point to not send the email just yet
+      return;
+    }
+  }
+  // This is the last pass, so set the finish time for the report, unlocking it
+  variable_set($params['module_name'] . '_cron_finish', REQUEST_TIME);
+  // Load the file object
+  if (($file = file_load($file_id))) {
+    // Set the final size of the file created to guarantee the download of the whole file rather than just the first chunk
+    $file->filesize = filesize(drupal_realpath($file->uri));
+    $file           = file_save($file);
+    // Send email with the link to this report in it.
+    $message = drupal_mail('unfi_reports', 'report', $recipient, language_default(), array(), $from_email);
+    // TODO: look into if the subject is check_plain'd
+    // Build the subject line
+    $message['subject'] = t('UNFI Report @l', array(
+      '@l' => empty($params['label']) ? $params['module_name'] : $params['label'],
+    ));
+    // Build the body
+    $message['body'] = array(
+      t('Go here to download: ') . file_create_url($file->uri),
+    );
+    // Send email with the link to this report in it.
+    $mail_system = drupal_mail_system('unfi_reports', 'report');
+    $message     = $mail_system->format($message);
+    // Update the result of the message
+    $message['result'] = $mail_system->mail($message);
+    // Notify admins
+    watchdog('UNFI Reports', '@lbl built and email(s) sent.', array(
+      '@lbl' => empty($params['label']) ? $params['module_name'] : $params['label'],
+    ));
+  } else {
+    // Build warning message
+    $message = '@lbl was built but there was an error in sending emails.'.
+      '<BR />Recipient(s): @recip'.
+      '<BR />Download Type: @dltype'.
+      '<BR />File ID: @fid'.
+      '<BR />File URI: @furi';
+    $m_vars = array(
+      '@lbl'    => empty($params['label']) ? $report : $params['label'],
+      '@recip'  => $recipient,
+      '@dltype' => $download_type,
+      '@fid'    => $file_id,
+      '@furi'   => $params['path_info']['full_path'],
+    );
+    watchdog('UNFI Reports', $message, $m_vars, WATCHDOG_ERROR);
+  }
+}
+
+/**
+ * Returns a list of the available options for download.
+ */
+function unfi_reports_download_options() {
+  return array(
+    'csv'  => 'Comma-Separated Values (.csv)',
+    'xlsx' => 'Microsoft Excel (.xlsx)',
+    'xls'  => 'Microsoft Excel (.xls)',
+  );
+}
+
+/**
+ * Parse the params.
+ */
+function unfi_reports_parse_filters($json) {
+  $filters = array();
+
+  $tmp = json_decode($json);
+
+  if (!empty($tmp->date)) {
+    $tmp->date = trim(str_replace('/', '-', $tmp->date));
+    list($month, $day, $year) = explode('-', $tmp->date);
+    $filters['date'] = array(
+      'month'     => $month,
+      'day'       => $day,
+      'year'      => $year,
+      'timestamp' => mktime(0, 0, 0, $month, $day, $year),
+    );
+  }
+
+  if (!empty($tmp->range_preset)) {
+    $filters['range_preset']['range'] = unfi_reports_parse_range_preset($tmp->range_preset);
+  }
+
+  return $filters;
+}
+
+/**
+ * Returns a list of the available options for range presets.
+ */
+function unfi_reports_range_preset_options() {
+  $options = array(
+    'today'         => 'Today',
+    'yesterday'     => 'Yesterday',
+    'last_week'     => 'Last Week',
+    'last_7_days'   => 'Last 7 Days',
+    'last_30_days'  => 'Last 30 Days',
+    'last_60_days'  => 'Last 60 Days',
+    'last_90_days'  => 'Last 90 Days',
+    'this_month'    => 'This Month to Date',
+    'last_month'    => 'Last Month',
+    'last_3_months' => 'Last 3 Months',
+    'last_6_months' => 'Last 6 Months',
+    'last_9_months' => 'Last 9 Months',
+    'this_year'     => 'This Year to Date',
+    'last_year'     => 'Last Year',
+    'this_qtr'      => 'This Quarter to Date',
+    'last_qtr'      => 'Last Quarter',
+    'last_q1'       => 'Last Year 1st Quarter',
+    'last_q2'       => 'Last Year 2nd Quarter',
+    'last_q3'       => 'Last Year 3rd Quarter',
+    'last_q4'       => 'Last Year 4th Quarter',
+    'this_q1'       => 'This Year 1st Quarter',
+  );
+
+  $cur_qtr = unfi_reports_current_quarter();
+
+  if ($cur_qtr['current'] > 1) {
+    $options['this_q2'] = 'This Year 2nd Quarter';
+  }
+  if ($cur_qtr['current'] > 2) {
+    $options['this_q3'] = 'This Year 3rd Quarter';
+  }
+  if ($cur_qtr['current'] > 3) {
+    $options['this_q4'] = 'This Year 4th Quarter';
+  }
+
+  $options['custom'] = 'Custom Range';
+
+  return $options;
+}
+
+/**
+ * Parse options into start and end timestamps.
+ */
+function unfi_reports_parse_range_preset($option) {
+  $parsed = array(
+    'start_timestamp' => 0,
+    'end_timestamp'   => 0,
+  );
+
+  $end_of_today = mktime(0, 0, 0 - 1, date('n'), date('j') + 1, date('Y'));
+
+  switch ($option) {
+    case 'today':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j'), date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'yesterday':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - 1, date('Y')),
+        'end_timestamp'   => mktime(0, 0, 0 - 1, date('n'), date('j'), date('Y')),
+      );
+      break;
+    case 'last_week':
+      $cur    = date('w');
+      $diff   = 7 + $cur;
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - $diff, date('Y')),
+        'end_timestamp'   => mktime(0, 0, 0 - 1, date('n'), date('j') - $cur, date('Y')),
+      );
+      break;
+    case 'last_7_days':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - 7, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_30_days':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - 30, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_60_days':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - 60, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_90_days':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), date('j') - 90, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'this_month':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n'), 1, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_month':
+      $start_month = mktime(0, 0, 0, date('n') - 1, 1, date('Y'));
+      $parsed      = array(
+        'start_timestamp' => $start_month,
+        'end_timestamp'   => mktime(0, 0, 0 - 1, date('n') - 1, date('t', $start_month) + 1, date('Y')),
+      );
+      break;
+    case 'last_3_months':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n') - 3, 1, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_6_months':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n') - 6, 1, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_9_months':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, date('n') - 9, 1, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'this_year':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, 1, 1, date('Y')),
+        'end_timestamp'   => $end_of_today,
+      );
+      break;
+    case 'last_year':
+      $parsed = array(
+        'start_timestamp' => mktime(0, 0, 0, 1, 1, date('Y') - 1),
+        'end_timestamp'   => mktime(0, 0, 0 - 1, 1, 1, date('Y')),
+      );
+      break;
+    case 'this_qtr':
+      $qtr    = unfi_reports_current_quarter();
+      $info   = unfi_reports_quarter_month_range($qtr['current'], $qtr['year']);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'last_qtr':
+      $qtr    = unfi_reports_current_quarter();
+      $info   = unfi_reports_quarter_month_range($qtr['prev_qtr'], $qtr['prev_qtr_year']);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'last_q1':
+      $info   = unfi_reports_quarter_month_range(1, date('Y') - 1);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'last_q2':
+      $info   = unfi_reports_quarter_month_range(2,  date('Y') - 1);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'last_q3':
+      $info   = unfi_reports_quarter_month_range(3,  date('Y') - 1);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'last_q4':
+      $info   = unfi_reports_quarter_month_range(4,  date('Y') - 1);
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'this_q1':
+      $info   = unfi_reports_quarter_month_range(1, date('Y'));
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'this_q2':
+      $info   = unfi_reports_quarter_month_range(2,  date('Y'));
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'this_q3':
+      $info   = unfi_reports_quarter_month_range(3,  date('Y'));
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+    case 'this_q4':
+      $info   = unfi_reports_quarter_month_range(4,  date('Y'));
+      $parsed = array(
+        'start_timestamp' => $info['start_timestamp'],
+        'end_timestamp'   => $info['end_timestamp'],
+      );
+      break;
+  }
+
+  $parsed['start_display'] = date('n-j-Y G:i:s', $parsed['start_timestamp']);
+  $parsed['end_display']   = date('n-j-Y G:i:s', $parsed['end_timestamp']);
+
+  return $parsed;
+}
+
+/**
+ * Find the current fiscal quarter.
+ */
+function unfi_reports_current_quarter() {
+  $month = date('n');
+  $qtr = array('year' => date('Y'));
+  if ($month > 0 && $month <= 3) {
+    $qtr['current'] = 1;
+  }
+  else if ($month > 3 && $month <= 6) {
+    $qtr['current'] = 2;
+  }
+  else if ($month > 6 && $month <= 9) {
+    $qtr['current'] = 3;
+  }
+  else if ($month > 9 && $month <= 12) {
+    $qtr['current'] = 4;
+  }
+
+  $qtr['prev_qtr']      = $qtr['current'] - 1;
+  $qtr['prev_qtr_year'] = $qtr['year'];
+  if ($qtr['prev_qtr'] < 1) {
+    $qtr['prev_qtr']      = 4;
+    $qtr['prev_qtr_year'] = $qtr['year'] - 1;
+  }
+
+  return $qtr;
+}
+
+/**
+ * Find the start and end months of a quarter.
+ *
+ * Provide a year to get specific timestamps.
+ */
+function unfi_reports_quarter_month_range($qtr, $year=NULL) {
+  $info = array();
+
+  switch ($qtr) {
+    case 1:
+      $info['start_month'] = 1;
+      $info['end_month']   = 3;
+      break;
+    case 2:
+      $info['start_month'] = 4;
+      $info['end_month']   = 6;
+      break;
+    case 3:
+      $info['start_month'] = 7;
+      $info['end_month']   = 9;
+      break;
+    case 4:
+      $info['start_month'] = 10;
+      $info['end_month']   = 12;
+      break;
+  }
+
+  if (!empty($year)) {
+    $info['start_timestamp'] = mktime(0, 0, 0, $info['start_month'], 1, $year);
+    $info['end_timestamp']   = mktime(0, 0, 0 - 1, $info['end_month'] + 1, 1, $year);
+    $info['start_display']   = date('n-j-Y G:i:s', $info['start_timestamp']);
+    $info['end_display']     = date('n-j-Y G:i:s', $info['end_timestamp']);
+  }
+
+  return $info;
+}
+
+/**
+ * Generic check for if the given report should be ran at this time.
+ * @return boolean FALSE if report cron build is disabled, report cron is still running,
+ * or if not enough time has passed
+ */
+function unfi_reports_check_cron_report_status($report) {
+  // Gather metadata about this reports cron
+  $last_run_start  = variable_get($report . '_cron_start', 0);
+  $last_run_finish = variable_get($report . '_cron_finish', 0);
+  $cron_vars       = variable_get($report . '_cron_info', array());
+  // Keys inside $cron_vars are:  enabled, recipient, filter_params, download_type, interval
+  // Check if this report is enabled to be ran
+  if (empty($cron_vars['enabled'])) {
+    return FALSE;
+  }
+  // If the 'finish' var is absolutely FALSE, this means the job is still running
+  if ($last_run_finish === FALSE) {
+    // Get report parameters for human-readable label
+    $params = call_user_func($report . '_params');
+    // Build warning message
+    $message = '@lbl is still running at cron run.'.
+      '<BR />Started: @start'.
+      '<BR />Recipient(s): @recip'.
+      '<BR />Filter Parameter(s): @fparam'.
+      '<BR />Download Type: @dltype'.
+      '<BR />Interval: @intv';
+    $m_vars = array(
+      '@lbl'    => empty($params['label']) ? $report : $params['label'],
+      '@start'  => format_date($last_run_start),
+      '@recip'  => $cron_vars['recipient'],
+      '@fparam' => $cron_vars['filter_params'],
+      '@dltype' => $cron_vars['download_type'],
+      '@intv'   => $cron_vars['interval'],
+    );
+    // Generate watchdog message in case there is a permanent failure and debugging is needed
+    watchdog('UNFI Reports', $message, $m_vars);
+    return FALSE;
+  }
+  // If an interval is given, the report should not be ran until the last run is outside the interval
+  if (!empty($cron_vars['interval']) && strtotime($cron_vars['interval']) < $last_run_start) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Returns an array of field descriptions for generic cron-base report settings.
+ */
+function unfi_reports_cron_setting_descriptions($key = NULL) {
+  // todo: Help text for the enabled field ???
+  // Help text fo the recipient field (email address)
+  $return['recipient']  = t('Must contain valid email address(es). ');
+  $return['recipient'] .= t('To send to multiple recipients separate email addresses with a comma. ');
+  $return['recipient'] .= t('Only users that have permission to view the private files will be able to access the downloads. ');
+  $return['recipient'] .= t('If a user is not able to view a file, please verify that the user has access to view the requested report.');
+  $return['recipient'] .= '<ul>';
+  $return['recipient'] .= '<li><a href="mailto:user@example.com">user@example.com</a></li>';
+  $return['recipient'] .= '<li><a href="mailto:user@example.com">user@example.com</a>, <a href="mailto:anotheruser@example.com">anotheruser@example.com</a></li>';
+  $return['recipient'] .= '<li>User &lt;<a href="mailto:user@example.com">user@example.com</a>&gt;</li>';
+  $return['recipient'] .= '<li>User &lt;<a href="mailto:user@example.com">user@example.com</a>&gt;, ';
+  $return['recipient'] .= 'Another User &lt;<a href="mailto:anotheruser@example.com">anotheruser@example.com</a>&gt;</li>';
+  $return['recipient'] .= '</ul>';
+  // Help text for the filter parameters field
+  $return['filter_params']  = t('Filtering options for the report to be passed as arguments.');
+  $return['filter_params'] .= '<ul><li>' . t('Leave empty for default options') . '</li>';
+  $return['filter_params'] .= '<li>' . t('For a date use mm-dd-yyyy format, Ex:') . ' {"date":"1-23-2014"}</li>';
+  $return['filter_params'] .= '<li>' . t('For a date range use one of the presets Ex:') . ' {"range_preset":"last_7_days"}</li>';
+  $return['filter_params'] .= '<li><strong>' . t('Available Presets: ') . '</strong>';
+  $return['filter_params'] .= implode(', ', array_diff_key(unfi_reports_range_preset_options(), array('custom' => TRUE)));
+  $return['filter_params'] .= '</li></ul>';
+  // todo: Help text for the download_type field ???
+  // Help text for the interval field (how long to wait until generating the next report)
+  $strtotime_link = l('PHP relative time', 'http://php.net/manual/en/datetime.formats.relative.php', array(
+    'external'   => TRUE,
+    'attributes' => array(
+      'target' => '_blank',
+    ),
+  ));
+  $return['interval']  = t('Only execute in background if this amount of time has passed since the last execution. ');
+  $return['interval'] .= t('Use ') . $strtotime_link . t(' formats. Ex: -7 days');
+  // If no key was passed in, return the entire array
+  if (empty($key)) {
+    return $return;
+  }
+  // If the key passed in is valid, return that value
+  elseif (isset($return[$key])) {
+    return $return[$key];
+  }
+  return FASLE;
+}

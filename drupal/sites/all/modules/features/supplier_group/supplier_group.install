@@ -1,0 +1,120 @@
+<?php
+
+/**
+ * Implements hook_update_N().
+ * Removes the "contacts" field collection, which was replaced with an entity reference.
+ * Also enables the "boolean formatter" module.
+ */
+function supplier_group_update_7000() {
+
+  module_enable(array('boolean_formatter'));
+
+  field_delete_field('field_contacts');
+
+}
+
+/**
+ * Implements hook_update_N().
+ * Removes the "supplier ontacts" entity reference, because this is now handled by organic groups,
+ * and because we don't need to show the contacts on the supplier node form
+ * Also enables the "boolean formatter" module.
+ */
+function supplier_group_update_7001() {
+
+  field_delete_field('group_contacts');
+  field_delete_field('field_supplier_contacts');
+
+}
+
+/**
+ * Implements hook_update_N().
+ * Removes 'Supplier ID East' & 'Supplier ID West' from group.
+ * These field entity references have moved to the Request Item level
+ */
+
+function supplier_group_update_7002() {
+
+  field_delete_field('field_supplier_id_east');
+  field_delete_field('field_supplier_id_west');
+
+}
+
+/**
+ * Implements hook_update_N().
+ * Adds "manage content for any group" permissions to certain roles like SRM.
+ */
+
+function supplier_group_update_7003() {
+
+  module_enable(array('boolean_formatter'));
+  module_enable(array('entityreference_prepopulate'));
+  module_enable(array('og_pseudomember'));
+
+  // 'unfi_custom" was a previous attempt at hiding the supplier field on the
+  // contact/pickup location node form. Now obsolete and disabled to prevent PHP errors.
+  module_disable(array('unfi_custom'));
+
+  $permissions = array(
+    'view all group content',
+    'manage all group content',
+  );
+  user_role_grant_permissions(4, $permissions); // IBL
+  user_role_grant_permissions(5, $permissions); // item specialist
+  user_role_grant_permissions(6, $permissions); // manager
+  user_role_grant_permissions(7, $permissions); // RCM
+  user_role_grant_permissions(8, $permissions); // SRM
+  user_role_grant_permissions(12, $permissions); // Gatekeeper
+  user_role_grant_permissions(13, $permissions); // East coder
+  user_role_grant_permissions(14, $permissions); // West coder
+
+  // after setting the permissions above, we need to rebuild the permissions data
+  node_access_rebuild();
+}
+
+/**
+ * Cleans up supplier names.
+ */
+function supplier_group_update_7004(&$sandbox) {
+  if (!isset($sandbox['max'])) {
+    $sandbox['max'] = (int) db_select('node', 'n')
+      ->condition('n.type', 'supplier')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+    $sandbox['position'] = 0;
+  }
+
+  $limit = 50;
+  $nids = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'supplier')
+    ->orderBy('n.nid')
+    ->range($sandbox['position'], $limit)
+    ->execute()
+    ->fetchCol();
+  if (!empty($nids)) {
+    $nodes = node_load_multiple($nids);
+    foreach ($nodes as $node) {
+      $node->title = trim($node->title);
+      node_save($node);
+    }
+  }
+  $sandbox['position'] += $limit;
+
+  if ($sandbox['position'] < $sandbox['max']) {
+    $sandbox['#finished'] = $sandbox['position'] / $sandbox['max'];
+  }
+  else {
+    $sandbox['#finished'] = 1;
+  }
+}
+
+/**
+ * Change Ace Foods to Test Supplier.
+ */
+function supplier_group_update_7005(&$sandbox) {
+  if (($node = node_load(20))) {
+    $node->title = 'Test Supplier';
+    node_save($node);
+  }
+}

@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * Implements hook_update_N().
+ * Enables the "views data export" module which is required for the CSV export.
+ */
+function supplier_details_update_7000() {
+
+  module_enable(array('views_data_export'));
+
+}
+
+/**
+ * Implements hook_update_N()
+ * Remove Primary Contact from Contact Type taxonomy
+ */
+function supplier_details_update_7001() {
+  $term = taxonomy_get_term_by_name('Primary contact', 'contact_type');
+  if ($term) {
+    foreach (array_keys($term) as $tid) {
+      taxonomy_term_delete($tid);
+    }
+  }
+}

@@ -1,0 +1,434 @@
+<?php
+/**
+ * @file
+ * Drupal needs this blank file.
+ */
+
+/**
+ * Implements hook_field_update_field().
+ */
+function unfi_taxonomy_field_update_field($field, $prior_field, $has_data) {
+  if ($field['type'] == 'taxonomy_term_reference') {
+    // Clear options cache for this field.
+    unfi_taxonomy_field_clear_cache($field['field_name']);
+
+    // Save a list of fields that use our options list callback, so we know
+    // which fields to cache-clear when terms are insert/update/delete'd
+    $fields = variable_get('unfi_taxonomy_fields', array());
+    // Remove the field in case it was using our callback and now it isn't.
+    unset($fields[$field['field_name']]);
+
+    // Add the field to the list if it uses our callback
+    if ($field['settings']['options_list_callback'] == 'unfi_taxonomy_options_list_callback') {
+      $fields[$field['field_name']] = $field['settings']['allowed_values'][0]['vocabulary'];
+    }
+    variable_set('unfi_taxonomy_fields', $fields);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function unfi_taxonomy_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  $field = $form['#field'];
+  // Only care about taxonomy term reference fields
+  if ($field['type'] != 'taxonomy_term_reference') {
+    return;
+  }
+
+  $vocabulary_fields = array();
+  if (!empty($field['settings']['allowed_values'][0]['vocabulary'])) {
+    $vocabulary = $field['settings']['allowed_values'][0]['vocabulary'];
+    $field_instances = field_info_instances('taxonomy_term', $vocabulary);
+    foreach ($field_instances as $key => $field_instance) {
+      $vocabulary_fields[$key] = $field_instance['label'];
+    }
+  }
+
+  $form['field']['settings']['options_list_callback'] = array(
+    '#type' => 'select',
+    '#title' => t('Options label'),
+    '#options' => array(
+      'taxonomy_allowed_values' => t('Term name with depth'),
+      'unfi_taxonomy_options_list_callback' => t('Term fields with depth'),
+    ),
+    '#default_value' => $field['settings']['options_list_callback'],
+  );
+
+  $callback_args = $field['settings']['options_list_callback_args'];
+
+  $description = t('Select the fields that should be shown as the option label.');
+  if (empty($vocabulary_fields)) {
+    $description .= '<strong>' . t('You must select a vocabulary and save the field first.') . '</strong>';
+  }
+
+  $form['field']['settings']['options_list_callback_args']['fields'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Fields'),
+    '#options' => $vocabulary_fields,
+    '#description' => $description,
+    '#default_value' => isset($callback_args['fields']) ? $callback_args['fields'] : array(),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="field[settings][options_list_callback]"]' => array('value' => 'unfi_taxonomy_options_list_callback'),
+      ),
+      'required' => array(
+        ':input[name="field[settings][options_list_callback]"]' => array('value' => 'unfi_taxonomy_options_list_callback'),
+      ),
+    ),
+  );
+  $form['field']['settings']['options_list_callback_args']['show_name'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Include term name'),
+    '#default_value' => isset($callback_args['show_name']) ? $callback_args['show_name'] : 1,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="field[settings][options_list_callback]"]' => array('value' => 'unfi_taxonomy_options_list_callback'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_taxonomy_term_insert().
+ */
+function unfi_taxonomy_taxonomy_term_insert($term) {
+  _unfi_taxonomy_term_saved($term);
+}
+
+/**
+ * Implements hook_taxonomy_term_update().
+ */
+function unfi_taxonomy_taxonomy_term_update($term) {
+  _unfi_taxonomy_term_saved($term);
+}
+
+/**
+ * Implements hook_taxonomy_term_delete().
+ */
+function unfi_taxonomy_taxonomy_term_delete($term) {
+  _unfi_taxonomy_term_saved($term);
+}
+
+/**
+ * Taxonomy term options_list_callback.
+ *
+ * @see unfi_taxonomy_form_field_ui_field_edit_form_alter()
+ */
+function unfi_taxonomy_options_list_callback($field) {
+  $cid = 'unfi_taxonomy_options:' . $field['field_name'];
+  if ($cache = cache_get($cid)) {
+    $options = $cache->data;
+  }
+  else {
+    $options = array();
+    if (is_array($field['settings']['options_list_callback_args']['fields'])) {
+      $display_fields = array_values($field['settings']['options_list_callback_args']['fields']);
+    }
+    $fields = array();
+    foreach ($display_fields as $display_field) {
+      if (!empty($display_field)) {
+        $fields[] = $display_field;
+      }
+    }
+    // Include name if that was checked
+    if (isset($field['settings']['options_list_callback_args']['show_name']) && $field['settings']['options_list_callback_args']['show_name']) {
+      $fields[] = 'name';
+    }
+    // If no fields are included, fallback to name
+    if (empty($fields)) {
+      $fields[] = 'name';
+    }
+
+    foreach ($field['settings']['allowed_values'] as $tree) {
+      if ($vocabulary = taxonomy_vocabulary_machine_name_load($tree['vocabulary'])) {
+        if ($terms = taxonomy_get_tree($vocabulary->vid, $tree['parent'])) {
+          $tids = array();
+          foreach ($terms as $term) {
+            $tids[] = $term->tid;
+          }
+
+          $entities = taxonomy_term_load_multiple($tids);
+          foreach ($terms as $term) {
+            $label_parts = array();
+            $term_entity = $entities[$term->tid];
+            foreach ($fields as $field_name) {
+              if (isset($term_entity->{$field_name})) {
+                if (is_array($term_entity->{$field_name}) && isset($term_entity->{$field_name}[LANGUAGE_NONE][0]['value'])) {
+                  $label_parts[] = $term_entity->{$field_name}[LANGUAGE_NONE][0]['value'];
+                }
+                elseif (is_scalar($term_entity->{$field_name})) {
+                  $label_parts[] = $term_entity->{$field_name};
+                }
+              }
+            }
+            $options[$term->tid] = str_repeat('-', $term->depth) . ' ' . implode(' : ', $label_parts);
+          }
+        }
+      }
+    }
+
+    cache_set($cid, $options);
+  }
+  return $options;
+}
+
+/**
+ * Clears the term options cache.
+ */
+function unfi_taxonomy_field_clear_cache($field_name) {
+  $cid = 'unfi_taxonomy_options:' . $field_name;
+  cache_clear_all($cid, 'cache');
+}
+
+/**
+ * Helper function for all taxonomy term "write" operations.
+ *
+ * @see unfi_taxonomy_taxonomy_term_insert()
+ * @see unfi_taxonomy_taxonomy_term_update()
+ * @see unfi_taxonomy_taxonomy_term_delete()
+ */
+function _unfi_taxonomy_term_saved($term) {
+  $vocabulary = taxonomy_vocabulary_load($term->vid);
+  $fields = variable_get('unfi_taxonomy_fields', array());
+  // Get the fields names that reference the selected vocabulary.
+  $field_names = array_keys($fields, $vocabulary->machine_name);
+  if (!empty($field_names)) {
+    foreach ($field_names as $field_name) {
+      unfi_taxonomy_field_clear_cache($field_name);
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function unfi_taxonomy_field_formatter_info() {
+  return array(
+    'unfi_term_hier' => array(
+      'label'       => t('UNFI Taxonomy Term Hierarchy'),
+      'field types' => array('taxonomy_term_reference'),
+      'settings'    => array(
+        'linked' => FALSE,
+        'fields' => array(),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function unfi_taxonomy_field_formatter_settings_summary($field, $instance, $view_mode) {
+  // Shortcut to basic information
+  $display  = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  // UNFI Taxonomy Term Hierarchy
+  if ($display['type'] == 'unfi_term_hier') {
+    // Build a list of fields to be displayed
+    $vocabulary_fields = array();
+    // Check for the existence of the vocabulary declaration
+    if (!empty($field['settings']['allowed_values'][0]['vocabulary'])) {
+      // Shortcut the vocabulary
+      $vocabulary = $field['settings']['allowed_values'][0]['vocabulary'];
+      // Load the field instance information
+      $field_instances = field_info_instances('taxonomy_term', $vocabulary);
+      // Loop through the term's fields
+      foreach ($field_instances as $key => $field_instance) {
+        // If selected to display
+        if (!empty($settings['fields'][$key])) {
+          // Store the human-readable name of the field
+          $vocabulary_fields[$key] = $field_instance['label'];
+        }
+      }
+    }
+    // Build the summary and return
+    $summary  = t('Linked: ') . ($settings['linked'] ? t('Yes') : t('No'));
+    $summary .= '<BR />';
+    $summary .= t('Fields: @v', array(
+      '@v' => implode(', ', $vocabulary_fields),
+    ));
+    if (empty($vocabulary_fields)) {
+      $summary .= t('none');
+    }
+    return $summary;
+  }
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function unfi_taxonomy_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  // Shortcut to basic information
+  $display  = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  // UNFI Taxonomy Term Hierarchy
+  if($display['type'] == 'unfi_term_hier') {
+    // Build a list of fields that could be displayed
+    $vocabulary_fields = array();
+    // Check for the existence of the vocabulary declaration
+    if (!empty($field['settings']['allowed_values'][0]['vocabulary'])) {
+      // Shortcut the vocabulary
+      $vocabulary = $field['settings']['allowed_values'][0]['vocabulary'];
+      // Load the field instance information
+      $field_instances = field_info_instances('taxonomy_term', $vocabulary);
+      // Loop through the term's fields
+      foreach ($field_instances as $key => $field_instance) {
+        // Store the human-readable name of the field
+        $vocabulary_fields[$key] = $field_instance['label'];
+      }
+    }
+    // Option to link to the term's page
+    $element['linked'] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t('Link to Term'),
+      '#default_value' => $settings['linked'],
+    );
+    // Option the show additional fields
+    $element['fields'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Fields'),
+      '#options'       => $vocabulary_fields,
+      '#default_value' => $settings['fields'],
+      '#description'   => $description,
+    );
+    return $element;
+  }
+}
+
+/**
+ * Implements hook_field_formatter_prepare_view().
+ */
+function unfi_taxonomy_field_formatter_prepare_view($entity_type, $entities, $field, $instances, $langcode, &$items, $displays) {
+  // Shortcut the field, going to assume a single value
+  $field_column = key($field['columns']);
+  // Loop through the entities
+  foreach ($entities as $entity_id => $entity) {
+    // If the formatter is not UNFI Taxonomy Term Hierarchy, skip this entity
+    if (empty($displays[$entity_id]['type']) || $displays[$entity_id]['type'] != 'unfi_term_hier') {
+      continue;
+    }
+    // Loop through each of the items to be displayed
+    foreach ($items[$entity_id] as $delta => $item) {
+      // Initialize storage for parent terms
+      $items[$entity_id][$delta]['parents'] = array();
+      // Load list of parent terms
+      $parents = taxonomy_get_parents_all($item[$field_column]);
+      // Localize terms if needed
+      if (module_exists('i18n_taxonomy')) {
+        $parents = i18n_taxonomy_localize_terms($parents);
+      }
+      // Remove and store the current term from list
+      $items[$entity_id][$delta]['term'] = array_shift($parents);
+      // Store the parents in the reverse order they were given
+      foreach (array_reverse($parents) as $parent) {
+        $items[$entity_id][$delta]['parents'][$parent->tid] = $parent;
+      }
+    }
+  }
+}
+
+/*
+ * Implement hook_field_formatter_view().
+ */
+function unfi_taxonomy_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  // Shortcut to settings
+  $settings = $display['settings'];
+  // Shortcut the field, going to assume a single value
+  $field_column = key($field['columns']);
+  // UNFI Taxonomy Term Hierarchy
+  if ($display['type'] == 'unfi_term_hier') {
+    // Loop through the fields and remove those that were not selected
+    foreach ($settings['fields'] as $field_name) {
+      if (empty($field_name)) {
+        unset($settings['fields'][$field_name]);
+      }
+    }
+    // Prepare elements to be returned
+    $elements = array();
+    // Loop through the items to be displayed
+    foreach ($items as $delta => $item) {
+      // Skip if the item is not properly prepared
+      if (empty($item['term']) || empty($item['term'])) {
+        continue;
+      }
+      // Storage for items to be listed via theme_item_list
+      $list_items = array();
+      // Loop through the parent terms
+      foreach ($item['parents'] as $parent) {
+        // Start building a new label array
+        $label_parts = array();
+        // Loop through the fields selected to be displayed
+        foreach ($settings['fields'] as $field_name) {
+          // Check if the field exists for the term
+          if (isset($parent->{$field_name})) {
+            // Check if the field is of the typical format
+            if (is_array($parent->{$field_name}) && isset($parent->{$field_name}[LANGUAGE_NONE][0]['value'])) {
+              $label_parts[] = $parent->{$field_name}[LANGUAGE_NONE][0]['value'];
+            }
+            // Otherwise, check if the field is usable
+            elseif (is_scalar($parent->{$field_name})) {
+              $label_parts[] = $parent->{$field_name};
+            }
+          }
+        }
+        // Append the label with the term name/label
+        $label_parts[] = $parent->name;
+        // Add the term to the list
+        $list_items[] = array(
+          'title'      => implode(': ', $label_parts),
+          'href'       => $settings['linked'] ? 'taxonomy/term/' . $parent->tid : NULL,
+          'attributes' => array(
+            'class' => array('term-parent'),
+          ),
+        );
+      }
+      // Start building a new label array
+      $label_parts = array();
+      // Loop through the fields selected to be displayed
+      foreach ($settings['fields'] as $field_name) {
+        // Check if the field exists for the term
+        if (isset($item['term']->{$field_name})) {
+          // Check if the field is of the typical format
+          if (is_array($item['term']->{$field_name}) && isset($item['term']->{$field_name}[LANGUAGE_NONE][0]['value'])) {
+            $label_parts[] = $item['term']->{$field_name}[LANGUAGE_NONE][0]['value'];
+          }
+          // Otherwise, check if the field is usable
+          elseif (is_scalar($item['term']->{$field_name})) {
+            $label_parts[] = $item['term']->{$field_name};
+          }
+        }
+      }
+      // Append the label with the term name/label
+      $label_parts[] = $item['term']->name;
+      // Build the label from its parts
+      $label = implode(': ', $label_parts);
+        // Add the term to the end of the list
+      $list_items[] = array(
+        'title'      => implode(': ', $label_parts),
+        'href'       => $settings['linked'] ? 'taxonomy/term/' . $item['term']->tid : NULL,
+        'attributes' => array(
+          'class' => array('term-selected'),
+        ),
+      );
+      $elements[$delta] = array(
+        '#theme'      => 'links',
+        '#links'      => $list_items,
+        '#attributes' => array(
+          'class' => array(
+            'term-hierarchy', 'inline',
+          ),
+        ),
+        '#attached' => array(
+          'css' => array(
+            drupal_get_path('module', 'unfi_taxonomy') . '/css/unfi_taxonomy.formatter.css' => array(
+              'type' => 'file',
+            ),
+          ),
+        ),
+      );
+    }
+    return $elements;
+  }
+}
+

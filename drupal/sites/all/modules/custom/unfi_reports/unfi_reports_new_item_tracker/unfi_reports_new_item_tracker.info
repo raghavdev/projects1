@@ -1,0 +1,6 @@
+name = UNFI Reports : New Item Tracker
+description = Report for tracking the duration a new item has spent in the workflow states.
+package = UNFI
+core = 7.x
+
+dependencies[] = unfi_reports

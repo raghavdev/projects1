@@ -1,0 +1,39 @@
+.page-all-requests {
+  .views-exposed-form {
+    input[type="text"] {
+      width: 204px;
+    }
+  }
+  .views-exposed-widgets {
+    display: table;
+  }
+  .views-exposed-widget {
+    display: table-cell;
+    vertical-align: top;
+    padding: .5em 1em 0 0;
+    input {
+      margin: 0px;
+    }
+    .form-submit {
+      margin-top: 29px;
+    }
+  }
+}
+
+.flag-lock-request a {
+  text-indent: -9999px;
+  height: 32px;
+  width: 32px;
+  display: inline-block;
+  opacity: 0.45;
+  background: url('../img/unlock.png') no-repeat;
+  &.unflag-action {
+    background: url('../img/lock.png') no-repeat;
+  }
+}
+
+.view-inbox .views-field-field-category,
+.view-marketing-items .views-field-field-primary-image {
+  word-break: break-all;
+  width: 100px;
+}

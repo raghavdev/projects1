@@ -1,0 +1,43 @@
+diff --git a/drupal/sites/all/modules/contrib/phpexcel/phpexcel.inc b/drupal/sites/all/modules/contrib/phpexcel/phpexcel.inc
+index aed2c23..9950fd4 100755
+--- a/drupal/sites/all/modules/contrib/phpexcel/phpexcel.inc
++++ b/drupal/sites/all/modules/contrib/phpexcel/phpexcel.inc
+@@ -136,8 +136,12 @@ function phpexcel_export($headers = array(), $data = array(), $path = '', $optio
+ 
+   PHPExcel_Settings::setCacheStorageMethod($cache_method, $cache_settings);
+ 
+-  // Must we render from a template file ?
+-  if (!empty($options['template'])) {
++  // First, see if the file already exists
++  if (file_exists($path)) {
++    $xls = PHPExcel_IOFactory::load($path);
++  }
++  elseif (!empty($options['template'])) {
++    // Must we render from a template file ?
+     $xls_reader = PHPExcel_IOFactory::createReaderForFile($options['template']);
+ 
+     $xls = $xls_reader->load($options['template']);
+@@ -286,7 +290,6 @@ function _phpexcel_set_columns($xls, &$data, $headers = NULL, $options = array()
+     // If the headers are not set, we haven't created any sheets yet.
+     // Create them now.
+     if (!isset($headers)) {
+-      $offset = 1;
+       if ($sheet_id) {
+         $xls->createSheet($sheet_id);
+         $sheet = $xls->setActiveSheetIndex($sheet_id);
+@@ -306,10 +309,14 @@ function _phpexcel_set_columns($xls, &$data, $headers = NULL, $options = array()
+       phpexcel_invoke('export', 'new sheet', $sheet_id, $xls, $options);
+     }
+     else {
+-      $offset = 2;
+       $sheet = $xls->setActiveSheetIndex($sheet_id);
+     }
+ 
++    // Get the highest row of the sheet to calculate the offset
++    // so that rows are simply appended rather than overwritten
++    // if the file is built in multiple passes
++    $offset = $sheet->getHighestRow() + 1;
++
+     for ($i = 0, $len = count($sheet_data); $i < $len; $i++) {
+       for ($j = 0; $j < count($sheet_data[$i]); $j++) {
+         $value = isset($sheet_data[$i][$j]) ? $sheet_data[$i][$j] : '';

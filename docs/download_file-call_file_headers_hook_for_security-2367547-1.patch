@@ -1,0 +1,43 @@
+diff --git a/drupal/sites/all/modules/contrib/download_file/download_file.module b/drupal/sites/all/modules/contrib/download_file/download_file.module
+index 3494e2f..fafb3e8 100644
+--- a/drupal/sites/all/modules/contrib/download_file/download_file.module
++++ b/drupal/sites/all/modules/contrib/download_file/download_file.module
+@@ -128,10 +128,16 @@ function download_file_direct_download($fid) {
+   $fid  = intval($fid);
+   $file = file_load($fid);
+ 
+-  if (empty($fid) || empty($file) || !$file->status) {
++  // Call for headers just to allow other other modules
++  // the chance to deny access to the file
++  $hook_headers = file_download_headers($file->uri);
++
++  // Check if anything is empty and deny access if so
++  if (empty($hook_headers) || empty($fid) || empty($file) || !$file->status) {
+     return drupal_access_denied();
+   }
+-  
++
++  // Override the important headers
+   $headers = array(
+     'Content-Type'              => 'force-download',
+     'Content-Disposition'       => 'attachment; filename="' . $file->filename . '"',
+@@ -141,16 +147,10 @@ function download_file_direct_download($fid) {
+     'Cache-Control'             => 'must-revalidate, post-check=0, pre-check=0',
+     'Expires'                   => '0',
+     'Accept-Ranges'             => 'bytes'
+-  );
++  ) + $hook_headers; // But allow for others to be passed
+ 
+-  // Let other modules provide headers and controls access to the file.
+-  if (in_array(-1, $headers)) {
+-    return drupal_access_denied();
+-  }
+-
+-  if (count($headers)) {
+-    file_transfer($file->uri, $headers);
+-  }
++  // Everything is legit at this point, so just initiate the transfer
++  file_transfer($file->uri, $headers);
+ }
+ 
+ /**

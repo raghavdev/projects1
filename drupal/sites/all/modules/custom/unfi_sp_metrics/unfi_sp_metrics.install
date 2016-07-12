@@ -1,0 +1,252 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function unfi_sp_metrics_install() {
+  variable_set('unfi_sp_metrics_holidays_exclude', array(
+    'Veterans Day'                => 'name',
+    'Columbus Day'                => 'name',
+    'President\'s Day'            => 'name',
+    'Martin Luther King, Jr. Day' => 'name',
+    'Christmas Eve'               => 'name',
+    'Thanksgiving Observed'       => 'name',
+  ));
+  variable_set('unfi_sp_metrics_schedule_last_timestamps', array(
+    'yearly'  => 0,
+    'monthly' => 0,
+    'weekly'  => 0,
+    'daily'   => 0,
+  ));
+  variable_set('unfi_sp_metrics_schedule_weekday_start', '0');
+  variable_set('unfi_sp_metrics_schedule_yearly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_monthly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_weekly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_daily_reports', array());
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function unfi_sp_metrics_uninstall() {
+  variable_del('unfi_sp_metrics_stale_time');
+  variable_del('unfi_sp_metrics_stale_throttle');
+  variable_del('unfi_sp_metrics_holidays_exclude');
+  variable_del('unfi_sp_metrics_holidays_additional');
+  variable_del('unfi_sp_metrics_schedule_last_timestamps');
+  variable_del('unfi_sp_metrics_schedule_weekday_start');
+  variable_del('unfi_sp_metrics_schedule_yearly_reports');
+  variable_del('unfi_sp_metrics_schedule_monthly_reports');
+  variable_del('unfi_sp_metrics_schedule_weekly_reports');
+  variable_del('unfi_sp_metrics_schedule_daily_reports');
+}
+
+/**
+ * Update aggregation titles form stored context.
+ */
+function unfi_sp_metrics_update_7001(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    // This is the only module that has created aggregations and of only this type
+    db_update('metrics_aggregation')
+      ->fields(array(
+        'module' => 'unfi_sp_metrics',
+        'type'   => 'new_item_requests',
+      ))
+      ->execute();
+
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 10;
+    $sandbox['max']      = (int) db_select('metrics_aggregation', 'ma')
+      ->countQuery()->execute()->fetchField();
+  }
+
+  $query = db_select('metrics_aggregation', 'ma');
+  $query->leftJoin('metrics_aggregation_data', 'mad', 'ma.id=mad.id AND mad.job=\'unfi_sp_metrics_simple_total_current\'');
+  $query->fields('ma', array('id'));
+  $query->fields('mad', array('data'));
+  $query->orderBy('ma.id');
+  $query->range($sandbox['progress'], $sandbox['limit']);
+
+  $result = $query->execute();
+
+  while (($row = $result->fetchAssoc())) {
+    $id = $row['id'];
+    if (!empty($row['data'])) {
+      $data    = unserialize($row['data']);
+      $context = $data['context'];
+    }
+    if (empty($context['timerange'])) {
+      $context['timerange']['type'] = FALSE;
+    }
+
+    $title = 'New Item Request Metrics Report: ';
+
+    switch ($context['timerange']['type']) {
+      case 'year':
+        $title .= 'Year of ' . format_date($context['timerange']['start'], 'custom', 'Y');
+        break;
+      case 'month':
+        $title .= format_date($context['timerange']['start'], 'custom', 'F Y');
+        break;
+      case 'day':
+        $title .= format_date($context['timerange']['start'], 'custom', 'F j, Y');
+        $title .= ' - ';
+        $title .= format_date($context['timerange']['end'], 'custom', 'F j, Y');
+        break;
+      default:
+        $title .= 'Overview';
+        break;
+    }
+
+    db_update('metrics_aggregation')
+      ->fields(array('title' => $title))
+      ->condition('id', $id)
+      ->execute();
+
+    $sandbox['progress']++;
+  }
+
+  if (empty($sandbox['max'])) {
+    $sandbox['#finsihed'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
+
+/**
+ * Fill in empty timestamps of metric aggregation jobs that had no items to process.
+ */
+function unfi_sp_metrics_update_7002(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 1;
+    $sandbox['max']      = (int) db_select('metrics_aggregation_data', 'mad')
+      ->condition('mad.timestamp', 0)
+      ->countQuery()->execute()->fetchField();
+  }
+
+  $query = db_select('metrics_aggregation_data', 'mad');
+  $query->fields('mad', array('id', 'job', 'finished'));
+  $query->condition('mad.timestamp', 0);
+  $query->range(0, $sandbox['limit']);
+
+  $result = $query->execute();
+
+  while (($row = $result->fetchAssoc())) {
+
+    $timestamp = (double) $row['finished'];
+    $timestamp -= 0.001; // Purely arbitrary
+
+    db_update('metrics_aggregation_data')
+      ->fields(array('timestamp' => $timestamp))
+      ->condition('id', $row['id'])
+      ->condition('job', $row['job'])
+      ->execute();
+
+    $sandbox['progress']++;
+  }
+
+  if (empty($sandbox['max'])) {
+    $sandbox['#finsihed'] = 1;
+  }
+  else {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
+
+/**
+ * Remove "all" jobs, as they are not used and rename existing jobs with "nir_".
+ */
+function unfi_sp_metrics_update_7003(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    db_delete('metrics_aggregation_data')
+      ->condition('job', 'unfi_sp_metrics_simple_total_all')
+      ->execute();
+    db_update('metrics_aggregation_data')
+      ->fields(array('job' => 'unfi_sp_metrics_nir_simple_total_current'))
+      ->condition('job', 'unfi_sp_metrics_simple_total_current')
+      ->execute();
+    db_update('metrics_aggregation_data')
+      ->fields(array('job' => 'unfi_sp_metrics_nir_simple_total_previous'))
+      ->condition('job', 'unfi_sp_metrics_simple_total_previous')
+      ->execute();
+
+    $sandbox['progress'] = 0;
+    $sandbox['limit']    = 10;
+    $sandbox['max']      = (int) db_select('metrics_aggregation_data', 'mad')
+      ->countQuery()->execute()->fetchField();
+  }
+
+  $query = db_select('metrics_aggregation_data', 'mad');
+  $query->fields('mad', array('id', 'job', 'results'));
+  $query->orderBy('mad.id');
+  $query->orderBy('mad.job');
+  $query->range($sandbox['progress'], $sandbox['limit']);
+
+  $results = $query->execute();
+
+  while (($row = $results->fetchAssoc())) {
+    $old = unserialize($row['results']);
+    $new = array(
+      'total'  => 0,
+      'new'    => 0,
+      'states' => array(),
+    );
+
+    foreach ($old as $key => $value) {
+      if (strpos($key, 'sid_') === 0) {
+        $state_id = (int) drupal_substr($key, 4);
+        $new['states'][$state_id] = $value;
+      }
+      else {
+        $new[$key] = $value;
+      }
+    }
+
+    $query = db_update('metrics_aggregation_data');
+    $query->fields(array(
+      'results' => serialize($new),
+    ));
+    $query->condition('id', $row['id']);
+    $query->condition('job', $row['job']);
+    $query->execute();
+
+    $sandbox['progress']++;
+  }
+
+  if (!empty($sandbox['max'])) {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
+
+/**
+ * Initialize unfi_sp_metrics_holidays_exclude variable.
+ */
+function unfi_sp_metrics_update_7004() {
+  variable_set('unfi_sp_metrics_holidays_exclude', array(
+    'Veterans Day'                => 'name',
+    'Columbus Day'                => 'name',
+    'President\'s Day'            => 'name',
+    'Martin Luther King, Jr. Day' => 'name',
+    'Christmas Eve'               => 'name',
+    'Thanksgiving Observed'       => 'name',
+  ));
+}
+
+/**
+ * Set defaults for scheduled report variables.
+ */
+function unfi_sp_metrics_update_7005() {
+  variable_set('unfi_sp_metrics_schedule_last_timestamps', array(
+    'yearly'  => 0,
+    'monthly' => 0,
+    'weekly'  => 0,
+    'daily'   => 0,
+  ));
+  variable_set('unfi_sp_metrics_schedule_weekday_start', '0');
+  variable_set('unfi_sp_metrics_schedule_yearly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_monthly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_weekly_reports', array('new_item_requests'));
+  variable_set('unfi_sp_metrics_schedule_daily_reports', array());
+}

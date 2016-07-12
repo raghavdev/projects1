@@ -1,0 +1,245 @@
+<?php
+
+/*
+ * @todo: there are several points that could use hook or alter calls
+ */
+
+define('METRICS_AGG_BATCH_PROCESSOR', 'metrics_agg_batch_processor');
+define('METRICS_AGG_BATCH_FINISHED',  'metrics_agg_batch_finished');
+
+require_once dirname(__FILE__) . '/includes/metrics_agg.background_process.inc';
+require_once dirname(__FILE__) . '/includes/metrics_agg.batch.inc';
+require_once dirname(__FILE__) . '/includes/metrics_agg.cron.inc';
+
+/**
+ * Implements hook_cron().
+ */
+function metrics_agg_cron() {
+}
+
+/**
+ * Returns list of calculation information to be used by aggregation jobs.
+ *
+ * @return array of all calculation info
+ */
+function metrics_agg_calc_info() {
+  // TODO: proper caching
+  $info = module_invoke_all('metrics_agg_calc_info');
+  drupal_alter('metrics_agg_calc_info', $info);
+  return $info;
+}
+// TODO: metrics agg hook for auto export calc (bonus points for copying to mounted drives)
+
+/**
+ * Returns calculation information to be used by aggregation jobs.
+ *
+ * @param string $calc machine-name
+ * @return array of calculation info
+ */
+function metrics_agg_get_calc_info($calc) {
+  $infos = metrics_agg_calc_info();
+  if (isset($infos[$calc])) {
+    return $infos[$calc];
+  }
+  return array(); // TODO: better error?
+}
+
+/**
+ * Creates default frame of an aggregation and its jobs in the database.
+ *
+ * @param array $jobs machine-names
+ * @return int new aggregation identifier
+ */
+function metrics_agg_initialize($info) {
+  $module = $info['module'];
+  $type   = $info['type'];
+  $title  = $info['title'];
+  $jobs   = $info['jobs'];
+
+  if (empty($title)) {
+    $title = format_date(REQUEST_TIME, 'custom', 'l F j, Y g:i:s a P T');
+  }
+  $id = db_insert('metrics_aggregation')
+    ->fields(array(
+      'timestamp' => microtime(TRUE),
+      'module'    => $module,
+      'type'      => $type,
+      'title'     => $title,
+    ))
+    ->execute();
+
+  if ($id) {
+    $values = array();
+    foreach ($jobs as $job) {
+      $values[] = array(
+        'id'      => $id,
+        'job'     => $job,
+        'results' => 'a:0:{}',
+        'data'    => 'a:0:{}',
+      );
+    }
+
+    if (!empty($values)) {
+      $query = db_insert('metrics_aggregation_data');
+      $query->fields(array('id', 'job', 'results', 'data'));
+      foreach ($values as $row) {
+        $query->values($row);
+      }
+      $query->execute();
+    }
+  }
+
+  return (int) $id;
+}
+
+/**
+ * Deletes an aggregation report or list of reports.
+ *
+ * @param int|array $id or list of IDs to delete
+ */
+function metrics_agg_delete($id) {
+  db_delete('metrics_aggregation')
+    ->condition('id', $id)
+    ->execute();
+  db_delete('metrics_aggregation_data')
+    ->condition('id', $id)
+    ->execute();
+
+  if (!is_array($id)) {
+    $id = array($id);
+  }
+  module_invoke_all('metrics_agg_delete', $id);
+}
+
+/**
+ * Query the results (and extra data) of an aggregation job.
+ * Intended to be used during processing.
+ *
+ * @param int $id aggregation identifier
+ * @param string $job machine-name
+ *
+ * @return array keyed with 'results' and 'data' arrays
+ */
+function metrics_agg_job_results($id, $job) {
+  $query = db_select('metrics_aggregation_data', 'mad');
+  $query->fields('mad', array('results', 'data'));
+  $query->condition('mad.id', $id);
+  $query->condition('mad.job', $job);
+
+  if (($row = $query->execute()->fetchAssoc())) {
+    return array(
+      'results' => unserialize($row['results']),
+      'data'    => unserialize($row['data']),
+    );
+  }
+  return array(
+    'results' => array(),
+    'data'    => array(),
+  );
+}
+
+/**
+ * Updates database record of an aggregation job's results (and extra data).
+ *
+ * @param int $id an aggregation identifier
+ * @param string $job machine-name
+ * @param array $results keyed to serialize, store 'results' and 'data'
+ *   in their respective database fields
+ */
+function metrics_agg_job_store_results($id, $job, $results) {
+  $query = db_update('metrics_aggregation_data');
+  $query->fields(array(
+    'results' => serialize($results['results']),
+    'data'    => serialize($results['data']),
+  ));
+  $query->condition('id', $id);
+  $query->condition('job', $job);
+  $query->execute();
+}
+
+/**
+ * Updates database record of an aggregation's timestamps.
+ *
+ * @param int $id an aggregation identifier
+ * @param bool $finished sets the 'finished' field rather than 'timestamp'
+ */
+function metrics_agg_set_timestamp($id, $finished = FALSE) {
+  $microtime = microtime(TRUE);
+  if ($finished) {
+    $fields = array('finished' => $microtime);
+  }
+  else {
+    $fields = array('timestamp' => $microtime);
+  }
+  $query = db_update('metrics_aggregation');
+  $query->fields($fields);
+  $query->condition('id', $id);
+  $query->execute();
+}
+
+/**
+ * Updates database record of an aggregation job's timestamps.
+ *
+ * @param int $id an aggregation identifier
+ * @param string $job machine-name
+ * @param bool $finished sets the 'finished' field rather than 'timestamp'
+ */
+function metrics_agg_job_set_timestamp($id, $job, $finished = FALSE) {
+  $microtime = microtime(TRUE);
+  if ($finished) {
+    $fields = array('finished' => $microtime);
+  }
+  else {
+    $fields = array('timestamp' => $microtime);
+  }
+  $query = db_update('metrics_aggregation_data');
+  $query->fields($fields);
+  $query->condition('id', $id);
+  $query->condition('job', $job);
+  $query->execute();
+}
+
+/**
+ * Queries all the data of an aggregation.
+ * Includes the results and data of it's jobs.
+ *
+ * @param int $id an aggregation identifier
+ *
+ * @return array nested, associative of results and data
+ */
+function metrics_agg_get_data($id) {
+  // TODO: proper caching? per page call...
+  $data = array(
+    'id'        => $id,
+    'timestamp' => 0,
+    'finished'  => 0,
+    'results'   => array(),
+  );
+
+  $query = db_select('metrics_aggregation', 'ma');
+  $query->fields('ma');
+  $query->condition('ma.id', $id);
+  $result = $query->execute();
+  if (($row = $result->fetchAssoc())) {
+    $data['id']        = $row['id'];
+    $data['timestamp'] = $row['timestamp'];
+    $data['finished']  = $row['finished'];
+    $data += $row;
+  }
+
+  $query = db_select('metrics_aggregation_data', 'mad');
+  $query->fields('mad');
+  $query->condition('mad.id', $id);
+  $result = $query->execute();
+  while (($row = $result->fetchAssoc())) {
+    $data['results'][$row['job']] = array(
+      'timestamp' => $row['timestamp'],
+      'finished'  => $row['finished'],
+      'results'   => unserialize($row['results']),
+      'data'      => unserialize($row['data']),
+    );
+    $data['results'][$row['job']]  += $row;
+  }
+
+  return $data;
+}

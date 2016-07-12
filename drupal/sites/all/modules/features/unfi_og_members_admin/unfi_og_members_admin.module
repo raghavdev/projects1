@@ -1,0 +1,19 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI OG Members Admin feature.
+ */
+
+include_once 'unfi_og_members_admin.features.inc';
+
+ function unfi_og_members_admin_action_info_alter(&$actions) {
+  $actions['og_user_roles_action']['label'] = 'Modify group roles';
+  $actions['og_membership_delete_action']['label'] = 'Remove from group';
+ };
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_og_members_admin_menu_alter(&$items) {
+  $items['group/%/%/admin/people']['title arguments'] = array('Group Members of @group', 1, 2);
+}

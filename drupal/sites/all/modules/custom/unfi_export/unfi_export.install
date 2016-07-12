@@ -1,0 +1,28 @@
+<?php
+
+// todo: could possibly add it's own log table that could be used by IT to review polling cycles.
+
+/**
+ * Implements hook_install()
+ */
+function unfi_export_install() {
+  // Populate the default settings records.
+  variable_set('unfi_export_default_export_path', '../private');
+  variable_set('unfi_export_default_log_for_days', 30);
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_export_uninstall() {
+  // Remove the settings records.
+  variable_del('unfi_export_default_export_path');
+  variable_del('unfi_export_default_log_for_days');
+}
+
+/**
+ * Adds permission to UNFI manager to administer UNFI settings.
+ */
+function unfi_export_update_7000(&$sandbox) {
+  user_role_grant_permissions(6, array('unfi export data'));
+}

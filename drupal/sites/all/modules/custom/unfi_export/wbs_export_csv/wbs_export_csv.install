@@ -1,0 +1,1205 @@
+<?php
+
+// Need this in order to ensure we can reference the some functions in the .module.
+include_once drupal_get_path('module', 'unfi_export') . '/unfi_export.module';
+
+/**
+ * Defines the staging table fields and mapping to drupal nodes for export.
+ *
+ * EDIT THIS ARRAY TO ALTER STRUCTURE
+ *
+ * Follows Drupal Schema API, but adds a few array keys used only by the UNFI Export:
+ *
+ * description : (part of schema api) will double as .csv file column headers
+ * Ex: 'description' => 'UBS_Brand',
+ *
+ * map_to : can be used to map a field to a field in a drupal node
+ * Ex: 'map_to' => 'field_brand',
+ *
+ * clean_func : will tell the export to process the values using a named function found in unfi_export.cleanse.inc
+ * Ex: 'clean_func' => 'unfi_export_csv_clean_upc_for_export',
+ *
+ * clean_func_args : will pass an array of arguments to the function defined in clean_func.
+ * EX: 'clean_func_args' => array(32, TRUE),
+ *
+ * SETTING UP A DEFAULT FIELD EX:
+ *
+ * 'some_field' => array(
+ *   'description' => 'Some Field Column Header',
+ *   'type' => 'varchar',
+ *   'length' => 255,  // need length or may error on table creation.
+ *   'default' => 'N',
+ * )
+ *
+ * REBUILD THE STAGING & LOG TABLES WITH DRUSH:
+ * drush wbs --rebuild
+ *
+ * @return array
+ */
+function wbs_export_csv_fetch_tables() {
+  $tables = array();
+
+  // ########## WBS Fields ##########
+  $tables['wbs'] = array(
+    'fields' => array(
+      'description' => array(
+        'description' => '24 CHAR Description',
+        'type' => 'varchar',
+        'length' => 25,
+        'map_to' => 'title',
+        'clean_func' => 'unfi_export_clean_string',
+        'clean_func_args' => array(24),
+      ),
+      'sell_unit' => array(
+        'description' => 'Sell Unit',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => 'field_size',
+        'clean_func' => 'unfi_export_size_with_units',
+        'map_extra_fields' => array('field_unit_of_measure'),
+      ),
+      'upc' => array(
+        'description' => 'UPC',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => 'field_unit_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'sell_unit_gross_wt' => array(
+        'description' => 'Sell Unit - Gross Wt',
+        'type' => 'float',
+        'map_to' => 'field_case_weight',
+      ),
+      'units_in_mc' => array(
+        'description' => 'Units in MC',
+        'type' => 'int',
+        'map_to' => 'field_mc_pack',
+      ),
+      'containers_in_cs_divide_std_price_by' => array(
+        'description' => 'Containers in CS Divide Std Price By',
+        'type' => 'int',
+        'map_to' => 'field_inner_pack',
+      ),
+      'product_brand' => array(
+        'description' => 'Product Brand',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => 'field_brand',
+        'clean_func' => 'unfi_export_clean_string',
+      ),
+      'po_min_expire' => array(
+        'description' => 'PO Min Expire',
+        'type' => 'int',
+        'map_to' => 'field_shelf_life_at_dock',
+      ),
+      'ship_min_expire' => array(
+        'description' => 'Ship Min Expire',
+        'type' => 'int',
+        'map_to' => 'field_shelf_life_retail',
+      ),
+      'mfg_number' => array(
+        'description' => 'Mfg. Number',
+        'type' => 'varchar',
+        'length' => 50,
+        'map_to' => 'field_part_number',
+        'clean_func' => 'unfi_export_default_other_field',
+        'clean_func_args' => array(array(
+          'unfi_export_clean_upc' => array(),
+          'substr' => array(-5),
+        )),
+        'map_extra_fields' => array('field_unit_upc'),
+      ),
+      'whse_unit' => array(
+        'description' => 'Whse Unit',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => 'field_package_type',
+      ),
+      'unit_depth_on_shelf' => array(
+        'description' => 'Unit Depth on Shelf',
+        'type' => 'float',
+        'map_to' => 'field_unit_length',
+      ),
+      'unit_width_on_shelf' => array(
+        'description' => 'Unit Width On Shelf',
+        'type' => 'float',
+        'map_to' => 'field_unit_width',
+      ),
+      'unit_height_on_shelf' => array(
+        'description' => 'Unit Height On Shelf',
+        'type' => 'float',
+        'map_to' => 'field_unit_height',
+      ),
+      'as_sold_depth' => array(
+        'description' => 'As Sold Depth',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'as_sold_width' => array(
+        'description' => 'As Sold Width',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'as_sold_height' => array(
+        'description' => 'As Sold Height',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'certifying_agency' => array(
+        'description' => 'Certifying Agency',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'certified_organic_effective_date' => array(
+        'description' => 'Certified Organic Effective Date',
+        'type' => 'varchar',
+        'length' => 12,
+        'map_to' => '',
+      ),
+      'certified_organic_renewal_date' => array(
+        'description' => 'Certified Organic Renewal Date',
+        'type' => 'varchar',
+        'length' => 12,
+        'map_to' => '',
+      ),
+      'mpw_product_number' => array(
+        'description' => 'MPW Product Number',
+        'type' => 'int',
+        'map_to' => 'field_ubs_number',
+      ),
+      'dept_number_000_999' => array(
+        'description' => 'DEPT # (000-999)',
+        'type' => 'int',
+        'map_to' => 'field_west_dept',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_dept'),
+      ),
+      'group_number' => array(
+        'description' => 'Group',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'tcs' => array(
+        'description' => 'TCS',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'tax_y_n' => array(
+        'description' => 'TAX Y/N',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'upc_shipable' => array(
+        'description' => 'UPC shipable',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'ask_weight' => array(
+        'description' => 'Ask Weight',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'sold_by_weight_y_n' => array(
+        'description' => 'Sold by Weight Y/N',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_random_weight',
+        'clean_func' => 'unfi_export_clean_yes_no',
+        'clean_func_args' => array('N'),
+      ),
+      'master_cases_per_tie' => array(
+        'description' => 'Master cases per tie',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_tie',
+      ),
+      'master_cases_per_pallet' => array(
+        'description' => 'Master cases per pallet',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_tie',
+        'clean_func' => 'unfi_export_multiply',
+        'map_extra_fields' => array('field_high'),
+      ),
+      'put_up' => array(
+        'description' => 'Put up',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'bulk_y_n' => array(
+        'description' => 'Bulk (Y/N)',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'dated' => array(
+        'description' => 'Dated',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'ucu_flexible_y_n' => array(
+        'description' => 'UCU Flexible (Y/N)',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'static_info' => array(
+        'description' => 'Static Info',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'standard_vendor' => array(
+        'description' => 'Standard Vendor',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'standard_brand' => array(
+        'description' => 'Standard Brand',
+        'type' => 'varchar',
+        'length' => 27,
+        'map_to' => 'field_west_brand',
+        'clean_func' => 'unfi_export_clean_string',
+      ),
+      'profile' => array(
+        'description' => 'Profile',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'ordering_info' => array(
+        'description' => 'Ordering Info',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '',
+      ),
+      'mpw_vendor_code_whs2' => array(
+        'description' => 'MPW Vendor Code - whs2',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'mpw_vendor_code_whs4' => array(
+        'description' => 'MPW Vendor Code - whs4',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'mpw_vendor_code_whs5' => array(
+        'description' => 'MPW Vendor Code - whs5',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'mpw_vendor_code_whs6' => array(
+        'description' => 'MPW Vendor Code - whs6',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'mpw_vendor_code_whs7' => array(
+        'description' => 'MPW Vendor Code - whs7',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'sub_header' => array(
+        'description' => 'Sub Header',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_west_subheader_catalog',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_code'),
+      ),
+      'brand_category' => array(
+        'description' => 'Brand Category',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '',
+      ),
+      'cat_dept_c_b' => array(
+        'description' => 'Cat. Dept.(C,B etc.)',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'adders_ca_1' => array(
+        'description' => 'Adders CA-1',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'adders_ca_2' => array(
+        'description' => 'Adders CA-2',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'adders_d_1' => array(
+        'description' => 'Adders D-1',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'adders_d_2' => array(
+        'description' => 'Adders D-2',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'adders_e_1' => array(
+        'description' => 'Adders E-1',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'adders_e_2' => array(
+        'description' => 'Adders E-2',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'in_units_of' => array(
+        'description' => 'In Units Of',
+        'type' => 'varchar',
+        'length' => 4,
+        'map_to' => '',
+      ),
+      'uniform_consumer_units' => array(
+        'description' => 'Uniform Consumer Units',
+        'type' => 'varchar',
+        'length' => 4,
+        'map_to' => '',
+      ),
+      'ucu_measure' => array(
+        'description' => 'UCU Measure',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => '',
+      ),
+      'excl_purch_r' => array(
+        'description' => 'Excl Purch R',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'new_restrict' => array(
+        'description' => 'New Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'rpt_upc' => array(
+        'description' => 'Rpt UPC',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'case_upc' => array(
+        'description' => 'Case UPC',
+        'type' => 'varchar',
+        'length' => 13,
+        'map_to' => 'field_case_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'mc_upc' => array(
+        'description' => 'MC UPC',
+        'type' => 'varchar',
+        'length' => 13,
+        'map_to' => 'field_case_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'catalog_description' => array(
+        'description' => 'Catalog Description',
+        'type' => 'varchar',
+        'length' => 256,
+        'map_to' => '',
+      ),
+      'flag_1' => array(
+        'description' => 'Flag 1',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'flag_2' => array(
+        'description' => 'Flag 2',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'flag_3' => array(
+        'description' => 'Flag 3',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'flag_4' => array(
+        'description' => 'Flag 4',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'as_vendor_ships_lngth' => array(
+        'description' => 'As Vendor Ships Lngth',
+        'type' => 'float',
+        'map_to' => 'field_case_length',
+      ),
+      'as_vendor_ships_width' => array(
+        'description' => 'As Vendor Ships Width',
+        'type' => 'float',
+        'map_to' => 'field_case_width',
+      ),
+      'as_vendor_ships_height' => array(
+        'description' => 'As Vendor Ships Height',
+        'type' => 'float',
+        'map_to' => 'field_case_height',
+      ),
+      'min_purchase' => array(
+        'description' => 'Min Purchase',
+        'type' => 'int',
+        'map_to' => 'nid',
+        'clean_func' => 'unfi_export_fake_field',
+        'clean_func_args' => array(1),
+      ),
+      'min_increment' => array(
+        'description' => 'Min Increment',
+        'type' => 'int',
+        'map_to' => 'nid',
+        'clean_func' => 'unfi_export_fake_field',
+        'clean_func_args' => array(1),
+      ),
+      'factor_std' => array(
+        'description' => 'Factor Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'factor_w' => array(
+        'description' => 'Factor W*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'factor_d' => array(
+        'description' => 'Factor D*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'factor_c' => array(
+        'description' => 'Factor C*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'factor_r' => array(
+        'description' => 'Factor R*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_method_code' => array(
+        'description' => 'Whs1 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs2_method_code' => array(
+        'description' => 'Whs2 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs4_method_code' => array(
+        'description' => 'Whs4 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs5_method_code' => array(
+        'description' => 'Whs5 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs6_method_code' => array(
+        'description' => 'Whs6 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs7_method_code' => array(
+        'description' => 'Whs7 Method Code',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs1_msrp_rerounding' => array(
+        'description' => 'Whs1 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs2_msrp_rerounding' => array(
+        'description' => 'Whs2 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs4_msrp_rerounding' => array(
+        'description' => 'Whs4 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs5_msrp_rerounding' => array(
+        'description' => 'Whs5 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs6_msrp_rerounding' => array(
+        'description' => 'Whs6 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs7_msrp_rerounding' => array(
+        'description' => 'Whs7 MSRP Rerounding',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs1_sell_flag' => array(
+        'description' => 'Whs1 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs2_sell_flag' => array(
+        'description' => 'Whs2 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs4_sell_flag' => array(
+        'description' => 'Whs4 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs5_sell_flag' => array(
+        'description' => 'Whs5 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs6_sell_flag' => array(
+        'description' => 'Whs6 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs7_sell_flag' => array(
+        'description' => 'Whs7 Sell Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whsl_sales_restrict' => array(
+        'description' => 'Whsl Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs2_sales_restrict' => array(
+        'description' => 'Whs2 Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs4_sales_restrict' => array(
+        'description' => 'Whs4 Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs5_sales_restrict' => array(
+        'description' => 'Whs5 Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs6_sales_restrict' => array(
+        'description' => 'Whs6 Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs7_sales_restrict' => array(
+        'description' => 'Whs7 Sales Restrict',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs1_status' => array(
+        'description' => 'Whs1 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs2_status' => array(
+        'description' => 'Whs2 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs4_status' => array(
+        'description' => 'Whs4 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs5_status' => array(
+        'description' => 'Whs5 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs6_status' => array(
+        'description' => 'Whs6 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs7_status' => array(
+        'description' => 'Whs7 Status*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs1_buyer' => array(
+        'description' => 'Whs1 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs2_buyer' => array(
+        'description' => 'Whs2 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs4_buyer' => array(
+        'description' => 'Whs4 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs5_buyer' => array(
+        'description' => 'Whs5 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs6_buyer' => array(
+        'description' => 'Whs6 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs7_buyer' => array(
+        'description' => 'Whs7 Buyer*',
+        'type' => 'varchar',
+        'length' => 16,
+        'map_to' => '',
+      ),
+      'whs1_warehouse_location' => array(
+        'description' => 'Whs1 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs2_warehouse_location' => array(
+        'description' => 'Whs2 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs4_warehouse_location' => array(
+        'description' => 'Whs4 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs5_warehouse_location' => array(
+        'description' => 'Whs5 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs6_warehouse_location' => array(
+        'description' => 'Whs6 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs7_warehouse_location' => array(
+        'description' => 'Whs7 Warehouse Location',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs1_ref_cost' => array(
+        'description' => 'Whs1 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_ref_cost' => array(
+        'description' => 'Whs2 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_ref_cost' => array(
+        'description' => 'Whs4 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_ref_cost' => array(
+        'description' => 'Whs5 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_ref_cost' => array(
+        'description' => 'Whs6 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_ref_cost' => array(
+        'description' => 'Whs7 Ref Cost*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_cost_basis' => array(
+        'description' => 'Whs1 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_cost_basis' => array(
+        'description' => 'Whs2 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_cost_basis' => array(
+        'description' => 'Whs4 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_cost_basis' => array(
+        'description' => 'Whs5 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_cost_basis' => array(
+        'description' => 'Whs6 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_cost_basis' => array(
+        'description' => 'Whs7 Cost Basis*',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_overhead' => array(
+        'description' => 'Whs1 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_overhead' => array(
+        'description' => 'Whs2 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_overhead' => array(
+        'description' => 'Whs4 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_overhead' => array(
+        'description' => 'Whs5 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_overhead' => array(
+        'description' => 'Whs6 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_overhead' => array(
+        'description' => 'Whs7 Overhead',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_price_std' => array(
+        'description' => 'Whs1 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_price_std' => array(
+        'description' => 'Whs2 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_price_std' => array(
+        'description' => 'Whs4 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_price_std' => array(
+        'description' => 'Whs5 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_price_std' => array(
+        'description' => 'Whs6 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_price_std' => array(
+        'description' => 'Whs7 Price Std',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_price_w' => array(
+        'description' => 'Whs1 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_price_w' => array(
+        'description' => 'Whs2 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_price_w' => array(
+        'description' => 'Whs4 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_price_w' => array(
+        'description' => 'Whs5 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_price_w' => array(
+        'description' => 'Whs6 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_price_w' => array(
+        'description' => 'Whs7 Price W',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_site_contrl_by_whs' => array(
+        'description' => 'Whs1 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs2_site_contrl_by_whs' => array(
+        'description' => 'Whs2 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs4_site_contrl_by_whs' => array(
+        'description' => 'Whs4 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs5_site_contrl_by_whs' => array(
+        'description' => 'Whs5 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs6_site_contrl_by_whs' => array(
+        'description' => 'Whs6 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs7_site_contrl_by_whs' => array(
+        'description' => 'Whs7 Site Contrl By Whs*',
+        'type' => 'int',
+        'map_to' => '',
+      ),
+      'whs1_broken_case_upcharge' => array(
+        'description' => 'Whs1 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs2_broken_case_upcharge' => array(
+        'description' => 'Whs2 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs4_broken_case_upcharge' => array(
+        'description' => 'Whs4 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs5_broken_case_upcharge' => array(
+        'description' => 'Whs5 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs6_broken_case_upcharge' => array(
+        'description' => 'Whs6 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs7_broken_case_upcharge' => array(
+        'description' => 'Whs7 Broken Case Upcharge',
+        'type' => 'float',
+        'map_to' => '',
+      ),
+      'whs1_broken_case_upcharge_flag' => array(
+        'description' => 'Whs1 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs2_broken_case_upcharge_flag' => array(
+        'description' => 'Whs2 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs4_broken_case_upcharge_flag' => array(
+        'description' => 'Whs4 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs5_broken_case_upcharge_flag' => array(
+        'description' => 'Whs5 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs6_broken_case_upcharge_flag' => array(
+        'description' => 'Whs6 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs7_broken_case_upcharge_flag' => array(
+        'description' => 'Whs7 Broken Case Upcharge Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'clean_plate_flag_y_n' => array(
+        'description' => 'Clean Plate Flag (Y/N)',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs1_pesticide_flag' => array(
+        'description' => 'Whs1 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs2_pesticide_flag' => array(
+        'description' => 'Whs2 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs4_pesticide_flag' => array(
+        'description' => 'Whs4 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs5_pesticide_flag' => array(
+        'description' => 'Whs5 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs6_pesticide_flag' => array(
+        'description' => 'Whs6 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'whs7_pesticide_flag' => array(
+        'description' => 'Whs7 Pesticide Flag',
+        'type' => 'int',
+        'size' => 'tiny',
+        'map_to' => '',
+      ),
+      'temperature_control' => array(
+        'description' => 'Temperature Control',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_freight_protection_level',
+        'clean_func' => 'unfi_export_clean_temp_control',
+      ),
+      'requested_by' => array(
+        'description' => 'Requested By',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => 'field_requested_by',
+      ),
+      'equivalent_code' => array(
+        'description' => 'Equivalent code',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '',
+      ),
+      'east_date_needed' => array(
+        'description' => 'East Date needed',
+        'type' => 'varchar',
+        'length' => 12,
+        'map_to' => 'field_need_by_date',
+        'clean_func' => 'unfi_export_clean_date',
+        'clean_func_args' => array('Ymd'),
+      ),
+      'ubs_number' => array(
+        'description' => 'UBS#',
+        'type' => 'int',
+        'map_to' => 'field_ubs_number',
+      ),
+    ),
+  );
+
+  return $tables;
+
+}
+
+/**
+ * Implements hook_install()
+ */
+function wbs_export_csv_install() {
+  // Populate the default settings records.
+  variable_set('wbs_export_csv_export_path', variable_get('file_private_path', '../private'));
+  variable_set('wbs_export_csv_export_path_remote', '');
+  variable_set('wbs_export_csv_cron', TRUE);
+  variable_set('wbs_export_csv_cron_minimum_lifetime', 1);
+  variable_set('wbs_export_csv_cron_last_run', 0);
+
+  // Initialize the staging tables used during export.
+  unfi_export_create_staging_tables(wbs_export_csv_fetch_tables());
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function wbs_export_csv_uninstall() {
+  // Remove the settings records.
+  variable_del('wbs_export_csv_export_path');
+  variable_del('wbs_export_csv_export_path_remote');
+  variable_del('wbs_export_csv_cron');
+  variable_del('wbs_export_csv_cron_minimum_lifetime');
+  variable_del('wbs_export_csv_cron_last_run');
+  variable_del('wbs_export_csv_cur_workflow_state');
+  variable_del('wbs_export_csv_new_workflow_state');
+
+  $to_drop = array();
+  $tables = wbs_export_csv_fetch_tables();
+  foreach ($tables as $requested_name => $table_info) {
+    $table_names = unfi_export_table_names($requested_name);
+    foreach ($table_names as $table) {
+      $to_drop[] = $table;
+    }
+  }
+  unfi_export_drop_tables($to_drop);
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function wbs_export_csv_update_7000() {
+  if (module_exists('workflow')) {
+    $workflow = workflow_load_by_name('request_workflow');
+    if ($workflow) {
+      // Create Pending UBS Systems Input state.
+      $pending_ubs = $workflow->createState('Pending UBS Systems Input');
+      if (!$pending_ubs) {
+        throw new DrupalUpdateException('Could not create Pending UBS Systems Input workflow state.');
+      }
+      $pending_ubs->setName('Pending UBS Systems Input');
+      $pending_ubs->status = 1;
+      $pending_ubs->weight = -12;
+      $pending_ubs->save();
+      if (empty($pending_ubs->sid)) {
+        throw new DrupalUpdateException('Could not save Pending UBS Systems Input workflow state.');
+      }
+
+      // Create Pending WBS Systems Input state.
+      $pending_wbs = $workflow->createState('Pending WBS Systems Input');
+      if (!$pending_wbs) {
+        throw new DrupalUpdateException('Could not create Pending WBS Systems Input workflow state.');
+      }
+      $pending_wbs->setName('Pending WBS Systems Input');
+      $pending_wbs->status = 1;
+      $pending_wbs->weight = -11;
+      $pending_wbs->save();
+      if (empty($pending_wbs->sid)) {
+        throw new DrupalUpdateException('Could not save Pending WBS Systems Input workflow state.');
+      }
+
+      if ($pending_ubs->sid == $pending_wbs->sid) {
+        throw new DrupalUpdateException('States have same state id.');
+      }
+
+      // --- Create transitions ---
+      $approved = $workflow->getState('Approved');
+      $archived = $workflow->getState('Archived');
+
+      // Change weight of archived
+      $archived->weight = -10;
+      $archived->save();
+
+      // Load roles
+      $roles = user_roles();
+      // Find specific role ids.
+      $programmer_rid = array_search('programmer', $roles);
+      $manager_rid = array_search('Manager', $roles);
+      $item_spec_rid = array_search('Item Specialist', $roles);
+      $admin_rid = array_search('administrator', $roles);
+      // Build role arrays for different transitions
+      $managers = array($manager_rid, $item_spec_rid, $admin_rid, $programmer_rid);
+      $manager_roles = array_combine($managers, $managers);
+      $programmer_only = array($programmer_rid => $programmer_rid);
+      $all_roles = array_combine(array_keys($roles), array_keys($roles));
+      $all_roles[-1] = -1; // author
+
+      // Transition from Approved to Pending UBS Systems Input
+      $approved_to_ubs = $workflow->createTransition($approved->sid, $pending_ubs->sid);
+      $approved_to_ubs->roles = $programmer_only;
+      $approved_to_ubs->save();
+
+      // Transition from Approved to Pending WBS Systems Input
+      $approved_to_wbs = $workflow->createTransition($approved->sid, $pending_wbs->sid);
+      $approved_to_wbs->roles = $programmer_only;
+      $approved_to_wbs->save();
+
+      // Keep current state of Pending UBS Systems Input
+      $ubs_to_ubs = $workflow->createTransition($pending_ubs->sid, $pending_ubs->sid);
+      $ubs_to_ubs->roles = $all_roles;
+      $ubs_to_ubs->save();
+
+      // Keep current state of Pending WBS Systems Input
+      $wbs_to_wbs = $workflow->createTransition($pending_wbs->sid, $pending_wbs->sid);
+      $wbs_to_wbs->roles = $all_roles;
+      $wbs_to_wbs->save();
+
+      // Transition from Pending UBS Systems Input to Pending WBS Systems Input
+      $ubs_to_wbs = $workflow->createTransition($pending_ubs->sid, $pending_wbs->sid);
+      $ubs_to_wbs->label = 'Ready for WBS';
+      $ubs_to_wbs->roles = $manager_roles;
+      $ubs_to_wbs->save();
+
+      // Transition from Pending WBS Systems Input to Archived
+      $wbs_to_archived = $workflow->createTransition($pending_wbs->sid, $archived->sid);
+      $wbs_to_archived->roles = $programmer_only;
+      $wbs_to_archived->save();
+
+      // --- Update settings for exports ---
+      variable_set('ubs_export_csv_cur_workflow_state', $approved->sid);
+      variable_set('ubs_export_csv_new_workflow_state', $pending_ubs->sid);
+      variable_set('ubs_export_csv_cron', TRUE);
+      variable_set('ubs_export_csv_export_path', variable_get('file_private_path', 'sites/default/files/private'));
+
+      variable_set('wbs_export_csv_cur_workflow_state', $pending_wbs->sid);
+      variable_set('wbs_export_csv_new_workflow_state', $archived->sid);
+      variable_set('wbs_export_csv_cron', TRUE);
+      variable_set('wbs_export_csv_export_path', variable_get('file_private_path', 'sites/default/files/private'));
+    }
+  }
+}

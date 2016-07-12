@@ -1,0 +1,125 @@
+<?php
+/**
+ * Contains update scripts for UNFI Main Menu
+ */
+
+function main_menu_install() {
+  cache_clear_all();
+
+  main_menu_update_7001();
+  main_menu_update_7002();
+  main_menu_update_7003();
+  main_menu_update_7005();
+}
+
+/**
+ * Disables Pack Change menu link
+ */
+function main_menu_update_7001() {
+  db_update('menu_links')
+  ->fields(array(
+     'hidden' => 1,
+     )
+  )
+  ->condition('mlid', '938', '=')
+  ->execute();
+};
+
+/**
+ * Changes capitalization for 'All Suppliers' link
+ */
+function main_menu_update_7002() {
+  db_update('menu_links')
+  ->fields(array(
+     'link_title' => 'All suppliers',
+     )
+  )
+  ->condition('mlid', '773', '=')
+  ->execute();
+};
+
+/**
+ * Enables FAQ module and it's feature
+ */
+function main_menu_update_7003() {
+  module_enable(array('faq', 'supplier_portal_faq'));
+};
+
+/**
+ * Enables Legal module
+ */
+ function main_menu_update_7004() {
+  module_enable(array('legal'));
+ };
+
+/**
+ * Implements hook_update_N().
+ * Enabling permission modules for;
+ *  faq,
+ *  og pseudo-member,
+ *  supplier New Item Request OG,
+ *  legal
+ */
+ function main_menu_update_7005() {
+   module_enable(array('unfi_faq_permissions',
+                       'unfi_pseudo_member_permissions',
+                       'unfi_supplier_nir_og_permissions',
+                       'unfi_legal_permissions'));
+  drupal_flush_all_caches();
+  node_access_rebuild(); // for good measure
+ };
+
+ /**
+  * Implements hook_update_N()
+  * enables and moves Add content menu link, changes name and path to Add faq
+  */
+  function main_menu_update_7007() {
+    db_update('menu_links')
+    ->fields(array(
+       'link_title' => 'Add faq',
+       'link_path' => 'node/add/faq',
+       'router_path' => 'node/add/faq',
+       'weight' => -44,
+       'hidden' => 0,
+       )
+    )
+    ->condition('mlid', '433', '=')
+    ->execute();
+  };
+
+/**
+ * Enables UNFI OG Members Admin feature and sets OG admin people view to use new view
+ */
+  function main_menu_update_7008() {
+    module_enable(array('unfi_og_members_admin'));
+
+    db_update('variable')
+    ->fields(array(
+       'value' => 's:29:"unfi_og_members_admin:default";',
+       )
+    )
+    ->condition('name', 'og_ui_admin_people_view', '=')
+    ->execute();
+  };
+/**
+ * Enables Email Settings feature
+ */
+function main_menu_update_7009() {
+  module_enable(array('email_settings'));
+}
+
+/*
+ * Enables UNFI Supplier OG permissions module
+ */
+function main_menu_update_7010() {
+  module_enable(array('unfi_supplier_og_permissions'));
+}
+
+/**
+ * Removes pre-existing field to be replaced by computed field
+ * Enables computed field module
+ */
+function main_menu_update_7011() {
+  field_delete_field('field_units_per_shipper');
+  module_enable(array('computed_field'));
+}

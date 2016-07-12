@@ -1,0 +1,7 @@
+name = UNFI Reports
+description = UNFI Reports
+package = UNFI
+core = 7.x
+
+dependencies[] = phpexcel
+dependencies[] = background_process

@@ -1,0 +1,18 @@
+// This page should just import Sass partials -- NB: make sure require 'sass-globbing' is in config.rb
+
+// Base -- variables, partials, mixins
+
+//Libraries first so can be overriden
+@import "compass/css3/box-sizing";
+
+@import "system/base";
+@import "system/ember";
+@import "chosen/chosen";
+
+// Custom -- Load order is important
+@import "base/vars";
+@import "base/properties";
+@import "base/mixins";
+
+// Most actual work happens here
+@import "custom/**/*";

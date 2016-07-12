@@ -1,0 +1,651 @@
+<?php
+
+require_once dirname(__FILE__) . '/includes/unfi_sp_metrics.calcs.inc';
+
+/**
+ * Implements hook_permission().
+ */
+function unfi_sp_metrics_permission() {
+  return array(
+    'unfi sp view metric reports' => array(
+      'title' => t('View Supplier Portal Metric Reports'),
+    ),
+    'unfi sp run metric reports' => array(
+      'title' => t('Run Supplier Portal Metric Reports'),
+    ),
+    'unfi sp delete metric reports' => array(
+      'title' => t('Delete Supplier Portal Metric Reports'),
+    ),
+    'unfi sp admin metric reports' => array(
+      'title' => t('Administer Supplier Portal Metric Report Settings'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_sp_metrics_menu() {
+  $items = array();
+
+  $items['admin/config/unfi_settings/metrics'] = array(
+    'title'            => 'Metric Aggregation Settings',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_settings'),
+    'access arguments' => array('unfi sp admin metric reports'),
+  );
+
+  // TODO: WIP: leaving this commented-out chuck for future expansion
+//  $items['metrics/run'] = array(
+//    'type'             => MENU_CALLBACK,
+//    'title'            => 'Metrics Reports',
+//    'page callback'    => 'unfi_sp_metrics_form_overview',
+//    'page arguments'   => array(),
+//    'access arguments' => array('unfi sp run metric reports'),
+//    'file'             => 'includes/unfi_sp_metrics.page.inc',
+//  );
+
+  $items['metrics'] = array(
+    'title'            => 'Metric Reports',
+    'page callback'    => 'unfi_sp_metrics_overview_page',
+    'page arguments'   => array(),
+    'access arguments' => array('unfi sp view metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.pages.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+
+  // TODO: hard-coding for now
+  $items['metrics/run/new-item-requests'] = array(
+    'type'             => MENU_LOCAL_ACTION,
+    'title'            => 'Run New Item Requests Metrics Report',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_form', 2),
+    'access arguments' => array('unfi sp run metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.forms.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+// Report for key customer.
+  $items['metrics/run/new-item-requests-customer'] = array(
+    'type'             => MENU_LOCAL_ACTION,
+    'title'            => 'Run Report for Key Customers',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_form', 2),
+    'access arguments' => array('unfi sp run metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.forms.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+  // Report for Channel.
+  $items['metrics/run/new-item-requests-channel'] = array(
+    'type'             => MENU_LOCAL_ACTION,
+    'title'            => 'Run Report per Channel',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_form', 2),
+    'access arguments' => array('unfi sp run metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.forms.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+  $items['metrics/run/%'] = array(
+    'title'            => 'Run Metrics Report',
+    // TODO: title callback
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_form', 2),
+    'access arguments' => array('unfi sp run metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.forms.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+
+  $items['metrics/report/%'] = array(
+    'title'            => 'Metrics Report',
+    // TODO: title callback
+    'page callback'    => 'unfi_sp_metrics_page',
+    'page arguments'   => array(2),
+    'access arguments' => array('unfi sp view metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.pages.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+
+  $items['metrics/report/%/view'] = array(
+    'type'   => MENU_DEFAULT_LOCAL_TASK,
+    'title'  => 'View',
+    'weight' => 0,
+  );
+
+  $items['metrics/report/%/export'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'Export',
+    'page callback'    => 'unfi_sp_metrics_export_page',
+    'page arguments'   => array(2),
+    'access arguments' => array('unfi sp view metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.pages.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+    'weight'           => 10,
+  );
+
+  $items['metrics/report/%/export/%'] = array(
+    'type'             => MENU_CALLBACK,
+    'title'            => 'Export',
+    'page callback'    => 'unfi_sp_metrics_export_page',
+    'page arguments'   => array(2, 4),
+    'access arguments' => array('unfi sp view metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.pages.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+  );
+
+  $items['metrics/report/%/delete'] = array(
+    'type'             => MENU_LOCAL_TASK,
+    'title'            => 'Delete',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unfi_sp_metrics_delete_form', 2),
+    'access arguments' => array('unfi sp delete metric reports'),
+    'file'             => 'includes/unfi_sp_metrics.forms.inc',
+    'menu_name'        => 'menu-unfi-main-menu',
+    'weight'           => 20,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_metrics_agg_calc_info().
+ */
+function unfi_sp_metrics_metrics_agg_calc_info() {
+  $info = array();
+
+  $info['unfi_sp_metrics_nir_simple_total'] = array(
+    'module'          => 'unfi_sp_metrics',
+    'total callback'  => 'unfi_sp_metrics_nir_simple_total_query_total',
+    'worker callback' => 'unfi_sp_metrics_nir_simple_total_query_worker',
+  );
+
+  $info['unfi_sp_metrics_nir_transition_avg'] = array(
+    'module'          => 'unfi_sp_metrics',
+    'total callback'  => 'unfi_sp_metrics_nir_simple_total_query_total',
+    'worker callback' => 'unfi_sp_metrics_nir_transition_avg_query_worker',
+  );
+
+  $info['unfi_sp_metrics_nir_rejection_rate'] = array(
+    'module'          => 'unfi_sp_metrics',
+    'total callback'  => 'unfi_sp_metrics_nir_simple_total_query_total',
+    'worker callback' => 'unfi_sp_metrics_nir_rejection_rate_query_worker',
+  );
+
+  return $info;
+}
+
+/**
+ * Implements hook_batch_alter().
+ */
+function unfi_sp_metrics_batch_alter(&$batch) {
+  if (empty($batch['form_state']['redirect']['path'])) {
+    foreach ($batch['sets'] as $index => $set) {
+      if (!empty($set['metrics_agg']) && is_numeric($set['metrics_agg'])) {
+        // This only works because this module is naturally weighted below metrics_agg due to their names
+        $batch['form_state']['redirect']['path'] = 'metrics/report/' . $set['metrics_agg'];
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function unfi_sp_metrics_cron() {
+  $stale_time     = variable_get('unfi_sp_metrics_stale_time', '-3 years');
+  $stale_throttle = variable_get('unfi_sp_metrics_stale_throttle', 10);
+
+  if (!empty($stale_time)) {
+    if (is_numeric($stale_time)) {
+      $expiration = REQUEST_TIME - (int) abs($stale_time);
+    }
+    else {
+      $expiration = strtotime($stale_time);
+    }
+
+    $query = db_select('metrics_aggregation', 'ma');
+    $query->fields('ma', array('id'));
+    $query->condition('module', 'unfi_sp_metrics');
+    $query->condition('timestamp', $expiration, '<=');
+    $query->orderBy('timestamp');
+    $query->range(0, $stale_throttle);
+
+    $result = $query->execute();
+
+    if (($ids = $result->fetchCol())) {
+      metrics_agg_delete($ids);
+    }
+  }
+
+  _unfi_sp_metrics_cron_run_scheduled_reports();
+}
+
+/**
+ * Implements hook_registry_files_alter().
+ */
+function unfi_sp_metrics_registry_files_alter(&$files, $modules) {
+  // Inspiration: http://drupal.stackexchange.com/questions/42266/best-practice-for-third-party-php-class-based-library#42396
+  // Ignoring hook_requirements(), since this module is unique for this project
+
+  // This library, Holiday, uses namespace which really confuses Drupal 7
+  // because it is built for PHP 5.2.5 or higher and namespace was introduced
+  // 5.3. When Drupal parses the class/interface files it only stores the
+  // plain class name, but when it goes to autoload the ancestors of a class
+  // being instantiated, Drupal looks for the full class name with the
+  // namespace. So, NOT ONLY do we have to force the register of PHP library
+  // class files, but also duplicate those entries with the namespace and
+  // class name.
+  $library_path = function_exists('libraries_get_path') ?
+    libraries_get_path('libholiday') : 'sites/all/libraries/libholiday';
+
+  if (!isset($files[$library_path . '/Holiday/Holiday.php'])) {
+    $files[$library_path . '/Holiday/Holiday.php'] = array(
+      'module' => 'unfi_sp_metrics',
+      'weight' => -2,
+    );
+    // Since, _registry_parse_file() will store the plain class name, include
+    // additional entries for the namespace versions.
+    db_merge('registry')
+      ->key(array(
+        'name' => 'Holiday\\Holiday',
+        'type' => 'class',
+      ))
+      ->fields(array(
+        'filename' => $library_path . '/Holiday/Holiday.php',
+        'module'   => 'unfi_sp_metrics',
+        'weight'   => -2,
+      ))
+      ->execute();
+    // When parsing the \Holiday\America file, its ancestors are unknown to the
+    // system and will throw class not found errors, so manually load them at
+    // this point.
+    include_once $library_path . '/Holiday/Holiday.php';
+  }
+
+  if (!isset($files[$library_path . '/Holiday/Calculator.php'])) {
+    $files[$library_path . '/Holiday/Calculator.php'] = array(
+      'module' => 'unfi_sp_metrics',
+      'weight' => -1,
+    );
+    // Since, _registry_parse_file() will store the plain class name, include
+    // additional entries for the namespace versions.
+    db_merge('registry')
+      ->key(array(
+        'name' => 'Holiday\\Calculator',
+        'type' => 'class',
+      ))
+      ->fields(array(
+        'filename' => $library_path . '/Holiday/Calculator.php',
+        'module'   => 'unfi_sp_metrics',
+        'weight'   => -1,
+      ))
+      ->execute();
+    // When parsing the \Holiday\America file, its ancestors are unknown to the
+    // system and will throw class not found errors, so manually load them at
+    // this point.
+    include_once $library_path . '/Holiday/Calculator.php';
+  }
+
+  if (!isset($files[$library_path . '/Holiday/America.php'])) {
+    $files[$library_path . '/Holiday/America.php'] = array(
+      'module' => 'unfi_sp_metrics',
+      'weight' => 0,
+    );
+    // Since, _registry_parse_file() will store the plain class name, include
+    // additional entries for the namespace versions.
+    db_merge('registry')
+      ->key(array(
+        'name' => 'Holiday\\America',
+        'type' => 'class',
+      ))
+      ->fields(array(
+        'filename' => $library_path . '/Holiday/America.php',
+        'module'   => 'unfi_sp_metrics',
+        'weight'   => 0,
+      ))
+      ->execute();
+  }
+}
+
+/**
+ * Implements hook_metrics_agg_delete().
+ */
+function unfi_sp_metrics_metrics_agg_delete($ids) {
+  $db_or = db_or();
+  foreach ($ids as $id) {
+    $db_or->condition('filename', '%metrics_agg%-' . $id . '.%', 'LIKE');
+  }
+  // To preserve processing resources since this could be invoke anywhere at any
+  // point, simply update the file status so that the file deletion is handle by
+  // the default cron clean up.
+  db_update('file_managed')
+    ->fields(array('status' => 0))
+    ->condition($db_or)
+    ->execute();
+}
+
+/**
+ * UNFI Supplier Portal metrics settings form.
+ */
+function unfi_sp_metrics_settings($form, &$form_state) {
+
+  $php_time_link = l(t('PHP relative time string'), 'http://php.net/manual/en/datetime.formats.relative.php', array(
+    'external'   => TRUE,
+    'attributes' => array(
+      'target' => '_blank',
+    ),
+  ));
+
+  $form['unfi_sp_metrics_stale_time'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Stale Time'),
+    '#default_value' => variable_get('unfi_sp_metrics_stale_time', '-3 years'),
+    '#description'   => t('An amount of time since creation of a report to automatically delete it via cron.<br />' .
+      'Either an integer of seconds or a !l.<br />' .
+      'For the latter, a negative sign signifies the past (e.g.: "-1 years" equals one year ago).<br />' .
+      'Leave blank to disable.', array('!l' => $php_time_link)),
+  );
+
+  $holidays_add = '';
+  $holidays_add_var = variable_get('unfi_sp_metrics_holidays_additional', array());
+  foreach ($holidays_add_var as $name => $modifier) {
+    if (!empty($holidays_add)) {
+      $holidays_add .= "\n";
+    }
+    $holidays_add .= $name . '|' . $modifier;
+  }
+  $form['unfi_sp_metrics_holidays_additional'] = array(
+    '#type'          => 'textarea',
+    '#title'         => t('Additional Holidays'),
+    '#default_value' => $holidays_add,
+    '#description'   => t('The holidays to add to metric calculations.<br />' .
+      'Enter one holiday per line as \'name|modifier\' pairs, where name is a unique holiday name and the modifier is either a specific date or relative date (!l).<br />' .
+      'Use \'@year\' as a placeholder for the year of the date being checked.<br />' .
+      'Specific dates should be entered as \'@year-MM-DD\' or \'YYYY-MM-DD\'.<br />' .
+      'Relative dates can be \'last Thursday of March @year\'.', array('!l' => $php_time_link)),
+  );
+
+  $holidays_exclude = '';
+  $holidays_exclude_var = variable_get('unfi_sp_metrics_holidays_exclude', array());
+  foreach ($holidays_exclude_var as $value => $type) {
+    if (!empty($holidays_exclude)) {
+      $holidays_exclude .= "\n";
+    }
+    $holidays_exclude .= $value . '|' . $type;
+  }
+  $form['unfi_sp_metrics_holidays_exclude'] = array(
+    '#type'          => 'textarea',
+    '#title'         => t('Excluded Holidays'),
+    '#default_value' => $holidays_exclude,
+    '#description'   => t('The holidays to exclude from metric calculations.<br />' .
+      'Enter one holiday per line as \'value|type\' pairs, where value is a specific date or a holiday\'s name and type is either \'date\' or \'name\'.<br />' .
+      'Dates must be entered YYYY-MM-DD and do not accept @year.<br />' .
+      'Default Holidays: <ul>' .
+      '<li>Christmas</li>' .
+      '<li>Christmas Eve</li>' .
+      '<li>Thanksgiving Day</li>' .
+      '<li>Thanksgiving Observed</li>' .
+      '<li>New Year\'s Day</li>' .
+      '<li>Independence Day</li>' .
+      '<li>Veterans Day</li>' .
+      '<li>Columbus Day</li>' .
+      '<li>Labor Day</li>' .
+      '<li>Memorial Day</li>' .
+      '<li>President\'s Day</li>' .
+      '<li>Martin Luther King, Jr. Day</li></ul>'),
+  );
+
+  $reports = array(
+    'new_item_requests' => array('label' => 'New Item Requests'),
+  );
+  $report_options = array();
+  foreach ($reports as $report_type => $report) {
+    $report_options[$report_type] = $report['label'];
+  }
+  if (!empty($report_options)) {
+    $form['unfi_sp_metrics_schedule_yearly_reports'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Automatic Yearly Reports'),
+      '#options'       => $report_options,
+      '#default_value' => variable_get('unfi_sp_metrics_schedule_yearly_reports', array('new_item_requests')),
+    );
+
+    $form['unfi_sp_metrics_schedule_monthly_reports'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Automatic Monthly Reports'),
+      '#options'       => $report_options,
+      '#default_value' => variable_get('unfi_sp_metrics_schedule_monthly_reports', array('new_item_requests')),
+    );
+
+    $form['unfi_sp_metrics_schedule_weekly_reports'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Automatic Weekly Reports'),
+      '#options'       => $report_options,
+      '#default_value' => variable_get('unfi_sp_metrics_schedule_weekly_reports', array('new_item_requests')),
+    );
+
+    $form['unfi_sp_metrics_schedule_daily_reports'] = array(
+      '#type'          => 'checkboxes',
+      '#title'         => t('Automatic Daily Reports'),
+      '#options'       => $report_options,
+      '#default_value' => variable_get('unfi_sp_metrics_schedule_daily_reports', array('new_item_requests')),
+    );
+  }
+
+  $form['unfi_sp_metrics_schedule_weekday_start'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Week Start Offset'),
+    '#maxlength'     => 1,
+    '#size'          => 2,
+    '#default_value' => variable_get('unfi_sp_metrics_schedule_weekday_start', array('0')),
+    '#description'   => t('0: Sunday, 1: Monday, 2: Tuesday, 3: Wednesday, 4: Thursday, 5: Friday, 6: Saturday'),
+  );
+
+  $form = system_settings_form($form);
+  return $form;
+}
+
+function unfi_sp_metrics_settings_validate($form, &$form_state) {
+  if (!empty($form_state['values']['unfi_sp_metrics_holidays_additional'])) {
+    $data = array();
+    foreach (explode("\n", $form_state['values']['unfi_sp_metrics_holidays_additional']) as $line) {
+      list($name, $modifier) = explode('|', trim($line));
+      $data[$name] = $modifier;
+    }
+    form_set_value($form['unfi_sp_metrics_holidays_additional'], $data, $form_state);
+  }
+
+  if (!empty($form_state['values']['unfi_sp_metrics_holidays_exclude'])) {
+    $data = array();
+    foreach (explode("\n", $form_state['values']['unfi_sp_metrics_holidays_exclude']) as $line) {
+      list($value, $type) = explode('|', trim($line));
+      $data[$value] = $type;
+    }
+    form_set_value($form['unfi_sp_metrics_holidays_exclude'], $data, $form_state);
+  }
+}
+
+function unfi_sp_metrics_available_export_formats() {
+  $formats = array();
+
+  $formats['xlsx'] = array(
+    'label' => t('XLSX, Excel Spreadsheet 2007+'),
+  );
+
+  $formats['xls'] = array(
+    'label' => t('XLS, Excel Spreadsheet'),
+  );
+
+  $formats['csv'] = array(
+    'label'     => t('CSV, Comma Separated Values'),
+    'separator' => ',',
+  );
+
+  $formats['tsv'] = array(
+    'label'     => t('TSV, Tab Separated Values'),
+    'separator' => "\t",
+  );
+
+  return $formats;
+}
+
+function unfi_sp_metrics_export_format_info($format) {
+  $formats = unfi_sp_metrics_available_export_formats();
+  if (isset($formats[$format])) {
+    return $formats[$format];
+  }
+  return FALSE;
+}
+
+function unfi_sp_metrics_build_report_context($module, $report_type, $job_context) {
+  module_load_include('inc', $module, 'reports/' . $report_type . '/' . $module . '.reports.' . $report_type);
+
+  $default_context = array(
+    'module' => $module,
+    'type'   => $report_type,
+  );
+
+  $report_context = array(
+    'title' => $report_type,
+    'jobs'  => array(),
+  );
+
+  $func = $module . '__' . $report_type . '__build_report_context';
+  if (function_exists($func)) {
+    $func($report_context, $job_context + $default_context);
+  }
+
+  return array(
+    'module' => $module,
+    'type'   => $report_type,
+    'title'  => $report_context['title'],
+    'jobs'   => $report_context['jobs'],
+  );
+}
+
+function _unfi_sp_metrics_cron_run_scheduled_reports() {
+  $date         = new DateTime();
+  $last_yearly  = clone $date->modify('midnight');
+  $last_monthly = clone $date->modify('midnight');
+  $last_weekly  = clone $date->modify('midnight');
+  $last_daily   = clone $date->modify('midnight');
+  $contexts     = array();
+
+  $timestamps = variable_get('unfi_sp_metrics_schedule_last_timestamps', array(
+    'yearly'  => 0,
+    'monthly' => 0,
+    'weekly'  => 0,
+    'daily'   => 0,
+  ));
+
+  $last_yearly->setTimestamp($timestamps['yearly']);
+  $last_monthly->setTimestamp($timestamps['monthly']);
+  $last_weekly->setTimestamp($timestamps['weekly']);
+  $last_daily->setTimestamp($timestamps['daily']);
+
+  if (
+    $date->format('m-d') == '01-01' // First of the year
+    && $last_yearly->format('Y-m-d') != $date->format('Y-m-d')
+  ) {
+    $context = array(
+      'timerange' => array(
+        'type'  => 'year',
+        'start' => 0,
+        'end'   => 0,
+      ),
+    );
+
+    $last_yearly = clone $date;
+    $last_yearly->modify('midnight');
+    $last_yearly->modify('-1 seconds');
+    $context['timerange']['end'] = $last_yearly->getTimestamp();
+
+    $last_yearly->modify('1/1');
+    $last_yearly->modify('midnight');
+    $context['timerange']['start'] = $last_yearly->getTimestamp();
+
+    $contexts['yearly'] = $context;
+  }
+
+  if (
+    $date->format('j') == '1' // First of the month
+    && $last_monthly->format('Y-m-d') != $date->format('Y-m-d')
+  ) {
+    $context = array(
+      'timerange' => array(
+        'type'  => 'month',
+        'start' => 0,
+        'end'   => 0,
+      ),
+    );
+
+    $last_monthly = clone $date;
+    $last_monthly->modify('midnight');
+    $last_monthly->modify('-1 seconds');
+    $context['timerange']['end'] = $last_monthly->getTimestamp();
+
+    $last_monthly->modify('first day of this month');
+    $last_monthly->modify('midnight');
+    $context['timerange']['start'] = $last_monthly->getTimestamp();
+
+    $contexts['monthly'] = $context;
+  }
+
+  if (
+    $date->format('w') == variable_get('unfi_sp_metrics_schedule_weekday_start', '0')
+    && $last_weekly->format('Y-m-d') != $date->format('Y-m-d')
+  ) {
+    $context = array(
+      'timerange' => array(
+        'type'  => 'day',
+        'start' => 0,
+        'end'   => 0,
+      ),
+    );
+
+    $last_weekly = clone $date;
+    $last_weekly->modify('midnight');
+    $last_weekly->modify('-1 seconds');
+    $context['timerange']['end'] = $last_weekly->getTimestamp();
+
+    $last_weekly->modify('-6 days');
+    $last_weekly->modify('midnight');
+    $context['timerange']['start'] = $last_weekly->getTimestamp();
+
+    $contexts['weekly'] = $context;
+  }
+
+  if ($last_daily->format('Y-m-d') != $date->format('Y-m-d')) { //
+    $context = array(
+      'timerange' => array(
+        'type'  => 'day',
+        'start' => 0,
+        'end'   => 0,
+      ),
+    );
+
+    $last_daily = clone $date;
+    $last_daily->modify('midnight');
+    $last_daily->modify('-1 seconds');
+    $context['timerange']['end'] = $last_daily->getTimestamp();
+
+    $last_daily->modify('midnight');
+    $context['timerange']['start'] = $last_daily->getTimestamp();
+
+    $contexts['daily'] = $context;
+  }
+
+  $batch_sets = array();
+  foreach ($contexts as $frequency => $context) {
+    $scheduled = variable_get('unfi_sp_metrics_schedule_' . $frequency .'_reports', array('new_item_requests'));
+    foreach ($scheduled as $report_type) {
+      $batch_sets[] = unfi_sp_metrics_build_report_context('unfi_sp_metrics', $report_type, $context);
+    }
+    $timestamps[$frequency] = REQUEST_TIME;
+  }
+
+  foreach ($batch_sets as $batch_set) {
+    metrics_agg_background_process($batch_set);
+  }
+
+  variable_set('unfi_sp_metrics_schedule_last_timestamps', $timestamps);
+}

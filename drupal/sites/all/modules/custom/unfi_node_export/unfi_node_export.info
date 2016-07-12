@@ -1,0 +1,4 @@
+name        = UNFI Node Export
+description = Export a node to a human-readable file.
+core        = 7.x
+package     = UNFI

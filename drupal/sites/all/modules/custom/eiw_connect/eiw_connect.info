@@ -1,0 +1,7 @@
+name = EIW Connect
+description = Connect to the UNFI EIW data warehouse
+package = UNFI
+core = 7.x
+files[] = eiw_connection.inc
+
+dependencies[] = encrypt

@@ -1,0 +1,534 @@
+<?php
+/**
+ * @file
+ * Code for the Export CSV module.
+ */
+
+// Need this in order to ensure we can reference the same tables declared in the install file.
+include_once drupal_get_path('module', 'unfi_export') . '/unfi_export.cleanse.inc';
+
+/**
+ * Implements hook_permission()
+ *
+ * This provides a custom permissions level for using this module.
+ */
+function unfi_export_permission() {
+  return array(
+    'unfi export data' => array(
+      'title' => t('UNFI Export data'),
+      'description' => t('Export the data for the other business systems.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Prepare the staging tables and trim the log tables.
+ */
+function unfi_export_prepare_tables($tables) {
+  foreach ($tables as $table_name => $table) {
+    unfi_export_truncate_table($table_name);
+    unfi_export_trim_log($table_name);
+  }
+}
+
+/**
+ * Given a node and a staging table, maps the node fields and inserts into the table.
+ */
+function unfi_export_insert_record($table_name, $table_fields, $node) {
+  if (empty($table_name) || empty($table_fields) || empty($node)) {
+    return FALSE;
+  }
+
+  // Always snag the nid for logging/debugging purposes.
+  $fields = array('nid' => $node->nid);
+  foreach ($table_fields as $field_name => $field) {
+    // Check if a field has a 'map_to' assigned and if so, find it in the field.
+    if (!empty($field['map_to']) && isset($node->{$field['map_to']})) {
+      // Going out to a .csv we can only have one value per field, so using a function to flatten it out.
+      $values = unfi_export_flatten_value($node->{$field['map_to']});
+      $node_value = isset($values[0]) ? $values[0] : NULL; // Default to the first value.
+      // Check if a function is set to be used to clean up the data in the field.
+      if (!empty($field['clean_func']) && function_exists($field['clean_func'])) {
+        $args = array($values);
+        if (isset($field['map_extra_fields']) && is_array($field['map_extra_fields'])) {
+          foreach ($field['map_extra_fields'] as $extra_field) {
+            $vals = array();
+            if (isset($node->$extra_field)) {
+              $vals = unfi_export_flatten_value($node->$extra_field);
+            }
+            $args[] = $vals;
+          }
+        }
+        if (!empty($field['clean_func_args']) && is_array($field['clean_func_args'])) {
+          $args = array_merge($args, $field['clean_func_args']);
+        }
+        $node_value = call_user_func_array($field['clean_func'], $args);
+      }
+
+      $fields[$field_name] = $node_value;
+    }
+  }
+
+  $table_info = unfi_export_table_names($table_name);
+
+  // Insert into the table (save the copy into the log table until after all processing).
+  try {
+    $query = db_insert($table_info['table']);
+    $query->fields($fields);
+    $query->execute();
+  } catch (Exception $e) {
+    $params = array(
+      'type' => strtoupper($table_name),
+      'details' => array(
+        'message' => $e->getMessage(),
+        'link' => url('node/'. $node->nid, array('absolute' => TRUE)),
+      ),
+    );
+    watchdog_exception('unfi_export', $e);
+    drupal_mail('unfi_export', 'error', NULL, NULL, $params);
+  }
+}
+
+/**
+ * Given a node field, return an one-dimensional array. The clean functions will
+ * have to work with an array of values, even if that means just taking the first
+ * value.
+ */
+function unfi_export_flatten_value($field) {
+  $values = array();
+  if (is_array($field)) {
+    // Most fields will be an array of ['<lang>'][0]['value']. Can only send one value to csv.
+    reset($field);
+    if (isset($field[key($field)][0])) {
+      $lang = key($field);
+      foreach ($field[$lang] as $delta => $value_array) {
+        // Most field types
+        if (isset($value_array['value'])) {
+          $values[] = $value_array['value'];
+        }
+        // Taxonomy terms
+        else if (isset($value_array['tid'])) {
+          // A map_to function will need to convert this to meaningful information.
+          $values[] = $value_array['tid'];
+        }
+        // Entityreference fields
+        else if (isset($value_array['target_id'])) {
+          // A map_to function will need to convert this to meaningful information.
+          $values[] = $value_array['target_id'];
+        }
+        // File fields
+        else if (isset($value_array['fid'])) {
+          // A map_to function will need to convert this to meaningful information.
+          $values[] = $value_array['fid'];
+        }
+        else {
+          $values = array('UNKNOWN FIELD TYPE ' . implode(', ', array_keys($value_array)));
+        }
+      }
+    }
+  }
+  else if (is_object($field)) {
+    // todo: add object handling if needed.
+  }
+  else {
+    // All others (string, int, float, etc.).
+    $values = array($field);
+  }
+
+  return $values;
+}
+
+
+/**
+ * Alters the workflow state of nodes in a staging table.
+ */
+function unfi_export_alter_workflow_state_for_nodes_in_table($table_name, $new_state_id, $comment='') {
+  if (empty($new_state_id)) {
+    return FALSE;
+  }
+
+  $table_names = unfi_export_table_names($table_name);
+
+  // Fetch all nodes to update.
+  $query = db_select('node', 'n');
+  $query->fields('n', array('nid'));
+  $query->join('field_data_field_request_form', 'rf', 'n.nid = rf.field_request_form_target_id');
+  $query->join($table_names['table'], 'i', 'i.nid = rf.entity_id');
+  $query->join('workflow_node', 'w', 'w.nid = n.nid');
+  $query->condition('n.type', 'request_form');
+  $query->condition('n.status', 0, '>');
+  $result = $query->execute();
+
+  while($record = $result->fetchAssoc()) {
+    // todo: node_lode == slow, but not sure there's a good alternative if we still want to use workflow transition hooks.
+    $node = node_load($record['nid']);
+
+    // To properly transition, need to create a state and a transition then execute it.
+    $current_workflow_state = workflow_state_load_single(workflow_node_current_state($node, 'node'));
+    $transition = new WorkflowTransition();
+    $transition->setValues('node', $node, '', $current_workflow_state->sid, $new_state_id, 1, REQUEST_TIME, $comment);
+    workflow_execute_transition('node', $node, '', $transition, TRUE);
+  }
+}
+
+/**
+ * Implements hook_menu()
+ */
+function unfi_export_menu() {
+
+  $items = array();
+
+  // Create an administration block.
+  $items['admin/config/unfi_export'] = array(
+    'title' => t('Export CSV'),
+    'description' => t('Export data as .csv for core business systems.'),
+    'position' => 'right',
+    'weight' => 20,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('unfi export data'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  // Create the main settings page.
+  $items['admin/config/unfi_export/settings'] = array(
+    'title' => t('UNFI Export Settings'),
+    'description' => t('Configure the default export settings.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unfi_export_settings_form'),
+    'access arguments' => array('unfi export data'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Settings form for Export CSV configuration.
+ */
+function unfi_export_settings_form() {
+
+  $form['unfi_export_default_export_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Path'),
+    '#description' => t('The path to where files will be saved (../private recommended).'),
+    '#default_value' => variable_get('unfi_export_default_export_path', '../private'),
+    '#size' => 60,
+  );
+
+  $form['unfi_export_default_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Export Emails'),
+    '#description' => t('Comma-separated list of email addresses to notify in the event of a problem during export.'),
+    '#default_value' => variable_get('unfi_export_default_mail', 'support@unfidigital.zendesk.com'),
+    '#size' => 60,
+  );
+
+  $form['unfi_export_default_log_for_days'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Log for X Days'),
+    '#description' => t('Number of days to hold on to exported records in the database log tables.'),
+    '#default_value' => variable_get('unfi_export_default_log_for_days', ''),
+    '#size' => 4,
+  );
+
+  $form['unfi_export_ignore_groups'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Ignore Supplier Groups'),
+    '#default_value' => implode(', ', variable_get('unfi_export_ignore_groups', array(20,12))),
+    '#description'   => t('Group IDs to <em>not</em> process in exports.'),
+  );
+
+  $form['#validate'][] = 'unfi_export_settings_form_validate';
+
+  // Add system submit handler and submit button.
+  return system_settings_form($form);
+}
+
+function unfi_export_settings_form_validate($form, &$form_state) {
+  if (isset($form_state['values']['unfi_export_ignore_groups'])) {
+    $gids = array();
+    $gid_parts = explode(',', $form_state['values']['unfi_export_ignore_groups']);
+    foreach ($gid_parts as $gid) {
+      if (is_numeric($gid)) {
+        $gid = (int)trim($gid);
+        $gids[$gid] = $gid;
+      }
+    }
+    $form_state['values']['unfi_export_ignore_groups'] = $gids;
+  }
+}
+
+/**
+ * Determine table and log table names.
+ */
+function unfi_export_table_names($name) {
+  $tables = array(
+    'table' => 'unfi_export_' . $name,
+    'log_table' => 'unfi_export_' . $name . '_log',
+  );
+
+  return $tables;
+}
+
+/**
+ * Clean up log table removing any outdated records.
+ */
+function unfi_export_trim_log($table_name) {
+  $tables = unfi_export_table_names($table_name);
+
+  $log_for_days = variable_get('unfi_export_default_log_for_days');
+
+  // If log range is not set, do not continue.
+  if (!$log_for_days) {
+    return;
+  }
+
+  // Convert the log range from days to seconds and subtract from current time.
+  $ts = time() - ($log_for_days * 24 * 60 * 60);
+
+  // Clear out all records older than the current datetime minus the log range.
+  db_delete($tables['log_table'])
+    ->condition('timestamp', $ts, '<')
+    ->execute();
+
+  return;
+}
+
+/**
+ * Truncate a staging table to prepare it for export.
+ */
+function unfi_export_truncate_table($table_name) {
+  $tables = unfi_export_table_names($table_name);
+
+  db_truncate($tables['table'])->execute();
+
+  return;
+}
+
+/**
+ * Take a list of table(s) and process them one at a time.
+ */
+function unfi_export_create_staging_tables($tables) {
+  if (empty($tables) || !is_array($tables)) {
+    return FALSE;
+  }
+
+  $return = TRUE;
+  foreach ($tables as $requested_name => $table_info) {
+    if (!unfi_export_create_table($requested_name, $table_info)) {
+      $return = FALSE;
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Create the staging tables with log table for each.
+ */
+function unfi_export_create_table($requested_name, $table_info) {
+  // Generate names for the staging table and log table based on name provided.
+  $table_names = unfi_export_table_names($requested_name);
+
+  // Make sure the table and log table do not already exist, if so drop them in case fields changed.
+  unfi_export_drop_tables($table_names);
+
+  // Setup the new table and log table with the node nid for debug purposes.
+  $extra_fields = array(
+    'nid' => array(
+      'type' => 'int',
+    ),
+    'eid' => array(
+      'type' => 'int',
+    ),
+  );
+  $table_info['fields'] = array_merge($table_info['fields'], $extra_fields);
+  $schema = array();
+  $schema[$table_names['table']] = $table_info;
+
+  $log_extra_fields = array(
+    'timestamp' => array(
+      'type' => 'int',
+    ),
+  );
+  $table_info['fields'] = array_merge($table_info['fields'], $log_extra_fields);
+  $schema[$table_names['log_table']] = $table_info;
+
+  db_create_table($table_names['table'], $schema[$table_names['table']]);
+  db_create_table($table_names['log_table'], $schema[$table_names['log_table']]);
+
+  return;
+}
+
+/**
+ * Clean up table and log table on uninstall.
+ */
+function unfi_export_drop_tables($table_names=array()) {
+  if (!is_array($table_names)) {
+    return FALSE;
+  }
+
+  // Do the actual drops.
+  foreach ($table_names as $table_name) {
+    if (db_table_exists($table_name)) {
+      db_drop_table($table_name);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Returns the number of records in a table.
+ */
+function unfi_export_table_count($table_name) {
+  $table_info = unfi_export_table_names($table_name);
+  $query = db_select($table_info['table'], 't');
+  $result = $query->countQuery()->execute();
+  return (int) $result->fetchField();
+}
+
+/**
+ * Convert a given staging table into a .csv export.
+ */
+function unfi_export_generate_csv_file($table_name, $table_info, $local_path='', $base_name='') {
+  // Find the filename.
+  $filename = unfi_export_generate_filename('csv', $base_name);
+
+  $table_names = unfi_export_table_names($table_name);
+
+  // Attach the local destination path and the filename.
+  if (!empty($local_path) && $local_path != '/') {
+    $local_file = trim(rtrim($local_path, '/')) . '/' . $filename;
+  }
+
+  // Attempt to create the file.
+  $handle = fopen($local_file, 'w');
+
+  if (!$handle) {
+    // If file creation fails, kick back to a false.
+    // Handling errors out at the call of this function.
+    return FALSE;
+  }
+
+  // Initialize variables for use below.
+  $fields = array();
+  $header_cols = array();
+
+  // Loop through and create the header columns based on the field descriptions.
+  foreach ($table_info['fields'] as $field => $field_info) {
+    if (!empty($field_info['description'])) {
+      $fields[] = $field;
+      $header_cols[] = $field_info['description'];
+    }
+  }
+
+  // Fetch the records for export.
+  $query = db_select($table_names['table'], 't');
+  $query->fields('t', $fields);
+
+  // Alter the query if the implementing module allows for it
+  // TODO: could be a formal, proper hook
+  $func = !empty($table_info['module']) ? $table_info['module'] . '_generate_csv_file_query_alter' : FALSE;
+  if ($func && function_exists($func)) {
+    $func($query, func_get_args());
+  }
+
+  $result = $query->execute();
+
+  // TODO: this is quick and dirty for modules with a single table, but per-table vars could be used later
+  $t_var = !empty($table_info['module']) ? $table_info['module'] . '_transpose' : $base_name . '_csv_transpose';
+  $transpose = variable_get($t_var);
+  if ($transpose) {
+    $rows = array();
+
+    // Loop through each record and add to $rows for later writing.
+    while ($record = $result->fetchAssoc()) {
+      $rows[] = $record;
+    }
+
+    foreach ($header_cols as $k => $header) {
+      $write[$k] = array($header);
+
+      foreach ($rows as $row_key => $row) {
+        $write[$k][] = $row[$fields[$k]];
+      }
+
+      fputcsv($handle, $write[$k]);
+    }
+  } else { 
+    // Write out the header based on the table info.
+    fputcsv($handle, $header_cols);
+
+    // Loop through each record and write it to the .csv file.
+    while($record = $result->fetchAssoc()) {
+      fputcsv($handle, $record);
+    }
+  }
+
+  fclose($handle);
+
+  return $local_file;
+}
+
+/**
+ * Convert a given staging table into a .csv export.
+ */
+function unfi_export_generate_filename($extension='csv', $base_name='export') {
+  return $base_name .'-' . date('Y_m_d-H_i_s') . '.' . $extension;
+}
+
+/**
+ * Transfer a generated file to a remote location.
+ */
+function unfi_export_transfer_file($local_file, $remote_path) {
+  $remote_file = $remote_path;
+  if (drupal_substr($remote_file, -1) != '/') {
+    $remote_file .= '/';
+  }
+  $remote_file .= drupal_basename($local_file);
+  return file_unmanaged_move($local_file, $remote_file);
+}
+
+/**
+ * Log error messages.
+ */
+function unfi_export_log($message, $variables=array(), $severity=WATCHDOG_ERROR) {
+  // todo: This abstraction could be reworked to write to a log specifically for this module as opposed to watchdog.
+  watchdog('unfi_export', $message, $variables, $severity);
+}
+
+/**
+ * Copy contents from staging tables into the applicable log tables.
+ */
+function unfi_export_push_to_log_tables($tables) {
+  foreach ($tables as $table_name => $table) {
+    $table_names = unfi_export_table_names($table_name);
+    $sql = "INSERT {$table_names['log_table']}
+            SELECT
+              {$table_names['table']}.*,
+              UNIX_TIMESTAMP(NOW())
+            FROM {$table_names['table']}";
+    db_query($sql);
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function unfi_export_mail($key, &$message, $params) {
+  switch($key) {
+    case 'error':
+      $message['to'] = variable_get('unfi_export_default_mail', 'support@unfidigital.zendesk.com');
+      $message['from'] = variable_get('site_mail');
+      $message['subject'] = 'Problem occurred during request export';
+      $message['body'][] = 'A problem occurred during a '. $params['type'] . ' export.';
+      $message['body'][] = 'Details:';
+      $message['body'][] = $params['details']['message'];
+      $message['body'][] = 'Link to node:';
+      $message['body'][] = $params['details']['link'];
+      break;
+  }
+}

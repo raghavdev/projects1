@@ -1,0 +1,50 @@
+#page {
+  width: 995px;
+  @extend %margin-auto;
+}
+//site-wide fixes
+// Change Error icon
+div.error {
+  background-image: url(../img/unfi-24-error.png);
+  border-color: #ed541d;
+ }
+table.system-status-report tr.error td.status-icon div {
+  background-image: url(../img/unfi-16-error.png);
+}
+table#admin-dblog tr.dblog-alert td.icon,
+table#admin-dblog tr.dblog-emerg td.icon {
+  background-image: url(../img/unfi-16-error.png);
+}
+
+//undo fake Ember arrows
+#page .form-select {
+  background: #fff;
+  width: auto;
+  max-width: 280px;
+  -webkit-appearance: menulist;
+}
+#page select[multiple] {
+  -webkit-appearance: initial;
+}
+// fix sort arrows, specifically for requests view, but probably used elsewhere
+th.active img {
+  @include position-relative(8px,5px);
+}
+th.active a {
+  @include position-relative(-8px,0);
+}
+
+//some helper classes
+.hidden {
+  @extend %display-none;
+}
+.twocolumn {
+  float: left;
+  width: 49%;
+  padding-right: 1%;
+}
+
+.short-textarea {
+  height: 60px;
+}
+

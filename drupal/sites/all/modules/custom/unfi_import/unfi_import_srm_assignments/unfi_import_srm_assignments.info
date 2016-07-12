@@ -1,0 +1,6 @@
+name = UNFI Import SRM Assignments
+description = Import a .csv file to assign SRMs to Suppliers.
+core = 7.x
+package = UNFI
+
+dependencies[] = unfi_import

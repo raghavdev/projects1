@@ -1,0 +1,27 @@
+<?php
+
+/**
+ * Implements hook_install()
+ */
+function eiw_connect_install() {
+  // Populate the default settings records.
+  variable_set('mssql_host', '');
+  variable_set('mssql_port', '1433');
+  variable_set('mssql_domain', '');
+  variable_set('mssql_user', '');
+  variable_set('mssql_password', '');
+  variable_set('mssql_schema', '');
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function eiw_connect_uninstall() {
+  // Remove the settings records.
+  variable_del('mssql_host');
+  variable_del('mssql_port');
+  variable_del('mssql_domain');
+  variable_del('mssql_user');
+  variable_del('mssql_password');
+  variable_del('mssql_schema');
+}

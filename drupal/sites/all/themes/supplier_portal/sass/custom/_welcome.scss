@@ -1,0 +1,139 @@
+.panel-1col {
+  @extend %margin-auto;
+}
+.not-logged-in #branding {
+  @extend %display-none;
+}
+#logo img { // Welcome page logo
+  @extend %margin-auto;
+}
+.views-field-field-welcome-slides {
+  position: relative;
+  img {
+    border-radius: 5px;
+    @extend %margin-auto;
+  }
+}
+#block-views-welcome-slides-block {
+  position: relative;
+  h2 {
+    @extend %color-white;
+    z-index: 5;
+    font-size: 150px;
+    font-weight: bold;
+    opacity: 0.75;
+    position: absolute;
+    bottom: 0%;
+    text-align: center;
+    width: 100%;
+    margin: 0px;
+    line-height: 150px;
+    margin-bottom: -28px;
+  }
+}
+
+.views-slideshow-cycle-main-frame {
+  @extend %margin-auto;
+}
+
+.welcome-message {
+  text-align: center;
+  width: 581px;
+  @extend %margin-auto;
+  p {
+    font-size: 17px;
+  }
+}
+
+.pane-user-login {
+  form {
+    position: relative;
+    margin-left: auto;
+    margin-right: auto;
+    width: 550px;
+
+    .form-item {
+      width: 226px;;
+      margin-right: 15px;
+      @extend %floatleft;
+      input {
+        width: 100%;
+        height: 33px;
+      }
+    }
+    .form-container {
+      @include clearfix;
+    }
+    .form-actions {
+      padding-top: 26px;
+    }
+    .form-submit {
+      @extend %color-orange;
+      background: $white;
+      @extend %border-thin;
+      @extend %border-color-orange;
+      padding: 7px;
+      margin-right: 0;
+      margin-top: 9px;
+      &:hover {
+       background-color: $light-orange;
+       color: $white;
+       @extend %no-shadow;
+      }
+      &:active {
+        background-color: $light-orange;
+        color: $white;
+        @extend %no-shadow;
+      }
+      &:visited {
+        background-color: $light-orange;
+        color: $white;
+        @extend %no-shadow;
+      }
+      &:focus {
+        background-color: $light-orange;
+        color: $white;
+        @extend %no-shadow;
+      }
+    }
+
+    #edit-links-container {
+      text-align: center;
+      a {
+        display: block;
+        margin-right: 48px;
+      }
+    }
+  }
+}
+
+.view-inbox,
+.view-new-item-requests-form {
+  th,
+  td {
+    font-size: 13px;
+  }
+  thead {
+    vertical-align: bottom;
+  }
+  tbody {
+    vertical-align: top;
+  }
+  th.active{
+    a {
+      top: 0px;
+    }
+    img {
+      margin: 0;
+      top: 1px;
+    }
+  }
+  .views-field-ops {
+    text-align: center;
+  }
+ }
+
+//decrease padding on left and right of panes to give content more space
+.dashboard .rounded-corner .wrap-corner .r-edge {
+  padding: 5px 13px;
+}

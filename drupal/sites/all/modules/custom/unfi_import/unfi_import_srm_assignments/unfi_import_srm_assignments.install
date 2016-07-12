@@ -1,0 +1,197 @@
+<?php
+
+// Need this in order to ensure we can reference the some functions in the .module.
+include_once drupal_get_path('module', 'unfi_import') . '/unfi_import.module';
+
+/**
+ * Defines the staging table fields and mapping to drupal nodes for import.
+ *
+ * EDIT THIS ARRAY TO ALTER STRUCTURE
+ *
+ * Follows Drupal Schema API
+ *
+ * description : (part of schema api) will double as .csv file column headers
+ * Ex: 'description' => 'UBS_Brand',
+ *
+ * clean_func : will tell the export to process the values using a named function found in unfi_import.cleanse.inc
+ * Ex: 'clean_func' => 'unfi_import_csv_clean_upc_for_export',
+ *
+ * clean_func_args : will pass an array of arguments to the function defined in clean_func.
+ * EX: 'clean_func_args' => array(32, TRUE),
+ *
+ * REBUILD THE STAGING & LOG TABLES WITH DRUSH:
+ * drush srm_assignments --rebuild
+ *
+ * @return array
+ */
+function unfi_import_srm_assignments_fetch_tables() {
+  $tables = array();
+
+  // ########## SRM Assignments Fields ##########
+  $tables['srm_assignments'] = array(
+    'fields' => array(
+      'region' => array(
+        'description' => 'Region',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '0',
+      ),
+      'lawson_remit_vendor' => array(
+        'description' => 'Lawson Remit Vendor',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '1',
+      ),
+      'lawson_vendor_location' => array(
+        'description' => 'Lawson Vendor Location',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '2',
+      ),
+      'ven' => array(
+        'description' => 'Ven',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '3',
+      ),
+      'vendor' => array(
+        'description' => 'Vendor',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '4',
+      ),
+      'address' => array(
+        'description' => 'Address',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '5',
+      ),
+      'address2' => array(
+        'description' => 'Address2',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '6',
+      ),
+      'city' => array(
+        'description' => 'city',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '7',
+      ),
+      'state' => array(
+        'description' => 'State',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '8',
+      ),
+      'zip' => array(
+        'description' => 'Zip',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '9',
+      ),
+      'active' => array(
+        'description' => 'Active',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '10',
+      ),
+      'terms' => array(
+        'description' => 'Terms',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '11',
+      ),
+      'byr' => array(
+        'description' => 'Byr',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '12',
+      ),
+      'Buyer' => array(
+        'description' => 'Buyer',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '13',
+      ),
+      'srm' => array(
+        'description' => 'SRM',
+        'type' => 'varchar',
+        'length' => 32,
+        'map_to' => '14',
+      ),
+      'sup_rel_mgr' => array(
+        'description' => 'Sup Rel Mgr',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => '15',
+      ),
+      'srm_uid' => array(
+        'description' => 'SRM UID',
+        'type' => 'int',
+      ),
+      'supplier_nid' => array(
+        'description' => 'Supplier NID',
+        'type' => 'int',
+      ),
+    ),
+    'indexes' => array(
+      'srm_uid' => array('srm_uid'),
+      'supplier_nid' => array('supplier_nid'),
+      'srm' => array('srm'),
+      'lawson_remit_vendor' => array('lawson_remit_vendor'),
+    ),
+  );
+
+  return $tables;
+
+}
+
+/**
+ * Implements hook_install()
+ */
+function unfi_import_srm_assignments_install() {
+  // Initialize the staging tables used during export.
+  unfi_import_create_staging_tables(unfi_import_srm_assignments_fetch_tables());
+  variable_set('unfi_import_srm_assignments_batch_limit', 500);
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function unfi_import_srm_assignments_uninstall() {
+  $to_drop = array();
+  $tables = unfi_import_srm_assignments_fetch_tables();
+  foreach ($tables as $requested_name => $table_info) {
+    $table_names = unfi_import_table_names($requested_name);
+    foreach ($table_names as $table) {
+      $to_drop[] = $table;
+    }
+  }
+  unfi_import_drop_tables($to_drop);
+  variable_del('unfi_import_srm_assignments_batch_limit');
+}
+
+
+/**
+ * Implements hook_update_N().
+ * Some node titles had whitespace when imported. Does a SQL TRIM().
+ */
+function unfi_import_srm_assignments_update_7000() {
+
+  // Do a left and right trim of whitespace on all node titles.
+  $sql = "UPDATE node n
+          SET n.title = TRIM(n.title)";
+  db_query($sql)->execute();
+
+}
+
+/**
+ * Implements hook_update_N().
+ * Disable background_batch.
+ */
+function unfi_import_srm_assignments_update_7001() {
+  if (module_exists('background_batch')) {
+    module_disable(array('background_batch'));
+  }
+}

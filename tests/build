@@ -1,0 +1,13 @@
+# Enable Bash error checking
+set -o nounset
+set -o errexit
+
+cap $BRANCH_NAME_TO_BUILD db:down
+mv ../db/default_$BRANCH_NAME_TO_BUILD.sql ../db/default_qa.sql
+cap $BRANCH_NAME_TO_BUILD files:pull
+
+CAP="cap qa -s node=$NODE_NAME -s branch=$BRANCH_NAME_TO_BUILD -s build=$BUILD_NUMBER"
+$CAP deploy:setup
+$CAP deploy
+$CAP files:push
+$CAP db:push

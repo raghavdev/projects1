@@ -1,0 +1,25 @@
+# Enable Bash error checking
+set -o nounset
+set -o errexit
+
+# Build behat
+cd behat
+composer install
+cd ..
+
+HOSTNAME=`hostname`
+
+# Run behat - This must be the last statement so exit code is returned to Jenkins.
+echo "
+default:
+  extensions:
+    Behat\MinkExtension\Extension:
+      base_url: http://$JOB_NAME-$BRANCH_NAME_TO_BUILD-$BUILD_NUMBER.$HOSTNAME/
+    Drupal\DrupalExtension\Extension:
+      drush:
+        root: /var/www/sites/virtual/$JOB_NAME-$BRANCH_NAME_TO_BUILD-$BUILD_NUMBER.$HOSTNAME/current/drupal
+      drupal:
+        drupal_root: /var/www/sites/virtual/$JOB_NAME-$BRANCH_NAME_TO_BUILD-$BUILD_NUMBER.$HOSTNAME/current/drupal
+" > config/behat.local.yml
+
+./behat/bin/behat --format junit --out results --no-ansi --tags "~wip"

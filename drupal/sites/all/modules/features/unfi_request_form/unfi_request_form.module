@@ -1,0 +1,550 @@
+<?php
+/**
+ * @file
+ * Code for the UNFI Request Form feature.
+ */
+
+include_once 'unfi_request_form.features.inc';
+
+/**
+ * Alter UNFI custom settings for to add file upload for blank sales agreement
+ */
+function unfi_request_form_form_unfi_custom_settings_form_alter(&$form, &$form_state) {
+  // Add managed file field, it will handle most of the hard work
+  $form['unfi_request_form_blank_sales_agreement'] = array(
+    '#type'              => 'managed_file',
+    '#title'             => t('Guaranteed Sales Agreement - Blank Form'),
+    '#default_value'     => variable_get('unfi_request_form_blank_sales_agreement', 0),
+    '#description'       => t('Allows users to download a blank copy of the form.'),
+    '#upload_location'   => 'private://sales_agreements/',
+    '#upload_validators' => array('file_validate_extensions' => array(
+      'xls xlsx xlsm',
+    )),
+  );
+  $form['#submit'][] = 'unfi_request_form_form_unfi_custom_settings_form_alter_submit';
+}
+
+/**
+ * Additional Form API submit function for file handling.
+ */
+function unfi_request_form_form_unfi_custom_settings_form_alter_submit($form, &$form_state) {
+  $variables = array(
+    'blank_sales_agreement' => 'unfi_request_form_blank_sales_agreement',
+  );
+  foreach ($variables as $usage_key => $variable_name) {
+    // Clean up file IDs for simple testing fringe cases:
+    // not existing, being removed, being added, being changed
+    $old_fid = 0;
+    if (isset($form[$variable_name]['#default_value'])) {
+      $old_fid = (int) $form[$variable_name]['#default_value'];
+    }
+    $new_fid = 0;
+    if (isset($form_state['values'][$variable_name])) {
+      $new_fid = (int) $form_state['values'][$variable_name];
+    }
+    // Only make changes when changes are made
+    if ($old_fid != $new_fid) {
+      // If there is a new file, handle saving it permanently
+      if ($new_fid && ($new_file = file_load($new_fid))) {
+        // Increment usage for the instance to prevent file_delete() calls.
+        // Admittedly & purposefully using the entity type wrong,
+        // but the actual products will use the entity type 'node'.
+        file_usage_add($new_file, 'unfi_request_form', $usage_key, 1);
+        // Tell Drupal to keep the file
+        $new_file->status = FILE_STATUS_PERMANENT;
+        // Save the file metadata
+        file_save($new_file);
+      }
+      // If there is an old file, handle removing it
+      if ($old_fid && ($old_file = file_load($old_fid))) {
+        // Decrement usage for the instance, hopefully it will be the only one
+        file_usage_delete($old_file, 'unfi_request_form', $usage_key, 1);
+        // Delete the file (if there is no other usage)
+        file_delete($old_file);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_form_alter()
+ * Add link to download blank copy of sales agreement
+ */
+function unfi_request_form_field_widget_form_alter(&$element, &$form_state, $context) {
+  // Sales Agreement field
+  if ($context['instance']['field_name'] == 'field_sales_agreement') {
+    // If there is a "Blank Form" file ID
+    if (($file_id = variable_get('unfi_request_form_blank_sales_agreement', 0))) {
+      // Append the description text with a link to download
+      $file = file_load($file_id);
+      $uri = $file->uri;
+
+      $element[0]['#description'] .= (empty($element[0]['#description']) ? '' : '<BR />') .
+        l('Download a blank copy of the Guaranteed Sales Agreement.', file_create_url($uri));
+    }
+  }
+}
+/**
+ * Implements hook_field_extra_fields().
+ */
+function unfi_request_form_field_extra_fields() {
+  $extra['node']['request_form'] = array(
+    'form' => array(
+      'products' => array(
+        'label' => t('Products'),
+        'description' => t('List of products in this request.'),
+        'weight' => 0,
+      ),
+    ),
+    'display' => array(
+      'products' => array(
+        'label' => t('Products'),
+        'description' => t('List of products in this request.'),
+        'weight' => 0,
+      ),
+    ),
+  );
+
+  return $extra;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function unfi_request_form_form_request_form_node_form_alter(&$form, &$form_state) {
+  // Auto-populate with supplier if the user only has organic group
+  global $user;
+  $ogs_of_user = og_get_groups_by_user($user)['node'];
+  if (count($ogs_of_user) === 1 && current_path() === 'node/add/request-form') {
+    $supplier = node_load(current($ogs_of_user));
+    $form['og_group_ref']['und'][0]['default'][0]['target_id']['#default_value'] = $supplier->title . ' (' . $supplier->nid . ')';
+  }
+  $form['title']['#type'] = "hidden";
+  $form['title']['#default_value'] = date("m/d/Y");
+
+  $node = $form_state['node'];
+  // This is the node add form, prompt for how many products to create
+  if (!(isset($node->nid) && $node->nid)) {
+    $form['products'] = array(
+      '#type' => 'container',
+      '#tree' => FALSE,
+      'products' => array(
+        '#type' => 'textfield',
+        '#title' => t('How many products are you adding?'),
+        '#size' => 4,
+        '#required' => TRUE,
+      ),
+      'upcs' => array(
+        '#type' => 'textarea',
+        '#title' => t('Enter the Item UPCs'),
+        '#description' => t('This can be a copy of an Excel column or another list. UPCs should be separated by either a newline, comma or space character.'),
+        '#required' => TRUE,
+      ),
+    );
+    $form['#validate'][] = 'unfi_request_form_add_node_request_form_validate';
+    $form['actions']['submit']['#submit'][] = 'unfi_request_form_add_node_request_form_submit';
+  }
+  $form['actions']['submit']['#submit'][] = 'unfi_request_form_node_request_form_redirect_submit';
+}
+
+/**
+ * Form #validate callback: Add request_form node.
+ */
+function unfi_request_form_add_node_request_form_validate($form, &$form_state) {
+  $products = $form_state['values']['products'];
+  if (!is_numeric($products) || (int) $products < 1) {
+    form_set_error('products', t('You must create at least 1 product.'));
+  }
+  else if ((int) $products > 50) {
+    form_set_error('products', t('Sorry, you cannot create more then 50 products in a single request.'));
+  }
+  else {
+    form_set_value($form['products']['products'], (int) $products, $form_state);
+  }
+
+  $upcs = $form_state['values']['upcs'];
+  $upc_array = preg_split("/[\s,]+/", $upcs);
+  $upc_array = array_filter($upc_array);
+  // @todo Ensure UPCs are unique? Validate format of UPCs and/or reformat them?
+  // This may not be necessary, based on last call with Robert, the Item UPC
+  // may not be required for some products (Europe?) but we do want to require
+  // it. Not sure what that means for us yet.
+  if (count($upc_array) != $products) {
+    form_set_error('upcs', t('The number of UPCs entered (@count) does not match the number of products you entered.', array(
+      '@count' => count($upc_array),
+    )));
+  }
+  else {
+    form_set_value($form['products']['upcs'], $upc_array, $form_state);
+  }
+  if (isset($form_state['values']['og_group_ref']['und'][0])) {
+    $supplier = node_load($form_state['values']['og_group_ref']['und'][0]['target_id']);
+    $new_title = date("m/d/Y") . ' - ' . $supplier->title . ' (' . $products . ')';
+    form_set_value($form['title'], $new_title, $form_state);
+  }
+}
+
+/**
+ * Form #submit callback: Add request_form node.
+ */
+function unfi_request_form_add_node_request_form_submit($form, &$form_state) {
+  // Create empty product nodes.
+  $count = $form_state['values']['products'];
+  $upcs = $form_state['values']['upcs'];
+  $node = $form_state['node'];
+
+  $data = array(
+    'type' => 'product',
+    'language' => LANGUAGE_NONE,
+    'title' => '',
+    'is_new' => TRUE,
+    'uid' => $node->uid,
+    'created' => $node->created,
+    'og_group_ref' => $node->og_group_ref,
+    'field_request_form' => array(
+      LANGUAGE_NONE => array(
+        0 => array(
+          'target_id' => $node->nid,
+        ),
+      ),
+    ),
+  );
+  $i = 0;
+  while ($i < $count) {
+    $product = (object) $data;
+    $product->field_unit_upc[LANGUAGE_NONE][0]['value'] = $upcs[$i];
+    node_save($product);
+    $i++;
+  }
+}
+
+/**
+ * Form #submit callback: Add and edit request_form node.
+ */
+function unfi_request_form_node_request_form_redirect_submit($form, &$form_state) {
+  $node = $form_state['node'];
+
+  // After saving the nodes, we redirect to the edit form.
+  if (isset($_GET['destination'])) {
+    $destination = $_GET['destination'];
+    unset($_GET['destination']);
+  }
+  else {
+    $destination = variable_get('site_frontpage', 'node');
+  }
+  $form_state['redirect'] = array(
+    'path' => 'node/' . $node->nid . '/edit-products',
+    'query' => array(
+      'destination' => $destination,
+    ),
+  );
+}
+
+/**
+ * Implements hook_token_info_alter().
+ */
+function unfi_request_form_token_info_alter(&$data) {
+  $data['tokens']['node']['unfi_request_items'] = array(
+    'name' => t(' UNFI New Item Request Items'),
+    'description' => t('Returns the UPC and title of all items in a UNFI New Item Request'),
+  );
+
+  $data['tokens']['node']['unfi_request_items_archived'] = array(
+    'name' => t(' UNFI New Item Request Items (Archived)'),
+    'description' => t('Returns the all items in a UNFI New Item Request with the final information'),
+  );
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function unfi_request_form_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  $sanitize = !empty($options ['sanitize']);
+
+  if ($type == 'node' && !empty($data['node'])) {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'unfi_request_items':
+          $value = '';
+          $nid = $data['node']->nid;
+          $products = unfi_request_form_get_products_on_request($nid);
+
+          if (!empty($products)) {
+            foreach ($products as $product) {
+              $upc = $product->field_unit_upc[$product->language][0]['safe_value'];
+              $value .= $upc . ' ' . $product->title . "\n";
+            }
+          }
+
+          $replacements[$original] = $value;
+          break;
+
+        case 'unfi_request_items_archived':
+          $value = '';
+          $products = unfi_request_form_get_products_on_request($data['node']->nid);
+          $wrapper = entity_metadata_wrapper($type, $data['node']);
+          $supplier = $sanitize ? check_plain($wrapper->og_group_ref->value()->title) : $wrapper->og_group_ref->value()->title;
+          $brand = $wrapper->field_brand->value(array('sanitize' => $sanitize));
+
+          if (!empty($products)) {
+            foreach ($products as $product) {
+              $product_wrap = entity_metadata_wrapper('node', $product);
+
+              $upc         = $product_wrap->field_unit_upc->value(array('sanitize' => $sanitize));
+              $desc        = $sanitize ? check_plain($product_wrap->label()) : $product_wrap->label();
+              $size        = $product_wrap->field_size->value(array('sanitize' => $sanitize));
+              $uom         = $product_wrap->field_unit_of_measure->value(array('sanitize' => $sanitize));
+              $ubs         = $product_wrap->field_ubs_number->value(array('sanitize' => $sanitize));
+              $wbs         = $product_wrap->field_wbs_number->value(array('sanitize' => $sanitize));
+              $srp_east    = $product_wrap->field_srp_east->value(array('sanitize' => $sanitize));
+              $whole_east  = $product_wrap->field_wholesale_price_east->value(array('sanitize' => $sanitize));
+              $srp_west    = $product_wrap->field_srp_west->value(array('sanitize' => $sanitize));
+              $whole_west  = $product_wrap->field_wholesale_price_west->value(array('sanitize' => $sanitize));
+              $pub_months  = $product_wrap->field_intro_promo_months->value(array('sanitize' => $sanitize));
+              $ware_east   = $product_wrap->field_warehouses_east->value();
+              $ware_west   = $product_wrap->field_warehouses_west->value();
+              $ware_select = $product_wrap->field_warehouses_select->value();
+              $use_mcc     = $product_wrap->field_use_mcc_west->raw();
+
+              $value .= $upc . ' ' . $desc . ":\n";
+              $value .= ' - ' . $size . ' ' . $uom . "\n";
+              $value .= ' - ' . $supplier . ' - ' . $brand . "\n";
+              $value .= ' - ' . t('UBS Number') . ': ' . $ubs . "\n";
+              if (!empty($wbs)) {
+                $value .= ' - ' . t('WBS Number') . ': ' . $wbs . "\n";
+              }
+              $value .= ' - ' . t('Wholesale Price (East)') . ': $' . $whole_east . "\n";
+              $value .= ' - ' . t('SRP (East)') . ': $' . $srp_east . "\n";
+              if (!empty($whole_west)) {
+                $value .= ' - ' . t('Wholesale Price (West)') . ': ';
+                if ($use_mcc == 'mcc_fob') {
+                  $value .= "\n";
+                  foreach ($whole_west as $idx => $price) {
+                    if ($sanitize) {
+                      $price = check_plain($price);
+                    }
+                    $value .= ' - - ';
+                    if (isset($ware_west[$idx])) {
+                      $title = $sanitize ? check_plain($ware_west[$idx]->title) : $ware_west[$idx]->title;
+                      $value .= $title . ': ';
+                    }
+                    $value .= '$' . $price . "\n";
+                  }
+                }
+                else {
+                  $value .= '$' . reset($whole_west) . "\n";
+                }
+              }
+              if (!empty($srp_west)) {
+                $value .= ' - ' . t('SRP (West)') . ': ';
+                if ($use_mcc == 'mcc_fob') {
+                  $value .= "\n";
+                  foreach ($srp_west as $idx => $price) {
+                    if ($sanitize) {
+                      $price = check_plain($price);
+                    }
+                    $value .= ' - - ';
+                    if (isset($ware_west[$idx])) {
+                      $title = $sanitize ? check_plain($ware_west[$idx]->title) : $ware_west[$idx]->title;
+                      $value .= $title . ': ';
+                    }
+                    $value .= '$' . $price . "\n";
+                  }
+                }
+                else {
+                  $value .= '$' . reset($srp_west) . "\n";
+                }
+              }
+              if (!empty($pub_months['value']) && !empty($pub_months['value2'])) {
+                $value .= ' - ' . t('Intro Promo Months') . ':' . "\n";
+                $date = new DateTime($pub_months['value'], new DateTimeZone($pub_months['timezone']));
+                $value .= ' - - ' . t('Start') . ': ';
+                $value .= format_date($date->getTimestamp(), 'custom', 'l, F j, Y');
+                $value .= "\n";
+                $date ->modify($pub_months['value2']);
+                $value .= ' - - ' . t('End') . ': ';
+                $value .= format_date($date->getTimestamp(), 'custom', 'l, F j, Y');
+                $value .= "\n";
+              }
+              if (!empty($ware_east)) {
+                $value .= ' - ' . t('East Warehouse Location(s)') . ': ' . "\n";
+                foreach ($ware_east as $warehouse) {
+                  $title = $sanitize ? check_plain($warehouse->title) : $warehouse->title;
+                  $value .= ' - - ' . $title . "\n";
+                }
+              }
+              if (!empty($ware_select)) {
+                $value .= ' - ' . t('Select (East) Warehouse Location(s)') . ': ' . "\n";
+                foreach ($ware_select as $warehouse) {
+                  $title = $sanitize ? check_plain($warehouse->title) : $warehouse->title;
+                  $value .= ' - - ' . $title . "\n";
+                }
+              }
+              if (!empty($ware_west)) {
+                $value .= ' - ' . t('West Warehouse Location(s)') . ': ' . "\n";
+                foreach ($ware_west as $warehouse) {
+                  $title = $sanitize ? check_plain($warehouse->title) : $warehouse->title;
+                  $value .= ' - - ' . $title . "\n";
+                }
+              }
+
+              $value .= "\n";
+            }
+          }
+
+          $replacements[$original] = $value;
+          break;
+      }
+    }
+  }
+
+  return $replacements;
+}
+
+/**
+ * Implements hook_workflow().
+ *
+ * Validate Request workflow state changes to ensure complete Item/Product validation.
+ */
+function unfi_request_form_workflow($op, $id, $new_sid, $entity, $force, $entity_type = '', $field_name = '', $transition = NULL) {
+  // Act before state change.
+  // Where $entity is Request Form.
+  if (($op == 'transition pre') && ($entity->type == 'request_form')) {
+    return unfi_request_form_validate_request($entity);
+  }
+}
+
+/**
+ * Validates a full Request (the products/items, specifically).
+ *
+ * @param $entity
+ *   A Request entity object.
+ *
+ * @return bool
+ *   Whether the Request's products/items pass normal node validation.
+ */
+function unfi_request_form_validate_request($entity) {
+  global $user;
+  $errors = array();
+  $nodes = array($entity);
+
+  $nodes += unfi_request_form_get_products_on_request($entity->nid);
+
+  foreach ($nodes as $node) {
+    unfi_request_form_validate_fields($node, $user, $errors);
+  }
+
+  if (!empty($errors)) {
+    drupal_set_message('There seems to be something wrong with your Request. Please ensure that all Request
+          Items have correct data before submitting this Request for review.', 'warning');
+    watchdog('unfi_request_form', 'Request was submitted for review, but failed validation.');
+
+    foreach ($errors as $error) {
+      drupal_set_message($error['message'], $error['level']);
+    }
+
+    // Do not allow the state transition.
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Perform custom unfi_request_form validation on a given node related to request.
+ *
+ * @param $node
+ *   A Drupal node object.
+ *
+ * @param $user
+ *   A Drupal user object.
+ *
+ * @param $errors
+ *   An array of errors, by reference, that we can eventually return.
+ */
+function unfi_request_form_validate_fields($node, $user, &$errors) {
+  // field_info_instances() is static cached, so not much harm in running it
+  // multiple times.
+  $fields = field_info_instances('node', $node->type);
+
+  foreach ($fields as $field_name => $field) {
+    // If we're looking at a required field.
+    if ($field['required'] || unfi_request_form_required_by_role($user, $field)) {
+      $field_data = field_get_items('node', $node, $field_name);
+      // There's no data in this required field!!!OMG
+      if (!$field_data) {
+        // Add some errors.
+        $errors[] = array(
+          'message' => t(
+              '[' . node_type_get_name($node) . '] ' . $node->title . ' is missing the required ' . $field['label'] . ' field.'
+            ),
+          'level' => 'error',
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Checks to see if a user is required_by_role to fill out a given field.
+ *
+ * @param $user
+ *   A Drupal User object.
+ *
+ * @param $field
+ *   An field array as returned by field_info_instances().
+ *
+ * @return bool
+ *   Whether the given field is required by the given $user.
+ */
+function unfi_request_form_required_by_role($user, $field) {
+  foreach ($user->roles as $rid => $role) {
+    if (isset($field['settings']['required_by_role'][$rid]) && $field['settings']['required_by_role'][$rid]) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Returns an array of product nodes attached to a given request form.
+ *
+ * @param $nid
+ *   Node ID of a Request form.
+ *
+ * @return array $products
+ *   An array of product nodes on the request.
+ */
+function unfi_request_form_get_products_on_request($nid) {
+  $products = array();
+
+  if (is_numeric($nid)) {
+    $product_nids = db_select('field_data_field_request_form', 'r')
+        ->fields('r', array('entity_id'))
+        ->condition('r.field_request_form_target_id', $nid)
+        ->execute()
+        ->fetchCol();
+
+    if (!empty($product_nids)) {
+      $products = node_load_multiple($product_nids);
+    }
+  }
+
+  return $products;
+}
+
+/**
+ * Implements hook_node_view()
+ * Display user with active lock on a request node
+ */
+function unfi_request_form_node_view($node, $view_mode, $langcode) {
+  $flag = flag_get_flag('lock_request');
+  if ($flag->is_flagged($node->nid)) {
+    $record = $flag->get_flagging_record($node->nid);
+    $uid = $record->uid;
+    $user = user_load($uid);
+    drupal_set_message('Request locked by ' . $user->name . '.', 'warning');
+  }
+}

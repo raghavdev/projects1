@@ -1,0 +1,83 @@
+From 59b93c6d91b529aebf0de4f5bd8ea21ceae3aee9 Mon Sep 17 00:00:00 2001
+From: Jonathan Jordan <jojonaloha@1579186.no-reply.drupal.org>
+Date: Mon, 15 Dec 2014 15:22:21 -0800
+Subject: [PATCH] Issue #1980238 by hanoii: option to hide current value (only
+ show edit box) or make them editable on click
+
+---
+ editableviews_plugin_style_row_edit_table.inc            | 5 ++++-
+ handlers/editableviews_handler_field_field_edit.inc      | 8 ++++++++
+ handlers/editableviews_handler_field_node_title_edit.inc | 8 ++++++++
+ 3 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/editableviews_plugin_style_row_edit_table.inc b/editableviews_plugin_style_row_edit_table.inc
+index 67fabc2..9d60f2d 100644
+--- a/editableviews_plugin_style_row_edit_table.inc
++++ b/editableviews_plugin_style_row_edit_table.inc
+@@ -281,7 +281,10 @@ class editableviews_plugin_style_row_edit_table extends views_plugin_style_table
+         list($entity_type, $entity_id) = $result_entity_ids[$index][$handler_id];
+ 
+         // TODO! theme this!!
+-        $this->rendered_fields[$index][$handler_id] = '<div class="views-row-edit-static">' . $rendered_field . '</div>';
++        $this->rendered_fields[$index][$handler_id] = '';
++        if (!$this->view->field[$handler_id]->options['suppress_value']) {
++          $this->rendered_fields[$index][$handler_id] = '<div class="views-row-edit-static">' . $rendered_field . '</div>';
++        }
+         $this->rendered_fields[$index][$handler_id] .= '<div class="views-row-edit-edit">' . drupal_render($this->form[$entity_type][$entity_id][$field_name]) . '</div>';
+       }
+     }
+diff --git a/handlers/editableviews_handler_field_field_edit.inc b/handlers/editableviews_handler_field_field_edit.inc
+index 2a65c2c..8f62c7d 100755
+--- a/handlers/editableviews_handler_field_field_edit.inc
++++ b/handlers/editableviews_handler_field_field_edit.inc
+@@ -24,6 +24,7 @@ class editableviews_handler_field_field_edit extends views_handler_field_field {
+     $options['widget_type'] = array('default' => NULL);
+     $options['suppress_label'] = array('default' => FALSE);
+     $options['suppress_description'] = array('default' => FALSE);
++    $options['suppress_value'] = array('default' => FALSE);
+ 
+     return $options;
+   }
+@@ -62,6 +63,13 @@ class editableviews_handler_field_field_edit extends views_handler_field_field {
+       '#description' => t('If selected, the description on field widgets is hidden.'),
+       '#default_value' => $this->options['suppress_description'],
+     );
++
++    $form['suppress_value'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Hide field value'),
++      '#description' => t('If selected, the value on field is hidden.'),
++      '#default_value' => $this->options['suppress_value'],
++    );
+   }
+ 
+   /**
+diff --git a/handlers/editableviews_handler_field_node_title_edit.inc b/handlers/editableviews_handler_field_node_title_edit.inc
+index ca3c242..a2964b0 100755
+--- a/handlers/editableviews_handler_field_node_title_edit.inc
++++ b/handlers/editableviews_handler_field_node_title_edit.inc
+@@ -17,6 +17,7 @@ class editableviews_handler_field_node_title_edit extends views_handler_field_no
+     $options = parent::option_definition();
+ 
+     $options['textfield_size'] = array('default' => NULL);
++    $options['suppress_value'] = array('default' => FALSE);
+ 
+     return $options;
+   }
+@@ -31,6 +32,13 @@ class editableviews_handler_field_node_title_edit extends views_handler_field_no
+       '#default_value' => $this->options['textfield_size'],
+       '#size' => 6,
+     );
++
++    $form['suppress_value'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Hide field value'),
++      '#description' => t('If selected, the value on field is hidden.'),
++      '#default_value' => $this->options['suppress_value'],
++    );
+   }
+ 
+   /**
+-- 
+1.9.3 (Apple Git-50)
+

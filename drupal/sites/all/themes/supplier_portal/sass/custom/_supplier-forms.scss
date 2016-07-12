@@ -1,0 +1,87 @@
+.node-supplier_contact-form,
+.node-supplier-contact {
+  @extend %margin-auto;
+  td{
+    border: 0px;
+  }
+  fieldset legend {
+    @extend %h2-font;
+  }
+  .ief-form {
+    position: relative;
+    @include clearfix;
+  }
+  h2 {
+    @extend %border-bottom-thin;
+    @extend %border-color-dark-gray;
+    @extend %top-spacer;
+    @extend %color-green;
+    @extend %full-width;
+  }
+  h3 {
+    @extend %top-spacer;
+    @extend %color-orange;
+    @extend %full-width;
+  }
+  .field-group-div {
+    @extend %floatleft;
+    width: 100%;
+    > div {
+      @extend %display-block;
+      @extend %floatleft;
+      width: 33%;
+    }
+    &.fluid-width > div {
+      width: auto;
+    }
+  }
+  .group-east-pick-up-location, .group-west-pick-up-location {
+    @extend .twocolumn;
+    > div {
+      width: 100%;
+      h2 {
+        @extend %h3-font;
+      }
+    }
+  }
+
+  .form-item {
+    @extend %right-spacer-margin;
+  }
+  .field-type-field-collection {
+    th label {
+      @extend %color-green;
+      font-size: "PT Sans";
+      font-size: 24px;
+      font-weight: normal;
+      @extend %top-spacer;
+      @extend %floatleft;
+    }
+  }
+  // Hide Drupal default publishing options
+  .vertical-tabs {
+    display: none;
+  }
+  .ief-form-row, .ief-row-form {
+    border:0px;
+  }
+
+  input[type="submit"].ief-entity-submit {
+    @extend %background-green;
+    @extend %color-white;
+    &:hover {
+      opacity: .75;
+    }
+  }
+
+  #edit-field-contact-type-und {
+    width: 400px;
+    height: 200px;
+  }
+ }
+ #edit-field-phone-und-0-value {
+  width: 265px;
+  .node-supplier_contact-form & {
+    width:215px;
+  }
+}

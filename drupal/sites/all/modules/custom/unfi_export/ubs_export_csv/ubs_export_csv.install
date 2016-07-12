@@ -1,0 +1,704 @@
+<?php
+
+// @todo Refactor this file to not require this.
+// Need this in order to ensure we can reference the some functions in the .module.
+include_once drupal_get_path('module', 'unfi_export') . '/unfi_export.module';
+
+/**
+ * @todo Convert this to a hook_schema() implementation. Potentially move this
+ * function to an include that we load with module_load_include() and build the
+ * schema dynamically in the hook_schema().
+ *
+ * Defines the staging table fields and mapping to drupal nodes for export.
+ *
+ * EDIT THIS ARRAY TO ALTER STRUCTURE
+ *
+ * Follows Drupal Schema API, but adds a few array keys used only by the UNFI Export:
+ *
+ * description : (part of schema api) will double as .csv file column headers
+ * Ex: 'description' => 'UBS_Brand',
+ *
+ * map_to : can be used to map a field to a field in a drupal node
+ * Ex: 'map_to' => 'field_brand',
+ *
+ * clean_func : will tell the export to process the values using a named function found in unfi_export.cleanse.inc
+ * Ex: 'clean_func' => 'unfi_export_csv_clean_upc_for_export',
+ *
+ * clean_func_args : will pass an array of arguments to the function defined in clean_func.
+ * EX: 'clean_func_args' => array(32, TRUE),
+ *
+ * SETTING UP A DEFAULT FIELD EX:
+ *
+ * 'some_field' => array(
+ *   'description' => 'Some Field Column Header',
+ *   'type' => 'varchar',
+ *   'length' => 255,  // need length or may error on table creation.
+ *   'default' => 'N',
+ * )
+ *
+ * REBUILD THE STAGING & LOG TABLES WITH DRUSH:
+ * drush ubs --rebuild
+ *
+ * @return array
+ */
+function ubs_export_csv_fetch_tables() {
+  $tables = array();
+
+  // ########## UBS Fields ##########
+  $tables['ubs'] = array(
+    'module' => 'ubs_export_csv',
+    'fields' => array(
+      'ubs_exclusive' => array(
+        'description' => 'UBS_Exclusive_Item',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => 'field_exclusive',
+        'clean_func' => 'unfi_export_clean_list_field',
+        'clean_func_args' => array('field_exclusive', ',', 'N'),
+      ),
+      'ubs_product_department' => array(
+        'description' => 'UBS_Product_Department',
+        'type' => 'varchar',
+        'length' => 100,
+        'map_to' => 'field_request_form',
+        'clean_func' => 'unfi_export_node_field',
+        'clean_func_args' => array(
+          'field_product_category',
+        ),
+      ),
+      'ubs_brand' => array(
+        'description' => 'UBS_Brand',
+        'type' => 'varchar',
+        'length' => 30,
+        'map_to' => 'field_east_brand',
+        'clean_func' => 'unfi_export_clean_string',
+      ),
+      'ubs_description_25_characters' => array(
+        'description' => 'UBS_Description_25_Characters',
+        'type' => 'varchar',
+        'length' => 100,
+        'map_to' => 'title',
+        'clean_func' => 'unfi_export_clean_string',
+      ),
+      'national_selling_pack' => array(
+        'description' => 'National_Selling_Pack',
+        'type' => 'varchar',
+        'length' => 2,
+        'map_to' => 'field_national_selling_pack',
+      ),
+      'ubs_pack' => array(
+        'description' => 'UBS_Pack',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => FALSE,
+        'map_to' => 'field_case_pack',
+      ),
+      'selling_unit' => array(
+        'description' => 'Selling_Unit',
+        'type' => 'varchar',
+        'length' => 128,
+        'map_to' => 'field_selling_unit',
+      ),
+      'ubs_size' => array(
+        'description' => 'UBS_Size',
+        'type' => 'varchar',
+        'length' => 128,
+        'map_to' => 'field_size',
+        'map_extra_fields' => array('field_unit_of_measure'),
+        'clean_func' => 'unfi_export_implode_fields',
+        'clean_func_args' => array(
+          ' ',
+        ),
+      ),
+      'ubs_ven__no_leading_0_' => array(
+        'description' => 'UBS_Ven__no_leading_0_',
+        'type' => 'varchar',
+        'length' => 30,
+        'map_to' => 'field_assigned_pick_location',
+        'clean_func' => 'unfi_export_node_field',
+        'clean_func_args' => array(
+          'field_supplier_id_east',
+        ),
+      ),
+      'ubs_mfg_id_10_charcters_max' => array(
+        'description' => 'UBS_Mfg_ID_10_charcters_max',
+        'type' => 'varchar',
+        'length' => 10,
+        'map_to' => 'field_part_number',
+        'clean_func' => 'unfi_export_default_other_field',
+        'clean_func_args' => array(
+          array(
+            'unfi_export_clean_upc' => array(),
+            'substr' => array(-5),
+          ),
+          array(
+            'unfi_export_clean_string' => array(255, FALSE),
+            'substr' => array(-10),
+          ),
+        ),
+        'map_extra_fields' => array('field_unit_upc'),
+      ),
+      'ubs_upc_13' => array(
+        'description' => 'UBS_UPC_13',
+        'type' => 'varchar',
+        'length' => 13,
+        'map_to' => 'field_unit_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'ubs_weight' => array(
+        'description' => 'UBS_Weight',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+        'map_to' => 'field_case_weight',
+      ),
+      'ubs_is_kosher__y_n_' => array(
+        'description' => 'UBS_Is_Kosher__Y_N_',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_kosher_certificate',
+        'clean_func' => 'unfi_export_clean_yes_no',
+        'clean_func_args' => array('N'),
+      ),
+      'ubs_food_svc_cat' => array(
+        'description' => 'UBS_Food_Svc_Cat',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_east_category',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_category_number', NULL),
+      ),
+      'ubs_buy_club_cat' => array(
+        'description' => 'UBS_Buy_Club_Cat',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_east_category',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_category_number', NULL),
+      ),
+      'ubs_cat' => array(
+        'description' => 'UBS_Cat',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_east_category',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_category_number', NULL),
+      ),
+      'category_class' => array(
+        'description' => 'Category_Class',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_east_category',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_class_number', NULL),
+      ),
+      'ubs_shelf_life' => array(
+        'description' => 'UBS_Shelf_Life',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_shelf_life_at_prod',
+      ),
+      'ubs_min_days_rec_d' => array(
+        'description' => 'UBS_Min_Days_Rec_d',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_shelf_life_at_dock',
+      ),
+      'ubs_min_days_ship' => array(
+        'description' => 'UBS_Min_Days_Ship',
+        'type' => 'int',
+        'size' => 'small',
+        'map_to' => 'field_shelf_life_retail',
+      ),
+      'ubs_whse_grp' => array(
+        'description' => 'UBS_Whse_Grp',
+        'type' => 'int',
+        'map_to' => 'field_warehouse_group',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_warehouse_group_number', NULL),
+      ),
+      'ubs_acct_dept' => array(
+        'description' => 'UBS_Acct_Dept',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_east_category',
+        'clean_func' => 'unfi_export_term_field',
+        'clean_func_args' => array('field_account_code', NULL, 'unfi_export_term_field', array(
+          'field_account_code_number', NULL)),
+      ),
+      'ubs_has_deps' => array(
+        'description' => 'UBS_Has_Deps',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_beverage_container',
+        'clean_func' => 'unfi_export_clean_yes_no',
+        'clean_func_args' => array('N'),
+      ),
+      'ubs_is_catch_weight' => array(
+        'description' => 'UBS_Is_Catch_Weight',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_random_weight',
+        'clean_func' => 'unfi_export_clean_yes_no',
+        'clean_func_args' => array('N'),
+      ),
+      'ubs_need_by_date' => array(
+        'description' => 'UBS_Need_By_Date',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => 'field_need_by_date',
+        'clean_func' => 'unfi_export_clean_string',
+      ),
+      'ubs_req_by' => array(
+        'description' => 'UBS_Req_By',
+        'type' => 'varchar',
+        'length' => 255,
+        'map_to' => 'field_request_form',
+        'clean_func' => 'unfi_export_node_field',
+        'clean_func_args' => array('field_requested_by')
+      ),
+      'ubs_per_unit_tax_class' => array(
+        'description' => 'UBS_Per_Unit_Tax_Class',
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_chicago_water_tax',
+        'clean_func' => 'unfi_export_clean_yes_no',
+      ),
+      'inner_case_upc' => array(
+        'description' => 'Inner_Case_UPC',
+        'type' => 'varchar',
+        'length' => 13,
+        'map_to' => 'field_pack_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'case_upc' => array(
+        'description' => 'Case_UPC',
+        'type' => 'varchar',
+        'length' => 13,
+        'map_to' => 'field_case_upc',
+        'clean_func' => 'unfi_export_clean_upc',
+      ),
+      'ubs_cost' => array(
+        'description' => 'UBS_Cost',
+        'type' => 'float',
+        'map_to' => 'field_use_mcc_east',
+        'clean_func' => 'unfi_export_clean_master_case_cost',
+        'map_extra_fields' => array('field_case_cost_fob_east', 'field_case_cost_del_east'),
+      ),
+      'ubs_mc' => array(
+        'description' => 'UBS_MC',
+        'type' => 'int',
+        'map_to' => 'field_mc_pack',
+      ),
+      'ubs_vendor_layer' => array(
+        'description' => 'UBS_Vendor_Layer',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_tie',
+      ),
+      'ubs_vendor_tier' => array(
+        'description' => 'UBS_Vendor_Tier',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_high',
+      ),
+      'ubs_vendor_pallet_quantity' => array(
+        'description' => 'UBS_Vendor_Pallet_Quantity',
+        'type' => 'int',
+        'not null' => FALSE,
+        'map_to' => 'field_tie',
+        'clean_func' => 'unfi_export_multiply',
+        'map_extra_fields' => array('field_high'),
+      ),
+      'case_width' => array(
+        'description' => 'Case_Width',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+        'map_to' => 'field_case_width',
+      ),
+      'case_depth' => array(
+        'description' => 'Case_Depth',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+        'map_to' => 'field_case_length',
+      ),
+      'case_height' => array(
+        'description' => 'Case_Height',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+        'map_to' => 'field_case_height',
+      ),
+    ),
+  );
+
+  // Load the East Warehouses
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'warehouse');
+  $query->innerJoin('field_data_field_region', 'r', "n.nid=r.entity_id AND r.entity_type='node'");
+  $query->innerJoin('field_data_field_warehouse_id', 'w', "n.nid=w.entity_id AND w.entity_type='node'");
+  $east_warehouses = $query->condition('r.field_region_target_id', 10)
+    ->fields('w', array('field_warehouse_id_value'))
+    ->execute()
+    ->fetchAllKeyed();
+  // Add a field for each East warehouse
+  foreach ($east_warehouses as $nid => $warehouse_code) {
+    $field_name = $warehouse_code . '_Avl';
+    $tables['ubs']['fields'] += array(
+      strtolower($field_name) => array(
+        'description' => $field_name,
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_warehouses_east',
+        'clean_func' => 'unfi_export_clean_has_value_yes_no',
+        'clean_func_args' => array($nid, 'A', 'I'),
+      ),
+    );
+  }
+
+  // Load the Select Warehouses
+  $select_region_nid = variable_get('unfi_warehouses_region_select_nid', 0);
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'warehouse');
+  $query->innerJoin('field_data_field_region', 'r', "n.nid=r.entity_id AND r.entity_type='node'");
+  $query->innerJoin('field_data_field_warehouse_id', 'w', "n.nid=w.entity_id AND w.entity_type='node'");
+  $select_warehouses = $query->condition('r.field_region_target_id', $select_region_nid)
+    ->fields('w', array('field_warehouse_id_value'))
+    ->execute()
+    ->fetchAllKeyed();
+  // Add a field for each Select warehouse
+  foreach ($select_warehouses as $nid => $warehouse_code) {
+    $field_name = $warehouse_code . '_Avl';
+    $tables['ubs']['fields'] += array(
+      strtolower($field_name) => array(
+        'description' => $field_name,
+        'type' => 'varchar',
+        'length' => 1,
+        'map_to' => 'field_warehouses_select',
+        'clean_func' => 'unfi_export_clean_has_value_yes_no',
+        'clean_func_args' => array($nid, 'A', 'I'),
+      ),
+    );
+  }
+
+  $tables['ubs']['fields'] += array(
+    'item_depth' => array(
+      'description' => 'Item_Depth',
+      'type' => 'numeric',
+      'precision' => 9,
+      'scale' => 3,
+      'map_to' => 'field_unit_length',
+    ),
+    'item_width' => array(
+      'description' => 'Item_Width',
+      'type' => 'numeric',
+      'precision' => 9,
+      'scale' => 3,
+      'map_to' => 'field_unit_width',
+    ),
+    'item_height' => array(
+      'description' => 'Item_Height',
+      'type' => 'numeric',
+      'precision' => 9,
+      'scale' => 3,
+      'map_to' => 'field_unit_height',
+    ),
+    'artificial_ingred' => array(
+      'description' => 'Artificial_Ingred',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_contains_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(316), // Artificial Ingredients
+    ),
+    'dairy_free' => array(
+      'description' => 'Dairy_Free',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_major_allergen_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(359), // Milk Free
+    ),
+    'has_refined_sugar' => array(
+      'description' => 'Has_Refined_Sugar',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_sweetener_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(346), // Contains Refined Sugar
+    ),
+    'organic_status' => array(
+      'description' => 'Organic_Status',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_organic_certificate',
+      'clean_func' => 'unfi_export_clean_yes_no',
+      'clean_func_args' => array('N'),
+    ),
+    'food_service' => array(
+      'description' => 'Food_Service',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_other_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(377), // Food Service/Bulk Pack
+    ),
+    'wheat_free' => array(
+      'description' => 'Wheat_Free',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_major_allergen_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(366), // Wheat Free
+    ),
+    'vegan' => array(
+      'description' => 'Vegan',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_dietary_preference_attribu',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(356), // Vegan
+    ),
+    'gluten_free' => array(
+      'description' => 'Gluten_Free',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_free_of_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(326), // Gluten Free (labeled)
+    ),
+    'yeast_free' => array(
+      'description' => 'Yeast_Free',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_free_of_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(333), // Yeast Free
+    ),
+    'low_carb' => array(
+      'description' => 'Low_Carb',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_dietary_preference_attribu',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(352), // Low Carbohydrate
+    ),
+    'low_sodium' => array(
+      'description' => 'Low_Sodium',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_salt_content_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(339), // Low Sodium
+    ),
+    'kosher' => array(
+      'description' => 'Kosher',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_ethnic_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(2061), // Kosher
+    ),
+    'specialty_flag' => array(
+      'description' => 'Specialty_Flag',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_specialty',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'clean_flag' => array(
+      'description' => 'Clean_Flag',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_contains_attributes',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(2060), // Clean ingredients
+    ),
+    'ubs_country_of_origin' => array(
+      'description' => 'UBS_Country_of_origin',
+      'type' => 'varchar',
+      'length' => 2,
+      'map_to' => 'field_country_of_origin',
+      'clean_func' => 'unfi_export_term_field',
+      'clean_func_args' => array('field_code', NULL),
+    ),
+    'pesticide__y_n_' => array(
+      'description' => 'Pesticide__Y_N_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_pesticide',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'registered_with_epa__y_n_' => array(
+      'description' => 'Registered_with_EPA__Y_N_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_registered_with_the_epa',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'exempt_from_epa__y_n_' => array(
+      'description' => 'Exempt_from_EPA__Y_N_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_exempt_from_the_epa',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'passover__y_n_' => array(
+      'description' => 'Passover__Y_N_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_kosher',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array(2068), // Kosher - Passover Only
+    ),
+    'balt_bev_tax' => array(
+      'description' => 'Balt_Bev_Tax',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_baltimore_beverage_tax',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'readable_bbd__y_n_' => array(
+      'description' => 'Readable_BBD__Y_N_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_open_code_life_dating',
+      'clean_func' => 'unfi_export_clean_has_value_yes_no',
+      'clean_func_args' => array('Best By'),
+    ),
+    'temp_control__d_c_g_f_' => array(
+      'description' => 'Temp_Control__D_C_G_F_',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_freight_protection_level',
+      'clean_func' => 'unfi_export_clean_temp_control',
+    ),
+    'ubs_g_e' => array(
+      'description' => 'UBS_G_&_E',
+      'type' => 'varchar',
+      'length' => 1,
+      'map_to' => 'field_ethnic_gourmet',
+      'clean_func' => 'unfi_export_clean_yes_no',
+    ),
+    'request_id' => array(
+      'description' => NULL,
+      'type' => 'int',
+      'map_to' => 'field_request_form',
+    )
+  );
+
+  return $tables;
+
+}
+
+/**
+ * Implements hook_install()
+ */
+function ubs_export_csv_install() {
+  // Populate the default settings records.
+  variable_set('ubs_export_csv_export_path', variable_get('file_private_path', 'sites/default/files/private'));
+  variable_set('ubs_export_csv_export_path_remote', '');
+  variable_set('ubs_export_csv_cron', TRUE);
+  variable_set('ubs_export_csv_cron_minimum_lifetime', 1);
+  variable_set('ubs_export_csv_cron_last_run', 0);
+
+  // Initialize the staging tables used during export.
+  unfi_export_create_staging_tables(ubs_export_csv_fetch_tables());
+
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function ubs_export_csv_uninstall() {
+  // Remove the settings records.
+  variable_del('ubs_export_csv_export_path');
+  variable_del('ubs_export_csv_export_path_remote');
+  variable_del('ubs_export_csv_cron');
+  variable_del('ubs_export_csv_cron_minimum_lifetime');
+  variable_del('ubs_export_csv_cron_last_run');
+  variable_del('ubs_export_csv_cur_workflow_state');
+  variable_del('ubs_export_csv_new_workflow_state');
+
+  $to_drop = array();
+  $tables = ubs_export_csv_fetch_tables();
+  foreach ($tables as $requested_name => $table_info) {
+    $table_names = unfi_export_table_names($requested_name);
+    foreach ($table_names as $table) {
+      $to_drop[] = $table;
+    }
+  }
+  unfi_export_drop_tables($to_drop);
+}
+
+/**
+ * Set the private files path.
+ */
+function ubs_export_csv_update_7001() {
+  $path = 'sites/default/files/private';
+  variable_set('file_private_path', $path);
+  variable_set('ubs_export_csv_export_path', $path);
+  variable_set('wbs_export_csv_export_path', $path);
+}
+
+/**
+ * Set remote file path.
+ */
+function ubs_export_csv_update_7002() {
+  $path = '/mnt/cifs';
+  variable_set('ubs_export_csv_export_path_remote', $path);
+  variable_set('wbs_export_csv_export_path_remote', $path);
+  if (!is_dir($path)) {
+    return 'On your local system, you should look at the README and update your local_settings.php';
+  }
+}
+
+/**
+ * Let's see if we can get this thing running again.
+ */
+function ubs_export_csv_update_7003() {
+  $path = 'sites/default/files/private/unfi_node_exports';
+  variable_set('ubs_export_csv_export_path', $path);
+  variable_set('wbs_export_csv_export_path', $path);
+  variable_set('ubs_export_csv_cur_workflow_state', 34);
+}
+
+/**
+ * Set UBS Export to be transposed.
+ */
+function ubs_export_csv_update_7004() {
+  variable_set('ubs_export_csv_transpose', 1);
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Alter ubs_export tables to avoid dumping log tables with drush ubs --rebuild.
+ * Update ubs_brand field to 30 characters.
+ */
+function ubs_export_csv_update_7005() {
+  db_query("ALTER TABLE `unfi_export_ubs` MODIFY `ubs_brand` VARCHAR(30)");
+  db_query("ALTER TABLE `unfi_export_ubs_log` MODIFY `ubs_brand` VARCHAR(30)");
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Alter ubs_export tables to avoid dumping log tables with drush ubs --rebuild.
+ * Update ubs_ven__no_leading_0_ field to 30 characters.
+ */
+function ubs_export_csv_update_7006() {
+  db_query("ALTER TABLE `unfi_export_ubs` MODIFY `ubs_ven__no_leading_0_` VARCHAR(30)");
+  db_query("ALTER TABLE `unfi_export_ubs_log` MODIFY `ubs_ven__no_leading_0_` VARCHAR(30)");
+}
+
+/**
+ * Make sure the UBS export table gets updated since the UBS Weight field changed.
+ */
+function ubs_export_csv_update_7007() {
+  variable_set('ubs_export_csv_rebuild_needed', TRUE);
+}

@@ -1,0 +1,9 @@
+name        = New Item Request Lock
+description = Soft locking for New Item Requests.
+core        = 7.x
+package     = UNFI
+configure   = admin/config/unfi_settings/nir_lock
+
+files[] = handlers/views_handler_field_nir_is_locked.inc
+files[] = handlers/views_handler_filter_nir_is_locked.inc
+files[] = handlers/views_handler_sort_nir_is_locked.inc

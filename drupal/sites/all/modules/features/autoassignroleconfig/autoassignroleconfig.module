@@ -1,0 +1,16 @@
+<?php
+/**
+ * @file
+ * Code for the Auto Assign Role Configuration feature.
+ */
+
+include_once 'autoassignroleconfig.features.inc';
+
+/**
+ * Implements hook_form_FORM_ID_alter() for user_register_form().
+ */
+function autoassignroleconfig_form_user_register_form_alter(&$form, &$form_state) {
+  if (!empty($form['autoassignrole_user']['#type'])) {
+    $form['autoassignrole_user']['#weight'] = 3;
+  }
+}

@@ -1,0 +1,895 @@
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,"Western Region Product (TCS) Types, Categories, & Subgroups  (05/15/14)",,,,
+,,,,,,
+,up to 99,30 character limit,up to 99,30 character limit,5 character limit,no limit-not applicable to system~for guideline use only
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+,,,,,,
+B,01,BULK BAKING INGREDIENTS,01,baking additives,B0101,carob & cocoa powders
+B,01,,02,flours & powders,B0102,"gluten, flakes, TVP, cornmeal, cornstarch, yeast"
+,,,,,,
+,,,,,,
+B,01,,03,sweeteners,B0103,"sugars, syrups, honeybears & empty's, NOT stevia"
+,,,,,,
+B,02,BULK COFFEE & TEA PRODUCT,01,coffee & substitutes,B0201,
+B,02,,02,teas,B0202,
+,,,,,,
+B,03,BULK GROCERY,01,bulk food supplements,B0301,"sea vegs,lecithin,psyllium,bee,whtgrm,ume plm,stevia"
+B,03,,02,candy & coated confections,B0302,
+B,03,,03,canned & bottled foods,B0303,"#10's cans, gallons, coconut milk"
+B,03,,04,cereal & granola,B0304,
+B,03,,05,dried fruits,B0305,"ginger,  ALL raisins"
+B,03,,,,B0306,
+B,03,,06,mixes    ,B0306,"soup bases, falafel mix, drink mixes"
+B,03,,07,oils / vinegars / condiments,B0307,"shoyu, tamari, croutons, chocolate syrups"
+B,03,,08,pasta,B0308,"couscous, tapioca"
+B,03,,,,,
+B,03,,09,snacks,B0309,"bars, stix, chips, cookies"
+,,,,,,
+,,,,,,
+,,,,,,
+B,04,BULK GRAINS & BEANS,01,grains,B0401,"polenta, grits, popcorn, NOT rice,flakes,meals,couscous"
+B,04,see B0102 & B0308,02,legumes & beans,B0402,"soybeans, lentils, wasabi peas, NOT canned"
+B,04,,03,rice,B0403,wild rice
+,,,,,,
+B,05,BULK HERBS & SPICES,01,herbs,B0501,"flowers, peels"
+,,,,,,
+B,05,,02,seasonings & blends,B0502,"salt, empty herb jars"
+,,,,,,
+B,06,BULK NUT & SEED PRODUCT,01,nut butters,B0601,tahini
+B,06,,02,nuts & seeds,B0602,"flax & hemp seeds, peanut butter stock, soynuts"
+B,06,,03,trail mixes,B0603,nut mixes
+,,,,,,
+B,B99,SEASONAL ONLY,01,Christmas,B9901,
+B,,SEASONAL ONLY,02,,,
+B,,SEASONAL ONLY,03,,,
+B,,SEASONAL ONLY,04,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,,,,,,
+B,B99,,02,Thanksgiving,B9902,
+B,B99,,03,Easter,B9903,
+B,B99,,04,Other,B9904,"Valentines Day, Halloween"
+,,SEASONAL ONLY,,,,
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+C,07,CHEESE,01,dairy,C0701,
+C,07,,02,non dairy,C0702,"soy, almond, rice"
+C,07,,03,grated / sliced,C0703,"stix, shredded, NOT disks or crumbled"
+C,07,,04,cream cheese,C0704,alternatives & Neufchatel
+C,07,,05,CHEESE BLUE,C0705,
+C,07,,06,CHEESE CHEDDAR,C0706,
+C,07,,07,CHEESE CHEDDAR GRATED SLICED,C0707,
+C,07,,08,CHEESE DUTCH,C0708,
+C,07,,09,CHEESE DUTCH GRATED SLICED,C0709,
+C,07,,10,CHEESE FRESH,C0710,
+C,07,,11,CHEESE FRESH CREAM CHEESE SOUR CREAM,C0711,
+C,07,,12,CHEESE GOAT,C0712,
+C,07,,13,CHEESE GOAT CHEDDAR,C0713,
+C,07,,14,CHEESE HARD,C0714,
+C,07,,15,CHEESE HARD GRATED SHREDDED,C0715,
+C,07,,16,CHEESE MOZZARELLA  ,C0716,
+C,07,,17,CHEESE MOZZARELLA GRATED SHREDDED,C0717,
+C,07,,18,CHEESE SEMI-SOFT SEMI-HARD,C0718,
+C,07,,19,CHEESE RIPENED  ,C0719,
+C,07,,20,CHEESE RIPENED BLUE CHEESE,C0720,
+C,07,,21,CHEESE SWISS  ,C0721,
+C,07,,22,CHEESE SWISS GRATED SHREDDED,C0722,
+C,07,,23,CHEESE VEGAN NON-DARY,C0723,
+,,,,,,
+C,08,REFRIGERATED PRODUCTS,01,"Dips, hummus, pesto, salsa",C0801,hummus
+C,08,,02,breakfast meat alternatives,C0802,
+C,08,,03,fresh pasta,C0803,"REFRIG pizza crusts, wonton & pastry wraps"
+C,08,,04,fruit juices,C0804,"concentrates, kombucha"
+C,08,,05,meat alternatives,C0805,
+C,08,,06,meatless deli slices,C0806,
+C,08,,07,meatless wieners,C0807,
+C,08,,08,soy products,C0808,"miso,tempeh,seitan,mochi,vegenaise"
+C,08,,09,pickles & condiments,C0809,"salad dressings, refrig bee pollen, kimchee"
+C,08,,10,"pudding, cookie dough",C0810,"dairy & nondairy, jello, flan"
+C,08,,11,Bulk,C0811,"fruit, etc"
+,08,,,,C0812,
+C,08,,12,"Entrees, Kids meals & Soups",C0812,
+C,08,,13,tofu,C0813,
+C,08,,14,meats,C0814,
+C,08,,15,MEAT ALTERNATIVES TEMPEH AND SEITAN,C0815,VEGETARIAN MEAT SUBSTITUTES                       
+C,08,,16,MISOS,C0816,MACROBIOTIC                                       
+C,08,,17,Chocolate & desserts,C0817,
+C,08,,18,Petfood,C0818,
+C,08,,19,Dried fruits-packaged,C0819,
+,,,,,,
+C,09,DAIRY,01,butter,C0901,"alternatives, whipped, ghee"
+C,09,,02,cottage cheese & sour cream,C0902,
+C,09,,03,eggs,C0903,"alternatives, whites"
+C,09,,04,margarine,C0904,"oil spreads, shortening "
+C,09,,05,milk,C0905,"eggnog, flavored milk, goat milk, buttermilk"
+C,09,,06,refrig milk alternatives & adds,C0906,"chai,amazake,nondairy flavored & eggnog, coffee add"
+C,09,,,,C0907,
+C,09,,07,whip cream & half & half,C0907,fraiche
+,,,,,,
+C,10,YOGURT & ALTERNATIVES,01,whole milk yogurt,C1001,"goat, culture starter"
+,,,,,C1002,
+C,10,,02,non-dairy,C1002,"soy, etc"
+C,11,,03,yogurt & kefir alternatives,C1003,alternatives
+C,12,,04,yogurt & kefir alternatives,C1004,alternatives
+C,13,,05,yogurt & kefir alternatives,C1005,alternatives
+C,14,,06,yogurt & kefir alternatives,C1006,alternatives
+C,15,,07,yogurt & kefir alternatives,C1007,alternatives
+C,16,,08,yogurt & kefir alternatives,C1008,alternatives
+C,10,,03,fat free yogurt,C1003,
+C,10,,04,low fat yogurt,C1004,
+C,10,,05,drinkable yogurt,C1005,all drinkable yogurt & kefir
+C,10,,06,yogurt soy drinkable/kefir,C1006,
+,,,,,,
+,,,,,,
+C,11,MEATS,01,Deli slices & dogs,C1101,
+C,11,,02,Beef,C1102,
+C,11,,03,Poultry,C1103,
+C,11,,04,Pork,C1104,
+C,11,,05,Lamb,C1105,
+,,,,,,
+C,99,SEASONAL ONLY,01,CHRISTMAS,C9901,
+C,99,,02,THANKSGIVING,C9902,
+C,99,,03,EASTER,C9903,
+C,99,,04,OTHER,C9904,"Valentines Day, Halloween"
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+D,11,PET SUPPLIES,01,accessories,D1101,"collars,bowls,leashes,litter,repellant,shampoo,display"
+D,11,,02,canned  ,D1102,
+D,11,,03,dry,D1103,
+D,11,,04,supplements,D1104,
+D,11,,05,treats,D1105,
+,,,,,,
+D,99,SEASONAL ONLY,01,CHRISTMAS,D9901,
+D,99,,02,THANKSGIVING,D9902,
+D,99,,03,EASTER,D9903,
+D,99,,04,OTHER,D9904,"Valentines Day, Halloween"
+,,,,,,
+,,,,,,
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+F,12,FROZEN BREADS,01,buns /rolls /bagels /muffins,F1201,"english muffins, croissants"
+F,12,see CHILL/FROZ for pizza crusts,02,nonwheat,F1202,spelt
+F,12,,,,F1203,
+F,12,,,,F1204,
+F,12,see SALAD DRESSING/toppings for,03,specialty breads,F1203,"foccacia, bruschetta, NOT low carb"
+F,12,,,,,
+F,12,,,,,
+F,12,"breadstix, croutons",04,tortillas & pitas,F1204,"pockets, chapitas"
+F,12,,05,wheat /multigrain /white,F1205,"rye, sourdough"
+,,,,,,
+F,13,FROZEN DESSERT ITEMS,01,"desserts, novelties",F1301,"cakes,pies,pie shells, pastry dough, crepes,tiramisu,brownies,cookies"
+F,13,,02,ice cream & frozen yogurt,F1302,
+F,13,,03,nondairy ice cream & frzn yog,F1303,"soy,rice"
+F,13,,04,hand held ice cream,F1304,"brownies, bars, protein juice bars"
+F,13,,05,sorbet / gelato,F1305,glace
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+F,,,,,,
+F,,,,,,
+F,,,,,,
+F,,,,,,
+F,,,,,,
+F,,,,,,
+,,,,,,
+F,14,FROZEN GROCERY,01,baby food,F1401,
+F,14,,02,burritos & pockets,F1402,"wraps, calzones, tamales, tacos, sandwhich style"
+F,14,,,,F1403,
+F,14,,03,entrees & sides,F1403,"veggie bowls, breakfast meals, kids meals"
+F,14,,04,fruit,F1404,
+,14,,,,,
+,14,,,,,
+F,14,,05,fruit juice,F1405,amazake in CHILL set C0906
+F,14,,06,pasta,F1406,
+F,14,,07,pizza,F1407,pizza crusts
+F,14,,08,pot pies & bowls,F1408,
+F,14,,09,potatoes,F1409,"fries, hash browns, tots"
+F,14,,10,sauces / pestos / soups,F1410,"soup stock, dips"
+F,14,,11,snacks,F1411,"ethnic, appetizers, toaster pops, corndogs"
+F,14,,12,vegetables,F1412,"edamame, NOT potatoes"
+F,14,,13,waffles,F1413,pancakes
+,,,,,,
+F,15,FROZEN MEATS ALTERNATIVES,01,breakfast meat & eggs,F1501,
+F,15,,02,breakfast meat alternatives,F1502,
+F,15,,03,meat alternatives,F1503,"mock seafood & poultry, alternative nuggets, tempeh"
+F,15,,04,meat / seafood / poultry,F1504,nuggets
+F,15,,05,meatless burgers,F1505,
+,,,,,,
+F ,16,FROZEN MEATS,01,Beef,F1601,
+F ,16,,02,Poultry,F1602,
+F ,16,,03,Pork,F1603,
+F ,16,,04,Lamb,F1604,
+F ,16,,05,Seafood,F1605,
+F ,16,,06,Breaded Meats,F1606,
+F ,16,,07,Other Meats,F1607,"Rabbit, elk, buffalo, etc"
+F ,16,,08,Sausage & breakfast meats,F1608,
+,,,,,,
+F,64,FROZEN PET FOODS,01,dog food,F6401,
+,,,,,,
+F,64,,02,cat food ,F6402,
+,,,,,,
+F,99,SEASONAL ONLY,01,CHRISTMAS,F9901,
+F,99,,02,THANKSGIVING,F9902,
+F,99,,03,EASTER,F9903,
+F,99,,04,OTHER,F9904,"Valentines Day, Halloween"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+G,16,BAKING INGREDIENTS & MIXES,01,baking additives,G1601,"shortening,ghee,chips,cones,sprinkles,pectin,egg whts"
+G,16,,02,flours & powders,G1602,"wheatgerm, TVP, cornmeal, baking soda, yeast"
+G,16,see also HERBS & SPICES for ,03,goat milk/other milks,G1603,"powdered, evaporated (NOT alternatives)"
+G,16,flavor extracts,04,mixes,G1604,"baking,pudding,tapicoa,jello,cocoa,carob,hot drnk mix"
+G,16,,05,sweeteners,G1605,"honey,molasses,sugars,syrups,fructose,Stevia N4708"
+,,,,,,
+G,16,,06,waffle & pancake mix,G1606,
+,,,,,,
+G,17,BARS,01,Energy / Nutrition / Diet,G1701,see also CEREAL
+X,,,,,G1702,
+X,,,,,G1703,
+G,17,,02,Snack,G1702,
+G,17,,03,Bars,G1703,"Functional Gels, Shots/Gummys"
+,,,,,,
+G,18,CANDY,01,candy ,G1801,"licorice, yogurt coated"
+G,18,,02,chocolate,G1802,
+G,18,,03,fruit leather,G1803,"gummy's, chews"
+G,18,,04,gum & mints,G1804, for dental gums see H4202
+G,18,,05,carob,G1805,
+,,,,,,
+G,19,CEREAL,01,cereal & granola bars,G1901,"scones, tarts, breakfast bars"
+G,19,,02,cold ,G1902,
+G,19,,03,granola / museli,G1903,see also PKG GRAINS for rolled oats
+G,19,,04,hot,G1904,"quick/instant oatmeal,NOT rolled, see G3101"
+G,,,,,,
+G,19,,05,single serve,G1905,
+,,,,,,
+G,20,CHIPS,01,corn / tortilla,G2001,
+G,20,,02,potato,G2002,
+G,20,,03,pretzels,G2003,
+G,20,,04,puffed / popcorn,G2004,"kettle corn, Unpopped corn see G3002"
+G,20,,05,rice / corn / soy,G2005,"ricecakes, soy chips"
+G,20,,06,snack style / mixes,G2006,"apple chips, guppies, pita, sea veggie"
+G,20,,07,vegetable,G2007,NOT potato
+,,,,,,
+,,,,,,
+,,,,,,
+G,21,CONDIMENTS,01,jarred veggies,G2101,"olives,capers,garlic,peppers,kraut,artichokes,grape lvs"
+G,21,,02,mayo / mustard / catsup,G2102,"flavored mustards, soy mayo"
+G,21,see also ETHNIC or OILS/VINEGARS,03,pickles & relishes,G2103,
+G,21," or SALAD DRESSINGS, G3704",04,sauces / marinades,G2104,"seafood sauces,pate,see G2401 for shoyu,tamari,soy "
+G,,,,,,
+,,,,,,
+G,22,COOKIES,01,cookies,G2201,"nonfrozen brownies, animal crackers"
+G,22,,02,graham crackers,G2202,"biscotti, specialty cookies, biscuits"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+G,23,CRACKERS,01,crackers,G2301,
+G,23,,02,rice / alternative,G2302,
+,,,,,,
+G,24,ETHNIC FOODS,01,Asian / tofu / sea vegetables,G2401,"soy sauces, miso"
+G,24,see G2302 for ethnic chips,02,Mexican,G2402,"chili, jarred chilis, taco & tostada shells, NOT chili mix"
+G,24,see G3102 ethnic mixes,03,other international,G2403,"Coconut milk, African sce, water chestnuts, passover "
+G,24,see also SOUPS / RAMENS / CANNED,04,Thai & Indian,G2404,
+G,24,,05,Asian pasta,G2405,
+G,24,,06,"Mexican pickles, peppers, relish",G2406,"Pickles, peppers, relish"
+G,24,,07,MEXICAN SPICES SEASONINGS,G2407,
+G,24,,08,MEXICAN SALSA,G2408,
+G,24,,09,MEXICAN SAUCES,G2409,
+G,24,,10,MEXICAN SNACKS AND DIPS,G2410,
+G,24,,15,CARRIBEAN,G2415,
+G,24,,20,GREEK,G2420,
+G,24,,25,AFRICAN AMERICAN,G2425,
+G,24,,30,ITALIAN,G2430,
+G,24,,31,ITALIAN COOKIES,G2431,
+G,24,,32,ITALIAN PASTA,G2432,
+G,24,,33,ITALIAN PICKLES/PEPPERS/RELISH,G2433,
+G,24,,34,ITALIAN SAUCES,G2434,
+G,24,,35,ITALIAN SPICES/SEASONINGS,G2435,
+G,24,,36,ITALIAN VINEGARS/COOKING WINES,G2436,
+G,24,,37,ITALIAN VEGETABLES,G2437,
+G,24,,38,ITALIAN OILS,G2438,
+G,24,,40,ASIAN COOKING OIL,G2440,
+G,24,,41,ASIAN MARINADE/SAUCE,G2441,
+G,24,,42,ASIAN SOY SAUCE,G2442,
+G,24,,43,ASIAN SEASONING,G2443,
+G,24,,44,ASIAN VEGETABLE,G2444,
+G,24,,45,ASIAN SOUP STARTERS,G2445,
+G,24,,46,ASIAN MEALS/SOUPS ON THE GO,G2446,
+G,24,,47,ASIAN MEAL STARTERS,G2447,
+G,24,,47,ASIAN RICE,G2448,
+G,24,,49,ASIAN SNACKS SALTY,G2449,
+G,24,,55,MIDDLE EASTERN/EAST EUROPEAN FOODS,G2455,
+G,24,,60,IRISH,G2460,
+G,24,,65,INDIAN,G2465,
+G,24,,70,GERMAN,G2470,
+,,,,,,
+G,25,FRUIT SPREADS,01,specialty,G2501,"conserves,chutney,pie fill,compote,frt butters,choc spd"
+G,25,,02,spreads,G2502,"jams, jelly's, preserves, marmalade"
+,,,,,,
+G,26,FRUITS & DRIED VEGETABLES,01,apple sauce/ pudding/ jello,G2601,
+G,26,see also CONDIMENTS for jar vegies,02,canned fruit,G2602,cranberry sce
+G,26,& SOUPS/RAMENS/CANNED ,03,dried fruits & vegetables,G2603,all RAISINS in BULK B0305
+G,26,,04,macrobiotic/dried vegetables,G2604,
+,,,,,,
+G,27,HERBS & SPICES,01,bottled ,G2701,
+G,27,,02,seasoning blends,G2702,"wasabi powder, gomasio, see also ETHNIC"
+G,27,,03,packaged,G2703,"tofumates, tuna salad mix, NOT soup mix"
+G,27,,04,salts,G2704,tenderizer
+G,27,,05,liquid extracts,G2705,
+,,,,,,
+G,28,NUT & SEED BUTTERS,01,almond,G2801,
+G,28,,02,cashew & macadamia,G2802,"hazelnut, filbert, pecan"
+G,28,,03,peanut,G2803,
+G,28,,04,tahini / soy / seed,G2804,"sesame seed, hemp"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+G,29,OILS & VINEGARS,01,canola,G2901,
+G,29,,02,hemp ,G2902,
+G,29,,03,nut / seed / other & displays,G2903,"garlic, grapeseed, soy, apricot, avocado, coconut,corn"
+G,29,,04,olive,G2904,
+G,29,,05,safflower,G2905,
+,29,,,,G2906,
+,29,,,,G2907,
+,29,,,,G2908,
+G,29,,06,vinegars,G2906,"balsamic, apple cider, bread dipping,liq aminos,spray"
+,,,,,,
+,,,,,,
+G,30,PACKAGED GRAINS /BEANS /SEEDS,01,beans,G3001,"NOT canned, see SOUPS & RAMENS"
+G,30,,02,grains / oats / seeds,G3002,"Unpop popcrn,flax & hemp seed & meal,sprout mix"
+,30,,,,G3003,
+G,30,,03,rice,G3003,
+,,,,,,
+,,,,,,
+G,31,PACKAGED GROCERY & MIXES,01,baby ,G3101,"cereal, jarred, biscuits, formula"
+G,31,,02,entrees & ethnic dishes,G3102,see also ETHNIC FOODS G24
+G,31,see also HERBS & SPICES for mix,03,gravy,G3103,
+G,31,   packets,04,pasta side dishes,G3104,mac & chz style in G3201
+G,31,,05,potato / rice / couscous,G3105,"polenta, stuffing, risotto,rice pudding"
+G,31,,06,vegetarian mixes,G3106,"beans,falafil"
+G,31,,07,bread & bread mixes,G3107,bread culture starter
+G,31,,08,drink mixes,G3108,
+,,,,,,
+G,32,PASTA,01,entrees,G3201,mac & chz style
+G,32,,02,seasoned,G3202,"colored/flavored: artichoke, spinach, beet"
+G,32,see also G2405 for Asian noodles,03,traditional long / flat,G3203,
+G,32,,04,traditional short / shaped,G3204,
+G,32,,05,wheat free,G3205,
+,,,,,,
+G,33,SALAD DRESSINGS,01,dressings,G3301,salad dressing mixes
+G,33,,02,toppings,G3302,"bread crumbs, croutons, stix, bacon bits"
+,,,,,,
+G,34,SALSAS & DIPS nonrefrig,01,dips,G3401,dip mixes
+G,34,,02,salsas,G3402,"green chili, picante"
+,,,,,,
+G,35,SEAFOOD nonfrozen,01,oysters / crabs / clams,G3501,mussels
+G,35,,02,salmon & other fish,G3502,shrimp
+G,35,,03,sardines,G3503,"anchovies, kipper"
+G,35,,04,tuna,G3504,alternative tunas
+,,,,,,
+G,36,SNACKS ,01,jerky,G3601,
+G,36,,02,meatless jerky,G3602,
+G,36,,03,packaged nuts & seeds,G3603,"soy nuts, trail mix, sesame stix, see also CHIPS, BARS"
+,,,,,,
+G,37,CANNED,01,aseptic soups & broths,G3701,chili in ETHNIC/mexican G2402
+G,37,,02,bouillon & broth mixes,G3702,"stock, base, cube, soup mix"
+G,37,,03,canned broths,G3703,
+G,37,,04,canned vegetables,G3704,"beans, pumpkin, NOT tomatoes or JARRED VEGGIES"
+,37,,,,G3705,
+G,37,,05,canned soups,G3705,
+G,37,,06,jarred soups,G3706,
+G,37,see also ETHNIC,07,ramens & instant noodles,G3707,
+G,37,,08,potato & meal cups,G3708,"risotto, vegetable, couscous, chili cups"
+G,37,,09,soup cups,G3709,
+G,37,,10,meats,G3710,meats in cans/pouches
+,,,,,,
+G,38,TOMATO & PASTA SAUCE,01,canned tomatoes,G3801,
+G,38,,02,other tomato & pallets,G3802,"marinated, tapenade"
+G,38,,03,pasta sauces,G3803,
+G,38,,04,pesto sauces,G3804,
+G,38,,05,pizza sauces,G3805,
+G,38,,06,tomato pastes,G3806,purees
+G,38,,07,tomato sauce,G3807,plain only! NOT pasta sauce!
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+C,,,,,,
+C,,,,,,
+,,,,,,
+G,39,DIET,01,OTHER DIET,G3901,
+G,39,,02,DIET CANDY,G3902,
+G,39,,03,DIET COOKIES,G3903,
+G,39,,04,DIET PRESERVES/HONEY/SYRUPS,G3904,
+,,,,,,
+G,99,SEASONAL ONLY,01,CHRISTMAS,G9901,
+G,99,,02,THANKSGIVING,G9902,
+G,99,,03,EASTER,G9903,
+G,99,,04,OTHER,G9904,"Valentines Day, Halloween"
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+H,39,BODYCARE,01,baby,H3901,"baby sun care, NO wipes or diapers"
+H,39,,02,bath & shower,H3902,"salts, oils, clays"
+H,39,,03,deoderants & mists,H3903,"mists,perfume,rose & lav water,sprays,atonomizers"
+,39,,,,H3904,
+H,39,,04,facial care,H3904,"eye care, pycnogenol, vit E gel & oil, jojoba oil"
+H,39,,05,foot & leg care,H3905,see also H4102 TOOLS
+H,39,,,,,
+,39,,,,,
+,39,,,,,
+H,39,,06,hand & body lotions,H3906,"sanitizing,antibac nonmed balms & salves,cocoa btr"
+H,39,,07,soap / liquid & cleansing cream,H3907,
+,39,,,,,
+H,39,,08,soap bars,H3908,
+,,,,,,
+H,40,HAIR & SHAVE,01,hair enhancements,H4001,"colors, sprays, gels"
+H,40,,02,shaving,H4002,"aftershave, razors, hair removal"
+H,40,,03,shampoo & conditioner,H4003,
+,,,,,,
+,,,,,,
+H,41,LIFESTYLE,01,aromatherapy,H4101,"essential oils & hardware, NOT incense"
+H,41,,02,beauty tools,H4102,"makeup pads, sponges, Qtips, brushes, gloves"
+H,41,,03,candles & incense,H4103,
+H,41,,04,cosmetics & nail,H4104,"makeup remover, henna body paint"
+H,41,,05,deal packs & empty's,H4105,"spa kits, lotion pumps, BOGO's, samplers, empty cases"
+H,41,,06,displays,H4106,NOT lipbalm displays!
+H,41,,07,lifestyle accessories,H4107,"pillows, flannel, magnets, loofas, ear candles, yoga"
+H,41,,08,massage,H4108,
+,,,,,,
+,,,,,,
+B,,,,,,
+H,42,ORAL CARE,01,lip balms,H4201,NOT makeup lip colors
+H,42,,02,oral care,H4202,"toothpaste, dental gums, mint strips, mtwsh, floss"
+,,,,,,see N4604 for lozenges & pops
+,,,,,,
+H,43,PHARMACY,01,aloe & sun care,H4301,"tanning aids, see H4303 for bug, NO lip care"
+H,43,,02,medicinal / ointments,H4302,"sports creams, medicinal balms & salves"
+H,43,,03,outdoor,H4303,bug spray
+H,43,,04,pharmacy,H4304,"band aids,aspirin,epsom salts,perox,lanolin,ketone strp"
+H,43,,05,female hygeine/ contraception,H4305,"lubricant, condoms, pads, tampons, progest creams, "
+,,,,,,    prenatal/postnatal aids
+H,99,SEASONAL ONLY,01,CHRISTMAS,H9901,
+H,99,,02,THANKSGIVING,H9902,
+H,99,,03,EASTER,H9903,
+H,99,,04,OTHER,H9904,"Valentines Day, Halloween"
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+N,44,GENDER & AGE,01,baby & child,N4401,"vits, herbs, homeopathic, Yummies"
+B,,,,,N4402,
+B,,,,,N4403,
+N,44,,02,teen,N4402,
+B,44,,,,,
+N,44,,03,men's health,N4403,prostrate
+N,44,,04,women's health,N4404,"menopause,prenatal,PMS,wild yam,NO donquai,"
+,,,,,,NO yeast
+N,45,HERBAL & HOMEOPATHY,01,chinese,N4501,
+N,45,,02,herbal formulas & blends,N4502,power
+N,45,,03,homeopathy,N4503,"flower essesence, see also N46 or specific needs"
+N,45,,04,single herbs,N4504,
+N,45,,05,tinctures & extracts,N4505,see N4401 for Herbs 4 Kids
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+N,46,SPECIFIC FORMULAS,01,amino acids,N4601,
+N,46,,02,antistress & relaxation,N4602,"headache,melatonin,insomnia see also HOMEOPATHY"
+N,46,,03,arthritis & joint health,N4603,"MSM, glucosamine, collagens"
+N,46,,04,cough & cold,N4604,"flu, bronchial, lozenges"
+N,46,,05,detox & liver,N4605,"milk thistle, cleanses"
+N,46,,06,digestion aids,N4606,"colon,fiber,(co)enzymes,laxatives,psyllium,charcoal"
+N,46,,07,ginseng & energy,N4607,donquai
+N,46,,08,glandular,N4608,
+N,46,,09,memory & mental clarity,N4609,gingko
+B,46,,,,N4610,
+B,46,,,,N4611,
+B,46,,,,N4612,
+B,46,,,,N4613,
+B,46,,,,N4614,
+B,46,,,,N4615,
+B,46,,,,N4616,
+B,46,,,,N4617,
+B,46,,,,N4618,
+B,46,,,,N4619,
+N,46,,10,other specific formulas,N4610,"hair-skin-nails, ear, NOT miscellaneous!"
+N,46,,11,sinus & allergy,N4611,"asthma, snore, nasal, quercetin"
+N,46,,12,yeast level maintenance,N4612,"candida, cranberry"
+N,46,,13,heart & circulation,N4613,"blood pressure, cholesterol, vein, lung"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+N,46,,14,immune,N4614,
+N,46,,15,vision,N4615,"eyedrops, luetin"
+,,,,,,
+N,47,SUPPLEMENTS,01,aloe vera supps,N4701,
+N,47,,02,bee products,N4702,propolis
+,47,,,,N4703,
+N,47,,03,deal packs & empty's,N4703,"kits, BOGO's, vitaminders, vegicap empties"
+,47,,,,,
+N,47,,04,displays,N4704,
+N,47,,05,"EFA's, EPO's, fish oils",N4705,"flax, cod, omega, GLA, cod liver, hemp"
+,47,,,,,
+N,47,,06,garlic,N4706,
+N,47,,07,green foods,N4707,"chlorophyll, sea kelp"
+N,47,,08,nutritional food supplements,N4708,"yeast, alfalfa, dulse tabs, lecithin, stevia, noni juice"
+N,47,,,,,
+N,47,,09,probiotics nonrefrig,N4709,
+N,47,,10,refrigerated supplements,N4710,refrig probiotics
+,,,,,,
+,,,,,,
+N,48,VITAMINS & MINERALS,01,"A, D, E vits & beta carotene",N4801,
+B,,,,,N4802,
+B,,,,,N4803,
+N,48,,02,antioxidants,N4802,"grape seed, pycnogenol, selenium, lipoic"
+N,48,,03,B vits / B complex,N4803,"brewers yeast, folic acid"
+B,48,,,,,
+N,48,,04,C vits / C complex ,N4804,most Alacer
+B,48,,,,,
+N,48,,05,minerals & mineral complex,N4805,
+N,48,,06,multivitamins,N4806,
+B,48,,,,,
+N,48,,07,other vitamins,N4807,"L, K, O"
+,,,,,,
+,,,,,,
+N,49,WEIGHT & SPORT,01,sports nutrition,N4901,"protein pwdrs,meal replace,creatine,V5704 for RTD's"
+N,49,,02,weight management,N4902,"blood sugar, see OILS & VINEGARS for apple cider"
+,,,,,,
+N,99,SEASONAL ONLY,01,CHRISTMAS,N9901,
+N,99,,02,THANKSGIVING,N9902,
+N,99,,03,EASTER,N9903,
+N,99,,04,OTHER,N9904,"Valentines Day, Halloween"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+P,50,PRODUCE- FRUIT,01,apples,P5001,
+P,50,,02,citrus,P5002,
+P,50,"see NONFOODS for bags, washes",03,melons,P5003,
+P,50,,04,avocados,P5004,
+P,50,,05,stone fruit,P5005,"peach, plum"
+P,50,,06,grapes,P5006,
+P,50,,07,tropical,P5007,"coconut, pineapple, mango, bananas"
+P,50,,08,berries,P5008,
+P,50,,09,pears,P5009,
+,,,,,,
+P,51,PRODUCE-VEGETABLES,01,carrots,P5101,
+P,51,,02,greens / lettuce,P5102,
+P,51,,03,tomatoes,P5103,
+P,51,,04,potatoes,P5104,"garnets, sweet potatoes"
+P,51,,05,root vegetables,P5105,
+P,51,,06,sprouts,P5106,
+P,51,,07,squashes,P5107,
+P,51,,08,salad mixes,P5108,
+P,51,,09,mushrooms,P5109,
+P,51,,10,onions / garlic / shallots,P5110,
+P,51,,11,vegetables,P5111,
+,,,,,,
+P,52,PRODUCE- FRESH HERBS,01,herbs,P5201,
+,,,,,,
+P,53,PRODUCE- PERISHABLE JUICES,01,fruit,P5301,
+P,53,,02,vegetable & blends,P5302,
+,,,,,,
+,,,,,,
+P,99,SEASONAL ONLY,01,CHRISTMAS,P9901,
+P,99,,02,THANKSGIVING,P9902,
+P,99,,03,EASTER,P9903,
+P,99,,04,OTHER,P9904,"Valentines Day, Halloween"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+V,54,COFFEE & SUBSTITUTES,01,coffee,V5401,see also BULK
+V,54,,02,coffee substitutes,V5402,
+,,,,,,
+,,,,,,
+V,55,JUICES nonperishable,01,aseptic ,V5501,juice boxes
+,,,,,,
+V,55,,02,concentrates,V5502,purees
+V,55,,03,fruit,V5503,"nectar, tropical/blends, lemon & limeade"
+,,,,see V5704 for nutritional / sport,,
+V,55,,04,Other,V5504,"Coconut, etc"
+V,55,,05,vegetable,V5505,"tomato, fruit & veg blends"
+,,,,,,
+,,,,,,
+V,56,SHELF STABLE MILK ALTERNATIVES,01,Grain,V5601,"rice, oat"
+V,56,,02,nut,V5602,almond
+V,56,,03,powdered,V5603,
+V,56,,04,soy milk,V5604,
+V,56,,05,dairy milk,V5605,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+V,57,SODAS & WATERS,01,carbonated & sparkling,V5701,"water, cider, mineral"
+,,,,,,
+V,57,,02,flavored waters,V5702,
+V,57,,03,gallon,V5703,
+V,57,,04,nutritional / sport,V5704,"sport & diet, RTD's, Recharge"
+V,57,,05,plain bottled water,V5705,"distilled, spring"
+V,57,,06,sodas & smoothies,V5706,"canned spritzers, ginger beers, club soda"
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+V,57,,07,sodas & waters,V5707,coconut water
+,,,,,,
+V,58,TEAS,01,black,V5801,earl grey's
+V,58,,02,bottled,V5802,
+V,58,,03,chai,V5803,"chai concentrates, chai singles"
+V,58,,04,displays,V5804,"kits, tins"
+V,58,,05,flavored or iced tea mixes,V5805,lattes
+V,58,,06,green & white teas,V5806,
+H,58,,,,,
+H,58,,,,,
+V,58,,07,herbal,V5807,"ginseng, variety, sport, samplers"
+V,58,,08,loose,V5808,2 pounds or more in BULK B0202
+V,58,,09,mate,V5809,
+V,58,,10,medicinal,V5810,specific purpose
+H,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+H,,,,,,
+H,,,,,,
+H,,,,,,
+H,,,,,,
+H,,,,,,
+H,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,11,cocktail mixes,V5811,
+,,,,,,
+V,99,SEASONAL ONLY,01,CHRISTMAS,V9901,
+V,99,,02,THANKSGIVING,V9902,
+V,99,,03,EASTER,V9903,
+V,99,,04,OTHER,V9904,"Valentines Day, Halloween"
+,,,,,,
+TYPE,CAT #,CATEGORY NAME,SUB #,SUBGROUP,FINAL CODE,NOTES/EXAMPLES
+W,59,BEER,01,lights,W5901,"pale ale, wheat, white"
+W,59,,02,darks,W5902,"stout, amber, brown, porter, red, copper"
+N,,,,,,
+N,,,,,,
+,,,,,,
+N,,,,,,
+N,,,,,,
+,,,,,,
+W,60,DOMESTIC WINES,01,reds,W6001,"zinfandels, rose"
+W,60,,02,whites,W6002,
+,,,,,,
+W,61,IMPORTED WINES,01,reds,W6101,"zinfandels, rose"
+W,61,,02,whites,W6102,
+,,,,,,
+W,62,SPECIALTY BEER & WINE,01,other specialty,W6201,champagne
+W,62,,02,samplers,W6202,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+W,62,,03,Non sulfite wines,W6203,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+X,63,NON FOODS,01,air fresheners,X6301,
+X,63,,02,baby diapers & wipes,X6302,
+N,63,,,,,
+X,63,,03,bags,X6303,"produce, trash, storage,coffee repack, NOT sandwich"
+X,63,,04,books & printed materials,X6304,
+X,63,,05,cleaners & soaps household,X6305,"furniture polish, towels, NOT laundry & dish wash"
+X,63,,06,dish wash supplies,X6306,rinses
+X,63,,07,house wares,X6307,"juicers,jars,lightbulbs,sponges,firelogs,charcoal,filters"
+X,63,,08,laundry supplies,X6308,"bleach alternatives, softeners"
+X,63,see H4103 for candles,09,other nonfoods,X6309,"produce sprays & washes, extend life,car deod"
+X,63,,10,paper & picnic,X6310,"TP,towels,cups,sand.bags,foil,wraps,flatware,plates"
+X,63,,11,store supplies,X6311,"register tape, hubert items"
+X,63,,12,apparel,X6312,clothing (Maggies)
+X,63,,13,candles,X6312,
+,,,,,,
+X,99,SEASONAL ONLY,01,CHRISTMAS,X9901,
+X,99,,02,THANKSGIVING,X9902,
+X,99,,03,EASTER,X9903,
+X,99,,04,OTHER,X9904,"Valentines Day, Halloween"

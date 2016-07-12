@@ -1,0 +1,233 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function unfi_sp_solr_menu() {
+  $items = array();
+
+  // ...for testing, obviously...
+  $items['admin/config/unfi_sp_solr_test/%'] = array(
+    'title'            => t('Supplier Portal Solr Connectivity Test'),
+    'description'      => t('Supplier Portal Solr Connectivity Test'),
+    'page callback'    => 'unfi_sp_solr_solr_connection',
+    'page arguments'   => array(3),
+    'access arguments' => array('access content'),
+    'file'             => 'unfi_sp_solr.admin.inc',
+    'file path'        => drupal_get_path('module', 'unfi_sp_solr') . '/includes',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_default_search_api_server().
+ */
+function unfi_sp_solr_default_search_api_server() {
+  $items = array();
+
+  $host   = variable_get('solr_search_api_host', 'localhost');
+  $port   = variable_get('solr_search_api_port', '8983');
+  $path   = variable_get('solr_search_api_path', '\\/solr');
+  $scheme = variable_get('solr_search_api_scheme', 'http');
+
+  $items['digital_core'] = entity_import('search_api_server', '{
+    "name" : "Digital Core Solr",
+    "machine_name" : "digital_core",
+    "description" : "",
+    "class" : "search_api_solr_service",
+    "options" : {
+      "host" : "' . $host . '",
+      "port" : "' . $port . '",
+      "path" : "' . $path . '",
+      "http_user" : "",
+      "http_pass" : "",
+      "excerpt" : 1,
+      "retrieve_data" : 1,
+      "highlight_data" : 1,
+      "scheme" : "' . $scheme . '"
+    },
+    "enabled" : "1",
+    "rdf_mapping" : []
+  }');
+
+  return $items;
+}
+
+/**
+ * Implements hook_default_search_api_index().
+*/
+function unfi_sp_solr_default_search_api_index() {
+  $items['default_node_index'] = entity_import('search_api_index', '{
+    "name" : "Digital Core Node Index",
+    "machine_name" : "default_node_index",
+    "description" : "READ ONLY index of nodes (i.e. product_details) that exist in Digital Core.",
+    "server" : "digital_core",
+    "item_type" : "node",
+    "options" : {
+      "index_directly" : 0,
+      "cron_limit" : "50",
+      "data_alter_callbacks" : {
+        "search_api_alter_bundle_filter" : {
+          "status" : 0,
+          "weight" : "-10",
+          "settings" : { "default" : "1", "bundles" : [] }
+        },
+        "search_api_alter_node_access" : { "status" : 1, "weight" : "0", "settings" : [] },
+        "search_api_alter_node_status" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_hierarchy" : { "status" : 0, "weight" : "0", "settings" : { "fields" : [] } },
+        "search_api_alter_add_viewed_entity" : { "status" : 0, "weight" : "0", "settings" : { "mode" : "full" } },
+        "search_api_alter_add_url" : { "status" : 0, "weight" : "0", "settings" : [] },
+        "search_api_alter_add_aggregation" : { "status" : 0, "weight" : "0", "settings" : [] }
+      },
+      "processors" : {
+        "search_api_case_ignore" : {
+          "status" : 0,
+          "weight" : "0",
+          "settings" : { "fields" : {
+              "title" : true,
+              "field_brand_long_description" : true,
+              "field_upc" : true,
+              "field_master_case_upc" : true
+            }
+          }
+        },
+        "search_api_html_filter" : {
+          "status" : 0,
+          "weight" : "10",
+          "settings" : {
+            "fields" : {
+              "title" : true,
+              "field_brand_long_description" : true,
+              "field_upc" : true,
+              "field_master_case_upc" : true
+            },
+            "title" : 0,
+            "alt" : 1,
+            "tags" : "h1 = 5\\r\\nh2 = 3\\r\\nh3 = 2\\r\\nstrong = 2\\r\\nb = 2\\r\\nem = 1.5\\r\\nu = 1.5"
+          }
+        },
+        "search_api_tokenizer" : {
+          "status" : 0,
+          "weight" : "20",
+          "settings" : {
+            "fields" : {
+              "title" : true,
+              "field_brand_long_description" : true,
+              "field_upc" : true,
+              "field_master_case_upc" : true
+            },
+            "spaces" : "[^\\\\p{L}\\\\p{N}]",
+            "ignorable" : "[-]"
+          }
+        },
+        "search_api_stopwords" : {
+          "status" : 0,
+          "weight" : "30",
+          "settings" : {
+            "fields" : {
+              "title" : true,
+              "field_brand_long_description" : true,
+              "field_upc" : true,
+              "field_master_case_upc" : true
+            },
+            "file" : "",
+            "stopwords" : "but\\r\\ndid\\r\\nthe this that those\\r\\netc"
+          }
+        },
+        "search_api_highlighting" : {
+          "status" : 0,
+          "weight" : "35",
+          "settings" : {
+            "prefix" : "\\u003Cstrong\\u003E",
+            "suffix" : "\\u003C\\/strong\\u003E",
+            "excerpt" : 1,
+            "excerpt_length" : "256",
+            "exclude_fields" : [],
+            "highlight" : "always"
+          }
+        }
+      },
+      "fields" : {
+        "type" : { "type" : "string" }
+      }
+    },
+    "enabled" : "1",
+    "read_only" : "1",
+    "rdf_mapping" : []
+  }');
+
+  return $items;
+}
+
+/**
+ * Implements hook_search_api_data_type_info().
+ */
+function unfi_sp_solr_search_api_data_type_info() {
+  return array(
+    'text_single' => array(
+      'name'     => t('Fulltext Single'),
+      'fallback' => 'text',
+      'prefix'   => 't',
+    ),
+  );
+}
+
+/**
+ * Implements hook_search_api_index_load().
+ *
+ * Used to define fields that exist in the Solr index and Digital Core
+ * since the latter is a different Drupal installation and Search API
+ * bases its logic off of the local entity info.
+ */
+function unfi_sp_solr_search_api_index_load($indexes) {
+  $indexes['default_node_index']->options['fields']['nid']                  = array('type' => 'integer');
+  $indexes['default_node_index']->options['fields']['title']                = array('type' => 'text_single');
+  $indexes['default_node_index']->options['fields']['field_productsid']     = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['field_brandsid']       = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['upc']                  = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['east_product_id']      = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['east_product_id_full'] = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['west_product_id']      = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['remitnum']             = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['item_size']            = array('type' => 'string');
+  $indexes['default_node_index']->options['fields']['vendoracctnm']         = array('type' => 'string');
+}
+
+/**
+ * Implements hook_simple_solr_search_query_build().
+ */
+function unfi_sp_solr_simple_solr_search_query_build_alter($query, &$variables, &$objects) {
+  global $user;
+
+  $supplier_broker = array('Supplier', 'Broker');
+  $og_groups = og_get_groups_by_user($user, 'node');
+  $user_roles = array_intersect($user->roles, $supplier_broker);
+  $is_supplier = !empty($user_roles);
+
+  $has_context = !empty($variables['context']['module']);
+  $is_product_details_selector = FALSE;
+  if ($has_context) {
+    $is_product_details_selector = $variables['context']['module'] == 'product_details_selector';
+  }
+
+  if ($has_context && $is_product_details_selector && $is_supplier) {
+    $db = db_select('field_data_field_remit_number', 'rn');
+    $db->fields('rn', array('field_remit_number_value'));
+    $db->condition('rn.entity_type', 'node');
+    $db->condition('rn.entity_id', $og_groups);
+    $db->condition('rn.bundle', 'supplier');
+    $remitnums = $db->execute()->fetchCol();
+
+    if (!empty($remitnums)) {
+      $filter = $query->createFilter('OR');
+      foreach ($remitnums as $remitnum) {
+        $filter->condition('remitnum', $remitnum);
+      }
+      $query->filter($filter);
+    }
+    else {
+      $query->condition('remitnum', -1);
+    }
+  }
+}

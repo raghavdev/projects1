@@ -1,0 +1,28 @@
+<?php
+/**
+ * @file
+ * Pick Up / Vendor Warehouse Location installation and update functions.
+ */
+
+function pick_up_location_install() {
+  variable_set('pick_up_location_blank_freight_form', 0);
+}
+
+function pick_up_location_uninstall() {
+  variable_del('pick_up_location_blank_freight_form');
+}
+
+/**
+ * Remove region field from pick up location.
+ */
+function pick_up_location_update_7000() {
+  // Remove region from Pick Up Location
+  $instance = field_info_instance('node', 'field_region', 'pick_up_location');
+  if ($instance) {
+    field_delete_instance($instance);
+  }
+
+  // Remove east/west Pick Up Location fields
+  field_delete_field('field_east_pick_up_location');
+  field_delete_field('field_west_pick_up_location');
+}

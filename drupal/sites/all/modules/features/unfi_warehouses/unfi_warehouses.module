@@ -1,0 +1,9 @@
+<?php
+/**
+ * @file
+ * Code for the Warehouse feature.
+ */
+
+include_once 'unfi_warehouses.features.inc';
+
+drupal_add_css(drupal_get_path('module', 'unfi_warehouse') . '/warehouse.css');

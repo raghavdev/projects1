@@ -1,0 +1,86 @@
+body {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %regular-font;
+  @extend %color-dark;
+}
+
+h1 {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %h1-font;
+  @extend %color-dark;
+}
+h2 {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %h2-font;
+  @extend %color-dark;
+}
+h3 {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %h3-font;
+  @extend %color-dark;
+}
+h4 {
+  @extend %font-family-sans;
+  @extend %bold-font;
+  @extend %regular-font;
+  @extend %color-dark;
+}
+h5 {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %regular-font;
+  @extend %color-dark;
+}
+h6 {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %small-font;
+  @extend %color-dark-gray;
+}
+p {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %regular-font;
+  @extend %color-dark;
+}
+a {
+  @extend %color-orange;
+  @extend %bold-font;
+  &:link {
+    @extend %color-orange;
+  }
+  &:visited {
+    @extend %color-orange;
+  }
+  &:hover {
+    @extend %color-light-orange;
+  }
+  &:active {
+    @extend %color-light-orange;
+  }
+}
+th {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %regular-font;
+  @extend %color-dark;
+  @extend %capitalize;
+  a {
+    @extend %color-orange;
+  }
+}
+td {
+  @extend %font-family-sans;
+  @extend %normal-font;
+  @extend %regular-font;
+  @extend %color-dark;
+}
+
+// one-off fixes
+.views-field-og-roles {
+  @extend %capitalize;
+}

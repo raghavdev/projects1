@@ -1,0 +1,6 @@
+name = UNFI Import RCM Categories
+description = Import a .csv file to update the RCM Categories.
+core = 7.x
+package = UNFI
+
+dependencies[] = unfi_import
